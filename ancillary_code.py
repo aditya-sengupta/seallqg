@@ -1,7 +1,12 @@
+'''
+code for functions to read out images and apply and readout DM commands
+'''
+
 from krtc import *
 import pysao
 import numpy as np
 import sys
+import time
 import functions
 
 #initialize; no need to load this more than once
@@ -23,10 +28,9 @@ def expt(t):
 	'''
 	dit[0][0]=t; a.set_data(dit)
 
-#To view images in pysao ds9:
 def getim():
 	return im.get_data()
-def vim(): #view image
+def vim(): #view image in ds9
 	ds9.view(getim())
 
 def vmtf(): #view image MTF
@@ -55,43 +59,12 @@ dmChannel=shmlib.shm('/tmp/dm02disp01.im.shm')
 def getdmc(): # read current command applied to the DM
 	return dmChannel.get_data()
 def applydmc(cmd): #apply command to the DM
+	cmd[np.where(cmd<0)]=0 #minimum value is zero
+	cmd[np.where(cmd>1)]=1 #maximum value is 1
 	dmChannel.set_data(cmd)
 
-dmcini=getdmc()
-ydim,xdim=dmcini.shape
-grid=np.mgrid[0:ydim,0:xdim]
-ygrid,xgrid=grid[0]-ydim/2,grid[1]-xdim/2
-xy=np.sqrt(ygrid**2+xgrid**2)
 
-tip,tilt=ygrid/ydim,xgrid/xdim
-def applytiptilt(amp,tip=True,tilt=True): #apply tip/tilt; amp is the P2V in DM units
-	dmtip,dmtilt=np.zeros(dmcini.shape),np.zeros(dmcini.shape)
-	if tip==True:
-		dmtip=amp*tip
-	if tip==False:
-		dmtilt=amp*tilt
-	dmc=getdmc()
-	dmc=dmc+dmtip+dmtilt
-	applydmc(dmc)
-
-#Zernike polynomials
-rho,phi=functions.polar_grid(xdim,xdim)
-nmarr=[]
-norder=5 #how many radial Zernike orders to look at
-for n in range(2,norder):
-	for m in range(-n,n+1,2):
-		nmarr.append([n,m])
-
-def funz(i,amp):
-	n,m=nmarr[i]
-	z=amp*functions.zernike(n,m,rho,phi)/2
-	applydmc(z)
-	time.sleep(0.2)
-
-sys.exit()
-
-dmsin=lambda freq: np.sin(2*np.pi*freq*grid[0]/grid[0][-1,0])
-
+'''
 # Push each actuator
 for k in range(0,32):
     for l in range(0,32):
@@ -99,7 +72,7 @@ for k in range(0,32):
      cmd[k][l] = 1
      dmChannel.set_data(cmd)
      time.sleep(0.2)
-
+'''
 
 
 ##fig,axs=plt.subplots(ncols=1,nrows=2)
