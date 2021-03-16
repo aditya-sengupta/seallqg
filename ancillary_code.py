@@ -12,20 +12,21 @@ import functions
 #initialize; no need to load this more than once
 #for full frame:
 
-a=shmlib.shm('/tmp/ca01dit.im.shm') 
-im=shmlib.shm('/tmp/ca01im.im.shm')
+#a=shmlib.shm('/tmp/ca01dit.im.shm') 
+#im=shmlib.shm('/tmp/ca01im.im.shm')
 
-#for 150x150 subarray
-'''
+#for 320x320 subarray
+
 a=shmlib.shm('/tmp/ca03dit.im.shm') 
 im=shmlib.shm('/tmp/ca03im.im.shm')
-'''
+
 def expt(t):
 	'''
 	change the exposure time
 
 	for the large array the smallest exposure time is around 1e-5
 	'''
+	dit=a.get_data()
 	dit[0][0]=t; a.set_data(dit)
 
 def getim():
@@ -62,6 +63,10 @@ def applydmc(cmd): #apply command to the DM
 	cmd[np.where(cmd<0)]=0 #minimum value is zero
 	cmd[np.where(cmd>1)]=1 #maximum value is 1
 	dmChannel.set_data(cmd)
+
+dmcini=getdmc()
+dmzero=np.zeros(dmcini.shape,dtype=np.float32)
+applyzero = lambda : applydmc(dmzero)
 
 
 '''

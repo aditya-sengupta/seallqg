@@ -5,6 +5,7 @@ code to attempt Zernike optimization, aka "focal plane sharpening"
 from ancillary_code import *
 import numpy as np
 import time
+import functions
 
 dmcini=getdmc()
 ydim,xdim=dmcini.shape
@@ -25,21 +26,18 @@ def applytilt(amp): #apply tilt; amp is the P2V in DM units
 	dmc=dmc+amp*tilt
 	applydmc(dmc)
 
-dmzero=np.zeros(dmcini.shape).astype(float32)
-applyzero = lambda : applydmc(dmzero)
-
 #Zernike polynomials
 rho,phi=functions.polar_grid(xdim,xdim)
 aperture=np.zeros(rho.shape).astype(float32)
 indap=np.where(rho>0)
 aperture[indap]=1
+remove_piston = lambda dmc: dmc-np.mean(dmc[indap]) #function to remove piston from dm command to have zero mean (must be intermediate)
 nmarr=[]
 norder=3 #how many radial Zernike orders to look at
 for n in range(2,norder):
 	for m in range(-n,n+1,2):
 		nmarr.append([n,m])
 
-remove_piston = lambda dmc: dmc-np.mean(dmc[indap]) #function to remove piston from dm command to have zero mean (must be intermediate)
 
 def funz(n,m,amp,bestflat=dmzero): #apply zernike to the DM
 	z=functions.zernike(n,m,rho,phi)/2
@@ -58,7 +56,7 @@ applyzero()
 optarr=np.zeros(namp)
 for a in range(namp):
 	dmz=funz(n,m,amparr[a])
-	time.sleep(5)
+	#time.sleep(5)
 	ims=stack(10)
 	optarr[a]=np.max(ims)/np.sum(ims)
 	print('focus amp='+str(amparr[a]))
@@ -93,4 +91,12 @@ def dmsin(amp,freq,pa):
 	sin=amp*0.5*np.sin(2*np.pi*freq*rgrid(pa))
 	sindm=sin.astype(float32)
 	dmc=remove_piston(bestflat)+sindm+0.5
+	applydmc(dmc*aperture)
+
+def dmsin2(amp1,amp2,freq1,freq2,pa1,pa2): 
+	sin1=amp1*0.5*np.sin(2*np.pi*freq1*rgrid(pa1))
+	sin2=amp2*0.5*np.sin(2*np.pi*freq2*rgrid(pa2))
+	sindm1=sin1.astype(float32)
+	sindm2=sin2.astype(float32)
+	dmc=remove_piston(bestflat)+sindm1+sindm2+0.5
 	applydmc(dmc*aperture)
