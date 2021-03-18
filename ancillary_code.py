@@ -60,8 +60,16 @@ dmChannel=shmlib.shm('/tmp/dm02disp01.im.shm')
 def getdmc(): # read current command applied to the DM
 	return dmChannel.get_data()
 def applydmc(cmd): #apply command to the DM
-	cmd[np.where(cmd<0)]=0 #minimum value is zero
-	cmd[np.where(cmd>1)]=1 #maximum value is 1
+	indneg=np.where(cmd<0)
+	if len(indneg[0])>0:
+		cmd[indneg]=0 #minimum value is zero
+		print('saturating DM zeros!')
+	indneg=None
+	indpos=np.where(cmd>1)
+	if len(indpos[0])>0:
+		cmd[indpos]=1 #maximum value is 1
+		print('saturating DM ones!')
+	indpos=None
 	dmChannel.set_data(cmd)
 
 dmcini=getdmc()
