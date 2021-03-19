@@ -13,14 +13,15 @@ from scipy.ndimage.filters import median_filter
 dmcini=getdmc()
 ydim,xdim=dmcini.shape
 grid=np.mgrid[0:ydim,0:xdim].astype(float32)
-bestflat=np.load('bestflat_zopt.npy') #if running code after running zern_opt.py (i.e., non-coronagraphic PSF)
-#bestflat=np.load('bestflat.npy') #if running code to realign coronagraphic PSF
+#bestflat=np.load('bestflat_zopt.npy') #if running code after running zern_opt.py (i.e., non-coronagraphic PSF)
+bestflat=np.load('bestflat.npy') #if running code to realign coronagraphic PSF
 applydmc(bestflat)
 
+expt(1e-4) #set exposure time; must be at 1e-4 to void saturating when steering off the FPM
 imini=getim() #Andor image just for referencing dimensions
 
 #DM aperture:
-rho,phi=functions.polar_grid(xdim,xdim*29/32) #assuming 29 of the 32 actuators are illuminated
+rho,phi=functions.polar_grid(xdim,xdim*27/32) #assuming 29 of the 32 actuators are illuminated
 aperture=np.zeros(rho.shape).astype(float32)
 indap=np.where(rho>0)
 aperture[indap]=1
@@ -30,7 +31,25 @@ remove_piston = lambda dmc: dmc-np.mean(dmc[indap]) #function to remove piston f
 ygrid,xgrid=grid[0]-ydim/2,grid[1]-xdim/2
 xy=np.sqrt(ygrid**2+xgrid**2)
 tip,tilt=(ygrid+ydim/2)/ydim,(xgrid+xdim/2)/xdim #min value is zero, max is one
-def applytiptilt(amptip,amptilt,bestflat=bestflat): #apply tip; amp is the P2V in DM units
+
+#applying tip/tilt recursively (use if steering back onto the FPM after running zern_opt)
+def applytip(amp): #apply tip; amp is the P2V in DM units
+	dmc=getdmc()
+	dmctip=amp*tip
+	dmc=remove_piston(dmc)+remove_piston(dmctip)+0.5
+	applydmc(dmc*aperture)
+
+def applytilt(amp): #apply tilt; amp is the P2V in DM units
+	dmc=getdmc()
+	dmctilt=amp*tilt
+	dmc=remove_piston(dmc)+remove_piston(dmctilt)+0.5
+	applydmc(dmc*aperture)
+
+#MANUALLY USE ABOVE FUNCTIONS TO STEER THE PSF BACK ONTO THE FPM AS NEEDED, then:
+bestflat=getdmc()
+
+#apply tip/tilt starting only from the bestflat point (start here if realigning the non-coronagraphic PSF) 
+def applytiptilt(amptip,amptilt,bestflat=bestflat): #amp is the P2V in DM units
 	dmctip=amptip*tip
 	dmctilt=amptilt*tilt
 	dmctiptilt=remove_piston(dmctip)+remove_piston(dmctilt)+remove_piston(bestflat)+0.5 #combining tip, tilt, and best flat, setting mean piston to 0.5
@@ -67,8 +86,8 @@ cenmaskradmax,cenmaskradmin=49,10 #mask radii for central lobe, ignoring central
 cenmaskind=np.where(np.logical_and(cenmaskrho<cenmaskradmax,cenmaskrho>cenmaskradmin))
 cenmask[cenmaskind]=1
 
-namp=20
-amparr=np.linspace(-1,1,namp)
+namp=10
+amparr=np.linspace(-0.2,0.2,namp) #note the range of this grid search is small, assuming day to day drifts are minimal and so you don't need to search far from the previous day to find the new optimal alignment; for larger offsets the range may need to be increases (manimum search range is -1 to 1)
 ttoptarr=np.zeros((namp,namp))
 for i in range(namp):
 	for j in range(namp):
@@ -78,7 +97,7 @@ for i in range(namp):
 		mtfopt=mtf(imopt)
 		sidefraction=np.sum(mtfopt[sidemaskind])/np.sum(mtfopt)
 		cenfraction=np.sum(mtfopt[cenmaskind])/np.sum(mtfopt)
-		ttoptarr[i,j]=1/cenfraction#sidefraction+0.01/cenfraction #the factor of 0.01 is a relative weight; because we only expect the fringe visibility to max out at 1%, this attempts to give equal weight to both terms 
+		ttoptarr[i,j]=sidefraction+0.01/cenfraction #the factor of 0.01 is a relative weight; because we only expect the fringe visibility to max out at 1%, this attempts to give equal weight to both terms 
 
 medttoptarr=median_filter(ttoptarr,3) #smooth out hot pizels, attenuating noise issues
 indopttip,indopttilt=np.where(medttoptarr==np.max(medttoptarr))
