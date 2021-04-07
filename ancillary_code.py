@@ -3,6 +3,7 @@ code for functions to read out images and apply and readout DM commands
 '''
 
 from krtc import *
+import zmq
 import pysao
 import numpy as np
 import sys
@@ -76,6 +77,52 @@ dmcini=getdmc()
 dmzero=np.zeros(dmcini.shape,dtype=np.float32)
 applyzero = lambda : applydmc(dmzero)
 
+
+#WFS slopes
+port="5556"
+context = zmq.Context()
+socket = context.socket(zmq.REQ)
+socket.connect("tcp://128.114.22.20:%s" % port)
+
+def getPupilSize(sock):
+    socket.send_string("pupSize");
+    data=socket.recv()
+    pupSize = np.frombuffer(data, dtype=np.int32)
+    return pupSize
+
+pupSize = getPupilSize(socket)[0]
+
+def getwf():
+    socket.send_string("wavefront");
+    data=socket.recv()
+    wf = np.frombuffer(data, dtype=np.float32).reshape(pupSize, pupSize)
+    return wf
+
+def stackwf(n): #average some number of frames of wavefront
+	imw=np.zeros(getwf().shape)
+	for i in range(n):
+		imw=imw+getwf()
+	imw=imw/n
+	return imw
+
+def getSlopes(): #something still wrong with slopes...
+    socket.send_string("slopes");
+    data=socket.recv()
+    slopes = np.frombuffer(data, dtype=np.float32).reshape(pupSize, 2*pupSize)
+    sx = slopes[:,:pupSize]
+    sy = slopes[:,pupSize:]
+    return np.array([sx, sy])
+
+def stackSlopes(n): #average some number of frames of slopes
+	ims=np.zeros(getSlopes().shape)
+	for i in range(n):
+		ims=ims+getSlopes()
+	ims=ims/n
+	return ims
+
+
+#wf = getWavefront()
+#sx,sy = getSlopes()
 
 '''
 # Push each actuator
