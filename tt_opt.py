@@ -13,24 +13,38 @@ from scipy.ndimage.filters import median_filter
 dmcini=getdmc()
 ydim,xdim=dmcini.shape
 grid=np.mgrid[0:ydim,0:xdim].astype(float32)
-#bestflat=np.load('bestflat_zopt.npy') #if running code after running zern_opt.py (i.e., non-coronagraphic PSF)
-bestflat=np.load('bestflat.npy') #if running code to realign coronagraphic PSF
+bestflat=np.load('bestflat_zopt.npy') #if running code after running zern_opt.py (i.e., non-coronagraphic PSF)
+#bestflat=np.load('bestflat.npy') #if running code to realign coronagraphic PSF
+#bestflat=np.load('bestflat_shwfs.npy')
 applydmc(bestflat)
 
 expt(1e-4) #set exposure time; must be at 1e-4 to void saturating when steering off the FPM
 imini=getim() #Andor image just for referencing dimensions
 
 #DM aperture:
-rho,phi=functions.polar_grid(xdim,xdim*27/32) #assuming 29 of the 32 actuators are illuminated
-aperture=np.zeros(rho.shape).astype(float32)
-indap=np.where(rho>0)
-aperture[indap]=1
-remove_piston = lambda dmc: dmc-np.mean(dmc[indap]) #function to remove piston from dm command to have zero mean (must be intermediate since DM commands can't have negative values)
-
-#tip/tilt grid:
+ydim,xdim=dmcini.shape
+grid=np.mgrid[0:ydim,0:xdim].astype(float32)
 ygrid,xgrid=grid[0]-ydim/2,grid[1]-xdim/2
-xy=np.sqrt(ygrid**2+xgrid**2)
 tip,tilt=(ygrid+ydim/2)/ydim,(xgrid+xdim/2)/xdim #min value is zero, max is one
+
+#DM aperture:
+undersize=27/32 #assuming 27 of the 32 actuators are illuminated
+rho,phi=functions.polar_grid(xdim,xdim*undersize)
+cenaperture=np.zeros(rho.shape).astype(float32)
+indapcen=np.where(rho>0)
+cenaperture[indapcen]=1
+
+aperture=np.load('DMmap.npy').astype(float32) #actual aperture, from close_SHWFS_loop.py
+
+#from comparing cenaperture and aperture, the actual aperture is shifted down and to the right (in ds9) each by 1 pixel from the center
+yapcen,xapcen=ydim/2.-0.5-1,xdim/2.-0.5-1
+rap=np.sqrt((grid[0]-yapcen)**2.+(grid[1]-xapcen)**2.)
+rap[np.where(rap>xdim/2.*undersize)]=0.
+rhoap=rap/np.max(rap)
+phiap=np.arctan2(grid[1]-yapcen,grid[0]-xapcen)
+indap=np.where(rhoap>0)
+
+remove_piston = lambda dmc: dmc-np.mean(dmc[indap]) #function to remove piston from dm command to have zero mean (must be intermediate)
 
 #applying tip/tilt recursively (use if steering back onto the FPM after running zern_opt)
 def applytip(amp): #apply tip; amp is the P2V in DM units
@@ -87,7 +101,7 @@ cenmaskind=np.where(np.logical_and(cenmaskrho<cenmaskradmax,cenmaskrho>cenmaskra
 cenmask[cenmaskind]=1
 
 namp=10
-amparr=np.linspace(-0.2,0.2,namp) #note the range of this grid search is small, assuming day to day drifts are minimal and so you don't need to search far from the previous day to find the new optimal alignment; for larger offsets the range may need to be increases (manimum search range is -1 to 1)
+amparr=np.linspace(-0.3,0.3,namp) #note the range of this grid search is can be small, assuming day to day drifts are minimal and so you don't need to search far from the previous day to find the new optimal alignment; for larger offsets the range may need to be increases (manimum search range is -1 to 1); but, without spanning the full -1 to 1 range this requires manual tuning of the limits to ensure that the minimum is not at the edge
 ttoptarr=np.zeros((namp,namp))
 for i in range(namp):
 	for j in range(namp):
@@ -99,12 +113,14 @@ for i in range(namp):
 		cenfraction=np.sum(mtfopt[cenmaskind])/np.sum(mtfopt)
 		ttoptarr[i,j]=sidefraction+0.01/cenfraction #the factor of 0.01 is a relative weight; because we only expect the fringe visibility to max out at 1%, this attempts to give equal weight to both terms 
 
-medttoptarr=median_filter(ttoptarr,3) #smooth out hot pizels, attenuating noise issues
-indopttip,indopttilt=np.where(medttoptarr==np.max(medttoptarr))
+#medttoptarr=median_filter(ttoptarr,3) #smooth out hot pizels, attenuating noise issues
+indopttip,indopttilt=np.where(ttoptarr==np.max(ttoptarr))
 indopttip,indopttilt=indopttip[0],indopttilt[0]
 applytiptilt(amparr[indopttip],amparr[indopttilt])
 
-ampdiff=amparr[3]-amparr[0] #how many discretized points to zoom in to from the previous iteration
+expt(1e-3)
+
+ampdiff=amparr[2]-amparr[0] #how many discretized points to zoom in to from the previous iteration
 tipamparr=np.linspace(amparr[indopttip]-ampdiff,amparr[indopttip]+ampdiff,namp)
 tiltamparr=np.linspace(amparr[indopttilt]-ampdiff,amparr[indopttilt]+ampdiff,namp)
 ttoptarr1=np.zeros((namp,namp))
@@ -118,16 +134,14 @@ for i in range(namp):
 		cenfraction=np.sum(mtfopt[cenmaskind])/np.sum(mtfopt)
 		ttoptarr1[i,j]=sidefraction+0.01/cenfraction 
 
-medttoptarr1=median_filter(ttoptarr1,3) #smooth out hot pizels, attenuating noise issues
-indopttip1,indopttilt1=np.where(medttoptarr1==np.max(medttoptarr1))
+#medttoptarr1=median_filter(ttoptarr1,3) #smooth out hot pizels, attenuating noise issues
+indopttip1,indopttilt1=np.where(ttoptarr1==np.max(ttoptarr1))
 applytiptilt(tipamparr[indopttip1][0],tiltamparr[indopttilt1][0])
 
 bestflat=getdmc()
 
-#next: test bestflat by placing sine waves and adjusting by eye that the spot intensities look even; I have found that this approach can be misleading, potentially ofsetting the PSF on th FPM due to interference of the spots with the spekles making me think is it not centered when it is, and as a result lowering fringe visibility; for now, I would ignore this manual approach and go with the numerically optimized approach above  
+#next: manually fine tune bestflat by placing sine waves and adjusting by eye that the spot intensities look even...still having trouble with implementing this section; it seems like my eyes may be biased to evening out speckles that are interfering with the sinespots, thereby degrading the quality of the alignment
 '''
-beam_ratio=0.635*750/10.72/6.5 #theoretical number of pixels/resel: lambda (in microns)*focal length to camera (in mm)/Lyot stop beam diameter (in mm)/Andor pixel size (in microns)
-
 #functions to apply DM Fourier modes 
 ycen,xcen=ydim/2-0.5,xdim/2-0.5
 indrho1=np.where(rho==1)
@@ -140,22 +154,11 @@ def dmsin(amp,freq,pa,bestflat=bestflat): #generate sine wave
 	applydmc(dmc*aperture)
 	return sindm
 
-tip,tilt=(ygrid+ydim/2)/ydim,(xgrid+xdim/2)/xdim #min value is zero, max is one
-def applytip(amp): #apply tip; amp is the P2V in DM units
-	dmc=getdmc()
-	dmc=dmc+amp*tip
-	applydmc(dmc)
-
-def applytilt(amp): #apply tilt; amp is the P2V in DM units
-	dmc=getdmc()
-	dmc=dmc+amp*tilt
-	applydmc(dmc)
-
-sin1=dmsin(0.1,4,90,bestflat=bestflat)
+sin1=dmsin(0.1,2.5,90,bestflat=bestflat)
 #MANUALLY: APPLY applytilt(NUMBER) until satisfied
 #applytilt(-0.1)
 bestflat=getdmc()-sin1
-sin2=dmsin(0.1,4,0,bestflat=bestflat)
+sin2=dmsin(0.1,2.5,0,bestflat=bestflat)
 #MANUALLY: APPLY applytilt(NUMBER) until satisfied
 bestflat=getdmc()-sin2
 '''
