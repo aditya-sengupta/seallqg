@@ -73,13 +73,27 @@ def dmcos(amp,freq,pa,bestflat=bestflat): #generate cosine wave
 	applydmc(dmc)
 	return cosdm
 
+
+def optt(tsleep): #function to optimize how long to wait in between applying DM command and recording image
+	dmsin(0.02,10,90)
+	time.sleep(tsleep)
+	im1=stack(10)
+	applydmc(bestflat)
+	time.sleep(tsleep)
+	imf=stack(10)
+	ds9.view(im1-imf)
+#looks like I need to wait 3 seconds (full frame) or 0.05 seconds (320x320 ROI) in between each DM command to generate a stable image that isn't influenced by the previous command
+
+#tsleep=0.05 #on good days...
+tsleep=0.4 #on bad days...
+
 #apply four sine spots and fit Gaussians to find the image center
 amp,freq=0.03,10
 dmsin(amp,freq,0)
-time.sleep(0.05)
+time.sleep(tsleep)
 imcen1=stack(1000)
 dmsin(amp,freq,90)
-time.sleep(0.05)
+time.sleep(tsleep)
 imcen2=stack(1000)
 applydmc(bestflat)
 #PAUSE, take a look at the image and guess the image center initially
@@ -106,7 +120,7 @@ def vc(imxcenini,imycenini,fudge,cropi,rcrop=False): #syntax: vc(158,173,0.95,0)
 	if rcrop==True:
 		return crop1,crop2,crop3,crop4,xcropmax,ycropmax
 
-imxcenini,imycenini,freqfudge=147,171,0.95
+imxcenini,imycenini,freqfudge=166,138,0.95
 crop1,crop2,crop3,crop4,xcropmax,ycropmax=vc(imxcenini,imycenini,freqfudge,0,rcrop=True)
 
 from astropy.modeling import models,fitting
@@ -121,6 +135,8 @@ for j in range(4):
 	x0,y0=p.x_mean[0],p.y_mean[0]
 	xpos[j],ypos[j]=xcropmax[j]-x0,ycropmax[j]-y0
 imxcen,imycen=np.mean(xpos),np.mean(ypos)
+np.save('imcen.npy',np.array([imxcen,imycen]))
+
 #trying to calculate the beam ratio based on the the measured separation values... doens't seem to be working well 
 #freqsep=(np.sqrt((xpos[2]-xpos[0])**2+(ypos[2]-ypos[0])**2)+np.sqrt((xpos[3]-xpos[1])**2+(ypos[3]-ypos[1])**2))/2
 #beam_ratio=freqsep/(2*freq*freqfudge)
@@ -134,7 +150,7 @@ cropim = lambda im: im[cropcen[0]-yimcen:cropcen[0]+yimcen,cropcen[1]-ximcen:cro
 '''
 
 #make MTF side lobe mask
-xsidemaskcen,ysidemaskcen=161.66,252.22 #x and y location of the side lobe mask in the cropped image
+xsidemaskcen,ysidemaskcen=252.01,159.4 #x and y location of the side lobe mask in the cropped image
 sidemaskrad=26.8 #radius of the side lobe mask
 mtfgrid=np.mgrid[0:imini.shape[0],0:imini.shape[1]]
 sidemaskrho=np.sqrt((mtfgrid[0]-ysidemaskcen)**2+(mtfgrid[1]-xsidemaskcen)**2)
@@ -157,13 +173,14 @@ def processim(imin,mask=sidemask): #process SCC image, isolating the sidelobe in
 	return Iminus
 
 beam_ratio=6.4 #setting this as a hard value at the momnet as determined by the vf function below
+np.save('beam_ratio.npy',beam_ratio)
 
 Im_grid=np.mgrid[0:imini.shape[0],0:imini.shape[1]]
 Im_rho=np.sqrt((Im_grid[0]-imycen)**2+(Im_grid[1]-imxcen)**2)
 dh_mask=np.zeros(imini.shape)
 maxld,minld=10,5 #maximum and minimum radius from which to dig a dark hole (sqrt(2) times larger for the maximum and the DH corners); both should be integers
 #ylimld=11 #how much to go +/- in y for the DH
-ind_dh=np.where(np.logical_and(np.logical_and(np.logical_and(Im_grid[1]-imxcen<(maxld+1)*beam_ratio,Im_grid[1]-imxcen>-(maxld+1)*beam_ratio),np.logical_and(Im_grid[0]-imycen<(0+1)*beam_ratio,Im_grid[0]-imycen>-(maxld+1)*beam_ratio)),Im_rho>(minld-1)*beam_ratio)) #full possible area for half DH, below the star in DS9
+ind_dh=np.where(np.logical_and(np.logical_and(np.logical_and(Im_grid[1]-imxcen<(maxld+1)*beam_ratio,Im_grid[1]-imxcen>-(0+1)*beam_ratio),np.logical_and(Im_grid[0]-imycen<(maxld+1)*beam_ratio,Im_grid[0]-imycen>-(maxld+1)*beam_ratio)),Im_rho>(minld-1)*beam_ratio)) #full possible area for half DH, to thr right of the star in DS9
 #ind_dh=np.where(np.logical_and(Im_rho<(maxld+2)*beam_ratio,Im_rho>(minld-2)*beam_ratio)) #full DH to flatten the DM
 #ind_dh=np.where(dh_mask==0)
 #ind_dh=np.where(np.logical_and(np.logical_and(Im_grid[1]-imxcen<-(minld)*beam_ratio,Im_grid[1]-imxcen>-(maxld)*beam_ratio),np.logical_and(Im_grid[0]-imycen<(maxld)*beam_ratio,Im_grid[0]-imycen>-(maxld)*beam_ratio))) #square DH
@@ -177,21 +194,20 @@ def scc_imin(imin,fmask=np.ones(imini.shape)):
 	Im_in=(processim(imin)*fmask)[ind_dh]
 	return np.ndarray.flatten(np.array([np.real(Im_in),np.imag(Im_in)]))
 
-tsleep=0.05
 def tune_beam_ratio(beam_ratio,i,v=True): #function to determine the emperical beam ratio based on where the centering the binary mask on it's respective sine spots; the result should modify the beam_ratio variable back above the dh_mask code
 	#CREATE IMAGE X,Y INDEXING THAT PLACES SINE, COSINE WAVES AT EACH LAMBDA/D REGION WITHIN THE NYQUIST REGION
 	#the nyquist limit from the on-axis psf is +/- N/2 lambda/D away, so the whole nyquist region is N lambda/D by N lambda/D, centered on the on-axis PSF
 	#to make things easier and symmetric, I want to place each PSF on a grid that is 1/2 lambda/D offset from the on-axis PSF position; this indexing should be PSF copy center placement location
-	allx,ally=list(zip(*itertools.product(np.linspace(imxcen-maxld*beam_ratio+0.5*beam_ratio,imxcen+maxld*beam_ratio-0.5*beam_ratio,2*maxld),np.linspace(imycen-maxld*beam_ratio+0.5*beam_ratio,imycen-0.5*beam_ratio,maxld))))
+	allx,ally=list(zip(*itertools.product(np.linspace(imxcen-+0.5*beam_ratio,imxcen+maxld*beam_ratio-0.5*beam_ratio,maxld),np.linspace(imycen-maxld*beam_ratio+0.5*beam_ratio,imycen+maxld*beam_ratio-0.5*beam_ratio,2*maxld))))
 	loopx,loopy=np.array(list(allx)).astype(float),np.array(list(ally)).astype(float)
 
 	freq_loop=np.sqrt((loopy-imycen)**2+(loopx-imxcen)**2)/beam_ratio #sine wave frequency for (lambda/D)**2 region w/in DH
 	pa_loop=90+180/np.pi*np.arctan2(loopy-imycen,loopx-imxcen) #position angle of sine wave for (lambda/D)**2 region w/in DH
 
 	#only use desired spatial frequencies within the dark hole as input into the control matrix
-	#indloop=np.where(np.logical_and(np.logical_and(loopy-imycen<maxld*beam_ratio,loopy-imycen>-maxld*beam_ratio),np.logical_and(loopx-imxcen<-minld*beam_ratio,loopy-imxcen>-maxld*beam_ratio))) #version for square dark hole
+	#indloop=np.where(np.logical_and(np.logical_and(loopy-imycen<maxld*beam_ratio,loopy-imycen>-maxld*beam_ratio),np.logical_and(loopx-imxcen<-minld*beam_ratio,loopy-imxcen>-maxld*beam_ratio))) #version for square dark hole; may not be updated!
 	#indloop=np.where(np.logical_and(freq_loop>minld,freq_loop<maxld)) #version for annular dark hole
-	indloop=np.where(np.logical_and(np.logical_and(np.logical_and(loopy-imycen<0*beam_ratio,loopy-imycen>-maxld*beam_ratio),np.logical_and(loopx-imxcen<maxld*beam_ratio,loopx-imxcen>-maxld*beam_ratio)),freq_loop>minld)) #version for full dark hole
+	indloop=np.where(np.logical_and(np.logical_and(np.logical_and(loopy-imycen<maxld*beam_ratio,loopy-imycen>-maxld*beam_ratio),np.logical_and(loopx-imxcen<maxld*beam_ratio,loopx-imxcen>-0*beam_ratio)),freq_loop>minld)) #version for full dark hole
 	loopx,loopy=loopx[indloop],loopy[indloop]
 	freq_loop=freq_loop[indloop]
 	pa_loop=pa_loop[indloop]
@@ -222,18 +238,6 @@ def tune_beam_ratio(beam_ratio,i,v=True): #function to determine the emperical b
 pa_loop,freq_loop,loopx,loopy=tune_beam_ratio(beam_ratio,0,v=False)
 applydmc(bestflat)
 
-def optt(tsleep): #function to optimize how long to wait in between applying DM command and recording image
-	i=0
-	dmsin(0.2,freq_loop[i],pa_loop[i])
-	time.sleep(tsleep)
-	im1=stack(10)
-	applydmc(bestflat)
-	time.sleep(tsleep)
-	imf=stack(10)
-	ds9.view(im1-imf)
-#looks like I need to wait 3 seconds (full frame) or 0.05 seconds (320x320 ROI) in between each DM command to generate a stable image that isn't influenced by the previous command
-
-tsleep=0.05
 nstack=1000 #number of frames to stack to reach sufficient fringe SNR
 applydmc(bestflat)
 time.sleep(tsleep)
@@ -302,13 +306,13 @@ def pc(rcond,i):
 	plt.plot(coeffs)
 
 
-rcond=1e-2
+rcond=5e-4
 #rcond=1e-1 #for attempted DM flattening
 IMinv=np.linalg.pinv(IM,rcond=rcond)
 cmd_mtx=np.dot(IMinv,refvec)
 
-numiter=20
-gain=0.3
+numiter=30
+gain=0.5
 leak=1
 applydmc(bestflat)
 time.sleep(tsleep)
