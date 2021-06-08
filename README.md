@@ -1,6 +1,10 @@
 # ttsysid
 
-System identification for tip-tilt adaptive optics. This is a partial port of the tip-tilt control repository [here](github.com/aditya-sengupta/tip-tilt-control). Commits are from aditya-sengupta, I hope.
+System identification for tip-tilt adaptive optics. This is a partial port of the tip-tilt control repository [here](github.com/aditya-sengupta/tip-tilt-control) to Julia. This code base will include:
+
+- a script to make tip-tilt aberrations (atmospheric + vibration modes)
+- control system simulations
+- analysis of experimental data
 
 This code base is using the Julia Language and [DrWatson](https://juliadynamics.github.io/DrWatson.jl/stable/)
 to make a reproducible scientific project named
