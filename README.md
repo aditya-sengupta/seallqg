@@ -1,5 +1,7 @@
 # ttsysid
 
+System identification for tip-tilt adaptive optics. This is a partial port of the tip-tilt control repository [here](github.com/aditya-sengupta/tip-tilt-control).
+
 This code base is using the Julia Language and [DrWatson](https://juliadynamics.github.io/DrWatson.jl/stable/)
 to make a reproducible scientific project named
 > ttsysid
