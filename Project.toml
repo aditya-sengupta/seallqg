@@ -2,6 +2,7 @@ name = "ttsysid"
 authors = ["aditya-sengupta"]
 
 [deps]
+ControlSystems = "a6e380b2-a6ca-5380-bf3e-84a91bcd477e"
 DrWatson = "634d3b9d-ee7a-5ddf-bec9-22491ea816e1"
 Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 UnitfulAstro = "6112ee07-acf9-5e0f-b108-d242c714bf9f"

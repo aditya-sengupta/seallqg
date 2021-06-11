@@ -2,10 +2,11 @@
 
 include("../src/aberrations.jl")
 
-using Unitful: Hz, m
+using Unitful: Hz, m, rad
 using UnitfulAstro: arcsecond
 
 mas = arcsecond / 1000 # I can't pipe to mas but that's okay for now
+vibe_dimension = 2
 
 # defining constants
 
@@ -23,5 +24,16 @@ aberration_params = Dict{Symbol,Number}(
     :focal_width        => 8, # half the number of lambda over Ds
     :λ                  => 500e-9 * m 
 )
+
+
+vibe_ranges = [
+    [0.1 * mas, 1 * mas], # amplitude, or amplitude_x
+    [aberration_params[:f_low], aberration_params[:f_high]], # frequency
+    [1e-5, 1e-4], # damping,
+    [0, 2π * rad]
+]
+if vibe_dimension == 2
+    vibe_ranges = vcat(vibe_ranges, [vibe_ranges[1]]) # add an amplitude_y
+end
 
 layers, prop, aperture, pupil_grid = get_atmosphere_and_optics(aberration_params)

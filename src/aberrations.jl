@@ -42,7 +42,7 @@ function make_vibe_params(N::Int64=10; ranges::Array{Array{<: Number}})
     return map(r -> rand(Uniform(r[1], r[2]), N), ranges)
 end
 
-function make_1D_vibe_data(nsteps::Int64, vibe_params=nothing, N::Int64=10)
+function make_vibe_data(nsteps::Int64, vibe_params=nothing, N::Int64=10)
     if isnothing(vibe_params)
         vibe_params = make_vibe_params(N)
     else
@@ -51,7 +51,10 @@ function make_1D_vibe_data(nsteps::Int64, vibe_params=nothing, N::Int64=10)
 
     if length(vibe_params) == 5
         # we are in 2D mode
-        
+        return hcat(
+            make_vibe_data(nsteps, vibe_params[1:4]), 
+            make_vibe_data(nsteps, vibe_params[[5, 2, 3, 4]])
+        ) |> eachcol |> collect
     end
 
     times = 0:(1 / f_sampling):((nsteps - 1) / f_sampling)
@@ -64,6 +67,9 @@ function make_1D_vibe_data(nsteps::Int64, vibe_params=nothing, N::Int64=10)
     return vibrations
 end
 
+"""
+weights = number of desired lambda-over-Ds the center of the PSF is to be moved. Contains [tip_wt, tilt_wt].
+"""
 function make_fixed_tt(pupil_grid::PyObject, weights::Array{<: Number})
      tt = [hcipy.zernike(hcipy.ansi_to_zernike(i)..., 1)(pupil_grid) for i in 1:2]
      phase = π * (weights ⋅ tt)
@@ -73,15 +79,15 @@ end
 """
 Makes atmospheric sim data for "nsteps" steps, starting from a wavefront "wf" propagating through layers "layers".
 """
-function make_atm_sim(nsteps::Int64, wf::PyObject, layers::PyObject, params::Dict{Symbol,Number}; zerotime=0.0, f_sampling = 1000*Hz)
+function make_atm_sim(nsteps::Int64, wf::PyObject, layers::PyObject, params::Dict{Symbol,Number}; zerotime=0.0)
     λ = params[:λ]
-    f_sampling = ustrip(f_sampling |> Hz)
+    f_sampling = ustrip(params[:f_sampling] |> Hz)
     px_to_mas = (λ/params[:D]) |> arcsecond * 1000 / params[:focal_samples]
     tt_cms = zeros(nsteps, 2)
     for i in 1:nsteps
         for layer in layers
             startwf = copy(wf)
-            layer.evolve_until(i / params[:f_sampling] + zerotime)
+            layer.evolve_until(i / f_sampling + zerotime)
             startwf = layer(startwf)
         end
         tt_cms[i,:] = center_of_mass(prop(wf).intensity, params[:focal_samples])
