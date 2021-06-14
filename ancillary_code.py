@@ -31,7 +31,7 @@ def expt(t):
 	dit[0][0]=t; a.set_data(dit)
 
 def getim():
-	return im.get_data()
+	return im.get_data(check=True) #check=True ensures in chopper mode it only gets a new image when the chopper triggers a new frame
 def vim(): #view image in ds9
 	ds9.view(getim())
 
@@ -92,20 +92,20 @@ def getPupilSize(sock):
 
 pupSize = getPupilSize(socket)[0]
 
-def getwf():
+def getWavefront():
     socket.send_string("wavefront");
     data=socket.recv()
     wf = np.frombuffer(data, dtype=np.float32).reshape(pupSize, pupSize)
     return wf
 
-def stackwf(n): #average some number of frames of wavefront
-	imw=np.zeros(getwf().shape)
+def stackWavefront(n): #average some number of frames of wavefront
+	imw=np.zeros(getWavefront().shape)
 	for i in range(n):
-		imw=imw+getwf()
+		imw=imw+getWavefront()
 	imw=imw/n
 	return imw
 
-def getSlopes(): #something still wrong with slopes...
+def getSlopes():
     socket.send_string("slopes");
     data=socket.recv()
     slopes = np.frombuffer(data, dtype=np.float32).reshape(pupSize, 2*pupSize)

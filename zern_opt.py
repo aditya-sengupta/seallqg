@@ -9,6 +9,7 @@ import functions
 
 #setup
 #bestflat=np.load('bestflat.npy')
+#bestflat=np.load('bestflat_off_fpm.npy')
 #bestflat=np.load('bestflat_shwfs.npy')
 bestflat=np.load('bestflat_zopt.npy') #for bootstrapping
 applydmc(bestflat)
@@ -20,7 +21,8 @@ grid=np.mgrid[0:ydim,0:xdim].astype(float32)
 ygrid,xgrid=grid[0]-ydim/2,grid[1]-xdim/2
 tip,tilt=(ygrid+ydim/2)/ydim,(xgrid+xdim/2)/xdim #min value is zero, max is one
 
-#DM aperture:
+#old DM aperture:
+'''
 undersize=27/32 #assuming 27 of the 32 actuators are illuminated
 rho,phi=functions.polar_grid(xdim,xdim*undersize)
 cenaperture=np.zeros(rho.shape).astype(float32)
@@ -36,6 +38,15 @@ rap[np.where(rap>xdim/2.*undersize)]=0.
 rhoap=rap/np.max(rap)
 phiap=np.arctan2(grid[1]-yapcen,grid[0]-xapcen)
 indap=np.where(rhoap>0)
+'''
+
+#regular DM aperture:
+undersize=29/32 #29 of the 32 actuators are illuminated
+rho,phi=functions.polar_grid(xdim,xdim*undersize)
+aperture=np.zeros(rho.shape).astype(float32)
+indap=np.where(rho>0)
+indnap=np.where(rho==0)
+aperture[indap]=1
 
 remove_piston = lambda dmc: dmc-np.mean(dmc[indap]) #function to remove piston from dm command to have zero mean (must be intermediate)
 
@@ -71,8 +82,10 @@ for n in range(2,norder):
 def funz(n,m,amp,bestflat=ttdmc): #apply zernike to the DM
 	z=functions.zernike(n,m,rhoap,phiap)/2
 	zdm=amp*(z.astype(float32))
-	dmc=remove_piston(bestflat)+remove_piston(rmtt(zdm))+0.5
-	applydmc(dmc*aperture)
+	dmc=np.zeros(aperture.shape).astype(float32)
+	dmc[indap]=(remove_piston(bestflat)+remove_piston(rmtt(zdm))+0.5)[indap]
+	dmc[indnap]=bestflat[indnap]
+	applydmc(dmc)
 	return dmc
 
 namp=100 #how many grid points to walk through Zernike amplitude coefficients

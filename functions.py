@@ -44,7 +44,7 @@ def polar_grid(imagepix,pupilpix):
 	xy=np.sqrt((grid[0]-imagepix/2.+0.5)**2.+(grid[1]-imagepix/2.+0.5)**2.)
 	xy[np.where(xy>pupilpix/2.)]=0.
 	rad_norm=xy/np.max(xy)
-	phi=np.arctan2(grid[1]-imagepix/2.,grid[0]-imagepix/2.)
+	phi=np.arctan2(grid[1]-imagepix/2.+0.5,grid[0]-imagepix/2.+0.5)
 	return rad_norm,phi
 
 

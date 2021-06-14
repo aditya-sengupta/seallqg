@@ -1,6 +1,8 @@
 from krtc import *
 import pysao
 import numpy as np
+import sys
+import functions
 
 #initialize; no need to load this more than once
 #for full frame:
@@ -43,27 +45,54 @@ mtf = lambda im: np.abs(np.fft.fftshift(np.fft.fft2(im)))
 
 
 #DM commands
-'''
+
 b=shmlib.shm('/tmp/dm02itfStatus.im.shm')
 status=b.get_data()
 status[0,0]=1
 b.set_data(status)
 dmChannel=shmlib.shm('/tmp/dm02disp01.im.shm')
 
-# read current command applied to the DM
-def getdmc(): 
+def getdmc(): # read current command applied to the DM
 	return dmChannel.get_data()
+def applydmc(cmd): #apply command to the DM
+	dmChannel.set_data(cmd)
 
 dmcini=getdmc()
 ydim,xdim=dmcini.shape
 grid=np.mgrid[0:ydim,0:xdim]
 ygrid,xgrid=grid[0]-ydim/2,grid[1]-xdim/2
-xy=np.sqrt(ygrid**2+xtrid**2)
+xy=np.sqrt(ygrid**2+xgrid**2)
 
+tip,tilt=ygrid/ydim,xgrid/xdim
+def applytiptilt(amp,tip=True,tilt=True): #apply tip/tilt; amp is the P2V in DM units
+	dmtip,dmtilt=np.zeros(dmcini.shape),np.zeros(dmcini.shape)
+	if tip==True:
+		dmtip=amp*tip
+	if tip==False:
+		dmtilt=amp*tilt
+	dmc=getdmc()
+	dmc=dmc+dmtip+dmtilt
+	applydmc(dmc)
+
+#Zernike polynomials
+rho,phi=functions.polar_grid(xdim,xdim)
+nmarr=[]
+norder=5 #how many radial Zernike orders to look at
+for n in range(2,norder):
+	for m in range(-n,n+1,2):
+		nmarr.append([n,m])
+
+def funz(i,amp):
+	n,m=nmarr[i]
+	z=amp*functions.zernike(n,m,rho,phi)/2
+	applydmc(z)
+	time.sleep(0.2)
+
+sys.exit()
 
 dmsin=lambda freq: np.sin(2*np.pi*freq*grid[0]/grid[0][-1,0])
 
-# Push each actuators
+# Push each actuator
 for k in range(0,32):
     for l in range(0,32):
      cmd=cmd*0;
@@ -72,5 +101,6 @@ for k in range(0,32):
      time.sleep(0.2)
 
 
-#fig,axs=plt.subplots(ncols=1,nrows=2)
-'''
+
+##fig,axs=plt.subplots(ncols=1,nrows=2)
+

@@ -27,9 +27,9 @@ np.save('refscc2.npy',refscc2)
 
 '''
 
-#bestflat=np.load('bestflat.npy') #on FPM
+bestflat=np.load('bestflat.npy') #on FPM
 #bestflat=np.load('bestflat_offfpm.npy') #off FPM
-bestflat=dmzero+0.5
+#bestflat=dmzero+0.5
 #bestflat=np.load('bestflat_shwfs.npy') #bootstrapping: previous SHWFS
 applydmc(bestflat)
 dmcini=getdmc()
