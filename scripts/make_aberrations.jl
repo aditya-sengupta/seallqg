@@ -37,3 +37,4 @@ if vibe_dimension == 2
 end
 
 layers, prop, aperture, pupil_grid = get_atmosphere_and_optics(aberration_params)
+get_wf_clean = () -> hcipy.Wavefront(aperture, )

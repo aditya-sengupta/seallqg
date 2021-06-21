@@ -42,9 +42,9 @@ function make_vibe_params(N::Int64=10; ranges::Array{Array{<: Number}})
     return map(r -> rand(Uniform(r[1], r[2]), N), ranges)
 end
 
-function make_vibe_data(nsteps::Int64, vibe_params=nothing, N::Int64=10)
+function make_vibe_data(nsteps::Int64, ranges::Array, f_sampling::Any; vibe_params=nothing, N::Int64=10)
     if isnothing(vibe_params)
-        vibe_params = make_vibe_params(N)
+        vibe_params = make_vibe_params(N, ranges)
     else
         N = length(vibe_params[1])
     end
@@ -60,8 +60,7 @@ function make_vibe_data(nsteps::Int64, vibe_params=nothing, N::Int64=10)
     times = 0:(1 / f_sampling):((nsteps - 1) / f_sampling)
 
     vibrations = sum([
-        vibe_params[1,i] * cos(2π * vibe_params[2,i] .* times - vibe_params[4,i]) 
-        * exp(-(vibe_params[3,i]/(1 - vibe_params[3,i]^2)) * 2π * vibe_params[2,i] .* times)
+        vibe_params[1,i] .* cos.(2π * vibe_params[2,i] .* times .- vibe_params[4,i]) .* exp(-(vibe_params[3,i]/(1 - vibe_params[3,i]^2)) * (2π * vibe_params[2,i]) .* times)
         for i in 1:N
     ])
     return vibrations
