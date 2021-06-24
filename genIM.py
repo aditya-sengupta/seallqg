@@ -13,8 +13,9 @@ dmcini = getdmc()
 ydim,xdim = dmcini.shape
 grid = np.mgrid[0:ydim,0:xdim].astype(float32)
 bestflat = np.load('bestflat.npy') #for starting from flat DM with FPM aligned
+applybestflat = lambda: applydmc(bestflat, False)
 #bestflat = np.load('dmc_dh.npy') #for bootstrapping
-applydmc(bestflat)
+applybestflat()
 
 ygrid,xgrid = grid[0]-ydim/2,grid[1]-xdim/2
 xy = np.sqrt(ygrid**2+xgrid**2)
@@ -174,7 +175,7 @@ def optt(tsleep): #function to optimize how long to wait in between applying DM 
 	dmsin(0.2,freq_loop[i],pa_loop[i])
 	time.sleep(tsleep)
 	im1 = stack(10)
-	applydmc(bestflat)
+	applybestflat()
 	time.sleep(tsleep)
 	imf = stack(10)
 	ds9.view(im1-imf)
@@ -182,7 +183,7 @@ def optt(tsleep): #function to optimize how long to wait in between applying DM 
 
 tsleep = 0.05
 nstack = 1000 #number of frames to stack to reach sufficient fringe SNR
-applydmc(bestflat)
+applybestflat()
 time.sleep(tsleep)
 imf = stack(nstack)
 
@@ -222,7 +223,7 @@ for i in range(len(freq_loop)):
 	refvec[i+len(freq_loop)] = scc_imin(imc-imf,fmask = fmask)
 	print(i/len(freq_loop))
 
-applydmc(bestflat)
+applybestflat()
 IM = np.dot(refvec,refvec.T)
 #the following code will help determine the optimal SVD cutoff, looking at what SVD cutoff will best reconstruct individual modes
 '''
@@ -247,7 +248,7 @@ cmd_mtx = np.dot(IMinv,refvec)
 numiter = 20
 gain = 0.5
 leak = 1
-applydmc(bestflat)
+applybestflat()
 time.sleep(tsleep)
 for nit in range(numiter):
 	imin = stack(10000) #larger number of stacks increases the amount by which you can gain...

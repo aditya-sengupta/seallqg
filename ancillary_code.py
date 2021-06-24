@@ -4,7 +4,7 @@ code for functions to read out images and apply and readout DM commands
 
 from krtc import *
 import zmq
-import pysao
+from pysao import ds9
 import numpy as np
 import sys
 import time
@@ -32,6 +32,7 @@ def expt(t):
 
 def getim():
 	return im.get_data()
+
 def vim(): #view image in ds9
 	ds9.view(getim())
 
@@ -47,8 +48,7 @@ def stack(n):
 	ims = ims/n
 	return ims
 
-mtf  =  lambda im: np.abs(np.fft.fftshift(np.fft.fft2(im)))
-
+mtf = lambda im: np.abs(np.fft.fftshift(np.fft.fft2(im)))
 
 #DM commands
 
@@ -60,23 +60,28 @@ dmChannel = shmlib.shm('/tmp/dm02disp01.im.shm')
 
 def getdmc(): # read current command applied to the DM
 	return dmChannel.get_data()
-def applydmc(cmd): #apply command to the DM
+
+def applydmc(cmd, verbose=True): #apply command to the DM
+	"""
+	Applies the DM command `cmd`.
+	Returns two booleans: whether the command is in range below (everything is >=0), and above (everything is <=1),
+	unless verbose=False, in which case nothing is returned.
+	"""
 	indneg = np.where(cmd<0)
 	if len(indneg[0])>0:
 		cmd[indneg] = 0 #minimum value is zero
 		print('saturating DM zeros!')
-	indneg = None
 	indpos = np.where(cmd>1)
 	if len(indpos[0])>0:
 		cmd[indpos] = 1 #maximum value is 1
 		print('saturating DM ones!')
-	indpos = None
 	dmChannel.set_data(cmd)
+	if verbose:
+		return (len(indneg[0]) <= 0, len(indpos[0]) <= 0)
 
 dmcini = getdmc()
 dmzero = np.zeros(dmcini.shape,dtype = np.float32)
-applyzero  =  lambda : applydmc(dmzero)
-
+applyzero  =  lambda : applydmc(dmzero, False)
 
 #WFS slopes
 port = "5556"
@@ -95,7 +100,7 @@ pupSize  =  getPupilSize(socket)[0]
 def getwf():
     socket.send_string("wavefront");
     data = socket.recv()
-    wf  =  np.frombuffer(data, dtype = np.float32).reshape(pupSize, pupSize)
+    wf = np.frombuffer(data, dtype = np.float32).reshape(pupSize, pupSize)
     return wf
 
 def stackwf(n): #average some number of frames of wavefront
@@ -108,14 +113,14 @@ def stackwf(n): #average some number of frames of wavefront
 def getSlopes(): #something still wrong with slopes...
     socket.send_string("slopes");
     data = socket.recv()
-    slopes  =  np.frombuffer(data, dtype = np.float32).reshape(pupSize, 2*pupSize)
-    sx  =  slopes[:,:pupSize]
-    sy  =  slopes[:,pupSize:]
+    slopes = np.frombuffer(data, dtype = np.float32).reshape(pupSize, 2*pupSize)
+    sx = slopes[:,:pupSize]
+    sy = slopes[:,pupSize:]
     return np.array([sx, sy])
 
 def stackSlopes(n): #average some number of frames of slopes
-	ims = np.zeros(getSlopes().shape)
-	for i in range(n):
+	ims = getSlopes()
+	for i in range(n-1):
 		ims = ims+getSlopes()
 	ims = ims/n
 	return ims

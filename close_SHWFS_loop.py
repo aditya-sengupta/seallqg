@@ -3,6 +3,9 @@ close the AO loop with a SHWFS
 '''
 
 import numpy as np
+from numpy import float32
+from pysao import ds9
+from matplotlib import pyplot as plt
 import sys
 import time
 from ancillary_code import *
@@ -30,8 +33,9 @@ np.save('refscc2.npy',refscc2)
 #bestflat = np.load('bestflat.npy') #on FPM
 #bestflat = np.load('bestflat_offfpm.npy') #off FPM
 bestflat = dmzero+0.5
+applybestflat = lambda: applydmc(bestflat, False)
 #bestflat = np.load('bestflat_shwfs.npy') #bootstrapping: previous SHWFS
-applydmc(bestflat)
+applybestflat()
 dmcini = getdmc()
 
 wf_ini = getwf()
@@ -226,7 +230,7 @@ for i in range(nact):
 			useact[i] = 1
 	print('act'+str(i)+'of'+str(nact))
 
-IM[np.where(np.isnan(IM) == True)] = 0 #shouldn't need this line, but just in case there are pupil misregistrations, between the mask and when the IM is applied or any other reason that might generate nans
+IM[np.where(np.isnan(IM))] = 0 #shouldn't need this line, but just in case there are pupil misregistrations, between the mask and when the IM is applied or any other reason that might generate nans
 
 badacts = np.array([49,112,136,150,152,180,182,183,238,240,244,235,236,237,261,262,263,269,284,314,348,352,376,396,398,402,425,441,444,467,475,486,503,527]) #indicies of bad actuators, identified by eye in IM
 
@@ -317,19 +321,19 @@ def pc(rcond,amp,i): #see if the coefficients can reconstruct the input
 	time.sleep(tsleep)
 	wfpull = stackwf(10)[wfs_tar_ind]
 	tar = np.vstack(wfpush-wfpull).T
-	tar[np.where(np.isnan(tar) == True)] = 0
+	tar[np.where(np.isnan(tar))] = 0
 	coeffs = np.dot(tar,cmd_mtx)
 
 	plt.plot(coeffs.flatten())
 
 
 def vcmd(rcond): #view the reconstructed DM commands, making sure that waffle mode is not propagated onto the DM
-	cmd_mtx = np.linalg.pinv(IM_clean,rcond = rcond)
+	cmd_mtx = np.linalg.pinv(IM_clean, rcond=rcond)
 
-	applydmc(bestflat)
+	applybestflat()
 	time.sleep(tsleep)
 	tar = np.vstack(stackwf(30)[wfs_tar_ind]).T
-	tar[np.where(np.isnan(tar) == True)] = 0 #shouldn't need this line, but again, incase of misregistrations...
+	tar[np.where(np.isnan(tar))] = 0 #shouldn't need this line, but again, incase of misregistrations...
 	coeffs = np.dot(tar,cmd_mtx)
 	cmd = np.zeros(dmcini.shape).astype(float32)
 	cmd[DMmapind] = (act_arr.T*-1*coeffs)
@@ -338,7 +342,7 @@ def vcmd(rcond): #view the reconstructed DM commands, making sure that waffle mo
 
 rcond = 5e-2 #SVD cutoff; optimized from above code
 
-cmd_mtx = np.linalg.pinv(IM_clean,rcond = rcond)
+cmd_mtx = np.linalg.pinv(IM_clean, rcond=rcond)
 #np.save('CM/SHWFS/'+datetime.now().strftime("%d_%m_%Y_%H_%M")+'.npy',IM_clean)
 #np.save('SHWFS_CM.npy',cmd_mtx)
 
@@ -352,7 +356,7 @@ applydmc(np.load('bestflat_shwfs.npy'))
 time.sleep(tsleep)
 for nit in range(numiter):
 	tar = np.vstack((stackwf(10))[wfs_tar_ind]).T #-refwf1
-	tar[np.where(np.isnan(tar) == True)] = 0 #shouldn't need this line, but again, incase of misregistrations...
+	tar[np.where(np.isnan(tar))] = 0 #shouldn't need this line, but again, incase of misregistrations...
 	coeffs = np.dot(tar,cmd_mtx)
 	cmd = np.zeros(dmcini.shape).astype(float32)
 	cmd[DMmapind] = (act_arr.T*-1*coeffs)

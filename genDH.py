@@ -4,34 +4,38 @@ generate SCC interaction matrix of Fourier modes and close the loop!
 
 from ancillary_code import *
 import numpy as np
+from numpy import float32
+from pysao import ds9
+from matplotlib import pyplot as plt
 import time
 import ao_utils
 import itertools
 
 #initial setup: apply best flat, generate DM grid to apply future shapes
 dmcini = getdmc()
-ydim,xdim = dmcini.shape
+ydim, xdim = dmcini.shape
 grid = np.mgrid[0:ydim,0:xdim].astype(float32)
+applybestflat = lambda: applydmc(bestflat, False)
 bestflat = np.load('bestflat.npy') #for starting from flat DM with FPM aligned
 #bestflat = np.load('dmc_dh.npy') #for bootstrapping
-applydmc(bestflat)
+applybestflat()
 
-ygrid,xgrid = grid[0]-ydim/2,grid[1]-xdim/2
-xy = np.sqrt(ygrid**2+xgrid**2)
+ygrid, xgrid = grid[0]-ydim/2, grid[1]-xdim/2
+xy = np.sqrt(ygrid**2 + xgrid**2)
 
 expt(4e-3) #set exposure time
 imini = getim()
 
-ydim,xdim = dmcini.shape
+ydim, xdim = dmcini.shape
 grid = np.mgrid[0:ydim,0:xdim].astype(float32)
-ygrid,xgrid = grid[0]-ydim/2,grid[1]-xdim/2
-tip,tilt = (ygrid+ydim/2)/ydim,(xgrid+xdim/2)/xdim #min value is zero, max is one
+ygrid, xgrid = grid[0]-ydim/2, grid[1]-xdim/2
+tip, tilt = (ygrid+ydim/2)/ydim,(xgrid+xdim/2)/xdim #min value is zero, max is one
 
 #DM aperture:
 undersize = 27/32 #assuming 27 of the 32 actuators are illuminated
-rho,phi = ao_utils.polar_grid(xdim,xdim*undersize)
+rho, phi = ao_utils.polar_grid(xdim, xdim*undersize)
 cenaperture = np.zeros(rho.shape).astype(float32)
-indapcen = np.where(rho>0)
+indapcen = np.where(rho > 0)
 cenaperture[indapcen] = 1
 
 aperture = np.load('DMmap.npy').astype(float32) #actual aperture, from close_SHWFS_loop.py
@@ -44,7 +48,7 @@ rhoap = rap/np.max(rap)
 phiap = np.arctan2(grid[1]-yapcen,grid[0]-xapcen)
 indap = np.where(rhoap>0)
 
-remove_piston  =  lambda dmc: dmc-np.mean(dmc[indap]) #function to remove piston from dm command to have zero mean (must be intermediate)
+remove_piston = lambda dmc: dmc-np.mean(dmc[indap]) #function to remove piston from dm command to have zero mean (must be intermediate)
 
 IMtt = np.array([(tip*aperture).flatten(),(tilt*aperture).flatten()])
 CMtt = np.linalg.pinv(IMtt,rcond = 1e-5)
@@ -54,10 +58,11 @@ def rmtt(ph): #remove tip/tilt from aperture
 	return ph*aperture-lsqtt
 
 #functions to apply DM Fourier modes 
-ycen,xcen = yapcen,xapcen
+ycen, xcen = yapcen, xapcen
 indrho = np.where(rhoap>0)
 gridnorm = np.max((grid[0]-ycen)[indrho])*2
 rgrid = lambda pa:(grid[0]-ycen)/gridnorm*np.cos(pa*np.pi/180)+(grid[1]-xcen)/gridnorm*np.sin(pa*np.pi/180) #grid on which to define sine waves at a given position angle;
+
 def dmsin(amp,freq,pa,bestflat = bestflat): #generate sine wave
 	sin = amp*0.5*np.sin(2*np.pi*freq*rgrid(pa))
 	sindm = sin.astype(float32)
@@ -65,7 +70,7 @@ def dmsin(amp,freq,pa,bestflat = bestflat): #generate sine wave
 	applydmc(dmc)
 	return sindm
 
-def dmcos(amp,freq,pa,bestflat = bestflat): #generate cosine wave
+def dmcos(amp, freq, pa, bestflat=bestflat): #generate cosine wave
 	cos = amp*0.5*np.cos(2*np.pi*freq*rgrid(pa))
 	cosdm = cos.astype(float32)
 	dmc = remove_piston(bestflat)+remove_piston(rmtt(aperture*cosdm))+0.5
@@ -77,7 +82,7 @@ def optt(tsleep): #function to optimize how long to wait in between applying DM 
 	dmsin(0.02,10,90)
 	time.sleep(tsleep)
 	im1 = stack(10)
-	applydmc(bestflat)
+	applybestflat()
 	time.sleep(tsleep)
 	imf = stack(10)
 	ds9.view(im1-imf)
@@ -87,14 +92,14 @@ def optt(tsleep): #function to optimize how long to wait in between applying DM 
 tsleep = 0.4 #on bad days...
 
 #apply four sine spots and fit Gaussians to find the image center
-amp,freq = 0.03,10
+amp, freq = 0.03, 10
 dmsin(amp,freq,0)
 time.sleep(tsleep)
 imcen1 = stack(1000)
 dmsin(amp,freq,90)
 time.sleep(tsleep)
 imcen2 = stack(1000)
-applydmc(bestflat)
+applybestflat()
 #PAUSE, take a look at the image and guess the image center initially
 
 beam_ratio = 0.635*750/10.8/6.5 #theoretical number of pixels/resel: lambda (in microns)*focal length to camera (in mm)/coronagraphic beam diameter at the Lyot stop (in mm)/Andor pixel size (in microns)
@@ -120,19 +125,20 @@ def vc(imxcenini,imycenini,fudge,cropi,rcrop = False): #syntax: vc(158,173,0.95,
 		return crop1,crop2,crop3,crop4,xcropmax,ycropmax
 
 imxcenini,imycenini,freqfudge = 166,138,0.95
-crop1,crop2,crop3,crop4,xcropmax,ycropmax = vc(imxcenini,imycenini,freqfudge,0,rcrop = True)
+crop1, crop2, crop3, crop4, xcropmax, ycropmax = vc(imxcenini, imycenini, freqfudge, 0, rcrop=True)
 
 from astropy.modeling import models,fitting
 xpos,ypos = np.zeros(4),np.zeros(4)
 for j in range(4):
-	cropim = [crop1,crop2,crop3,crop4][j]
+	cropim = [crop1, crop2, crop3, crop4][j]
 	fit_p = fitting.LevMarLSQFitter()
 	indpos = np.where(cropim == np.max(cropim))
 	pinit = models.Gaussian2D(np.max(cropim),indpos[1][0],indpos[0][0],1,1)
 	xgrid,ygrid = np.mgrid[:cropim.shape[0],:cropim.shape[1]]
 	p = fit_p(pinit,xgrid,ygrid,cropim)
 	x0,y0 = p.x_mean[0],p.y_mean[0]
-	xpos[j],ypos[j] = xcropmax[j]-x0,ycropmax[j]-y0
+	xpos[j], ypos[j] = xcropmax[j]-x0,ycropmax[j]-y0
+	
 imxcen,imycen = np.mean(xpos),np.mean(ypos)
 np.save('imcen.npy',np.array([imxcen,imycen]))
 
@@ -165,7 +171,7 @@ cenmask = np.zeros(imini.shape)
 cenmaskind = np.where(cenmaskrho<cenmaskrad)
 cenmask[cenmaskind] = 1
 
-def processim(imin,mask = sidemask): #process SCC image, isolating the sidelobe in the FFT and IFFT back to the image
+def processim(imin, mask=sidemask): #process SCC image, isolating the sidelobe in the FFT and IFFT back to the image
 	otf = np.fft.fftshift(np.fft.fft2(imin,norm = 'ortho')) #(1) FFT the image
 	otf_masked = otf*mask #(2) multiply by binary mask to isolate side lobe
 	Iminus = np.fft.ifft2(otf_masked,norm = 'ortho') #(3) IFFT back to the image plane, now generating a complex-valued image
@@ -191,14 +197,16 @@ def scc_imin(imin,fmask = np.ones(imini.shape)):
 	fmask adds an optional binary mask in I_minus space to linearize the IM
 	'''
 	Im_in = (processim(imin)*fmask)[ind_dh]
-	return np.ndarray.flatten(np.array([np.real(Im_in),np.imag(Im_in)]))
+	return np.ndarray.flatten(np.array([np.real(Im_in), np.imag(Im_in)]))
 
-def tune_beam_ratio(beam_ratio,i,v = True): #function to determine the emperical beam ratio based on where the centering the binary mask on it's respective sine spots; the result should modify the beam_ratio variable back above the dh_mask code
+def tune_beam_ratio(beam_ratio, i, v=True): 
+	#function to determine the emperical beam ratio based on where the centering the binary mask on it's respective sine spots; 
+	#the result should modify the beam_ratio variable back above the dh_mask code
 	#CREATE IMAGE X,Y INDEXING THAT PLACES SINE, COSINE WAVES AT EACH LAMBDA/D REGION WITHIN THE NYQUIST REGION
 	#the nyquist limit from the on-axis psf is +/- N/2 lambda/D away, so the whole nyquist region is N lambda/D by N lambda/D, centered on the on-axis PSF
 	#to make things easier and symmetric, I want to place each PSF on a grid that is 1/2 lambda/D offset from the on-axis PSF position; this indexing should be PSF copy center placement location
-	allx,ally = list(zip(*itertools.product(np.linspace(imxcen-+0.5*beam_ratio,imxcen+maxld*beam_ratio-0.5*beam_ratio,maxld),np.linspace(imycen-maxld*beam_ratio+0.5*beam_ratio,imycen+maxld*beam_ratio-0.5*beam_ratio,2*maxld))))
-	loopx,loopy = np.array(list(allx)).astype(float),np.array(list(ally)).astype(float)
+	allx, ally = list(zip(*itertools.product(np.linspace(imxcen-+0.5*beam_ratio,imxcen+maxld*beam_ratio-0.5*beam_ratio,maxld),np.linspace(imycen-maxld*beam_ratio+0.5*beam_ratio,imycen+maxld*beam_ratio-0.5*beam_ratio,2*maxld))))
+	loopx, loopy = np.array(list(allx)).astype(float),np.array(list(ally)).astype(float)
 
 	freq_loop = np.sqrt((loopy-imycen)**2+(loopx-imxcen)**2)/beam_ratio #sine wave frequency for (lambda/D)**2 region w/in DH
 	pa_loop = 90+180/np.pi*np.arctan2(loopy-imycen,loopx-imxcen) #position angle of sine wave for (lambda/D)**2 region w/in DH
@@ -212,7 +220,7 @@ def tune_beam_ratio(beam_ratio,i,v = True): #function to determine the emperical
 	pa_loop = pa_loop[indloop]
 
 	#def vf(i): #function to look at binary mask around sine spot peaks in individual Fourier modes to see how well it is working in the IM further below; with the current setup, the theoretical mask location looks sufficient, removing the need to place bright sine spots to determine the mask for a given mode 
-	applydmc(bestflat)
+	applybestflat()
 	time.sleep(tsleep)
 	imf = stack(100)
 
@@ -228,17 +236,17 @@ def tune_beam_ratio(beam_ratio,i,v = True): #function to determine the emperical
 	fmask = np.zeros(imini.shape)
 	fmask[np.where(rmask<1*beam_ratio)] = 1
 
-	if v == True:
+	if v:
 		ds9.view(np.abs(processim(imcb-imf))*fmask)
 	else:
 		return pa_loop,freq_loop,loopx,loopy
 
 
-pa_loop,freq_loop,loopx,loopy = tune_beam_ratio(beam_ratio,0,v = False)
-applydmc(bestflat)
+pa_loop, freq_loop, loopx, loopy = tune_beam_ratio(beam_ratio,0,v = False)
+applybestflat()
 
 nstack = 1000 #number of frames to stack to reach sufficient fringe SNR
-applydmc(bestflat)
+applybestflat()
 time.sleep(tsleep)
 imf = stack(nstack)
 
@@ -281,7 +289,7 @@ for i in range(len(freq_loop)):
 	refvec[i+len(freq_loop)] = scc_imin(imc-imf,fmask = fmask)
 	print(i/len(freq_loop))
 
-applydmc(bestflat)
+applybestflat()
 IM = np.dot(refvec,refvec.T)
 
 from datetime import datetime
@@ -313,7 +321,7 @@ cmd_mtx = np.dot(IMinv,refvec)
 numiter = 30
 gain = 0.5
 leak = 1
-applydmc(bestflat)
+applybestflat()
 time.sleep(tsleep)
 for nit in range(numiter):
 	imin = stack(100) #larger number of stacks increases the amount by which you can gain...

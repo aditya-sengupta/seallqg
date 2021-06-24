@@ -12,7 +12,8 @@ import ao_utils
 #bestflat = np.load('bestflat.npy')
 #bestflat = np.load('bestflat_shwfs.npy')
 bestflat = np.load('bestflat_zopt.npy') #for bootstrapping
-applydmc(bestflat)
+applybestflat = lambda: applydmc(bestflat, False)
+applybestflat()
 dmcini = getdmc()
 
 #applytip/tilt, manually steering the PSF around until the PSF is sufficiently off the FPM and not saturating DM commands
@@ -113,7 +114,7 @@ for i in range(len(nmarr)):
 	optamp = amparr[np.where(optarr == np.max(optarr))]
 	dmzopt = funz(n,m,optamp[0],bestflat = bestflat)
 	bestflat = dmzopt
-	applydmc(bestflat)
+	applybestflat()
 	time.sleep(tsleep)
 	plt.plot(amparr,optarr,label = 'n,m = '+str(n)+','+str(m))
 plt.legend(bbox_to_anchor = (1.05,1),loc = 'upper left',ncol = 5)
