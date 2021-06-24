@@ -13,8 +13,11 @@ import ao_utils
 #initialize; no need to load this more than once
 #for full frame:
 
-#a = shmlib.shm('/tmp/ca01dit.im.shm') 
-#im = shmlib.shm('/tmp/ca01im.im.shm')
+
+# Andor camera commands
+#for large format
+#a=shmlib.shm('/tmp/ca01dit.im.shm') 
+#im=shmlib.shm('/tmp/ca01im.im.shm')
 
 #for 320x320 subarray
 
@@ -31,8 +34,7 @@ def expt(t):
 	dit[0][0] = t; a.set_data(dit)
 
 def getim():
-	return im.get_data()
-
+	return im.get_data(check=True) #check=True ensures in chopper mode it only gets a new image when the chopper triggers a new frame
 def vim(): #view image in ds9
 	ds9.view(getim())
 
@@ -50,7 +52,8 @@ def stack(n):
 
 mtf = lambda im: np.abs(np.fft.fftshift(np.fft.fft2(im)))
 
-#DM commands
+
+#kilo DM commands
 
 b = shmlib.shm('/tmp/dm02itfStatus.im.shm')
 status = b.get_data()
@@ -97,20 +100,20 @@ def getPupilSize(sock):
 
 pupSize  =  getPupilSize(socket)[0]
 
-def getwf():
+def getWavefront():
     socket.send_string("wavefront");
     data = socket.recv()
     wf = np.frombuffer(data, dtype = np.float32).reshape(pupSize, pupSize)
     return wf
 
-def stackwf(n): #average some number of frames of wavefront
-	imw = np.zeros(getwf().shape)
+def stackWavefront(n): #average some number of frames of wavefront
+	imw=np.zeros(getWavefront().shape)
 	for i in range(n):
-		imw = imw+getwf()
-	imw = imw/n
+		imw=imw+getWavefront()
+	imw=imw/n
 	return imw
 
-def getSlopes(): #something still wrong with slopes...
+def getSlopes():
     socket.send_string("slopes");
     data = socket.recv()
     slopes = np.frombuffer(data, dtype = np.float32).reshape(pupSize, 2*pupSize)
@@ -126,8 +129,9 @@ def stackSlopes(n): #average some number of frames of slopes
 	return ims
 
 
-#wf  =  getWavefront()
-#sx,sy  =  getSlopes()
+#wf = getWavefront()
+#sx,sy = getSlopes()
+'''
 
 '''
 # Push each actuator
@@ -137,8 +141,6 @@ for k in range(0,32):
      cmd[k][l]  =  1
      dmChannel.set_data(cmd)
      time.sleep(0.2)
-'''
-
 
 ##fig,axs = plt.subplots(ncols = 1,nrows = 2)
 

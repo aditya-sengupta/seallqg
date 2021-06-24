@@ -9,12 +9,21 @@ import time
 import ao_utils
 
 #setup
+<<<<<<< HEAD
 #bestflat = np.load('bestflat.npy')
 #bestflat = np.load('bestflat_shwfs.npy')
 bestflat = np.load('bestflat_zopt.npy') #for bootstrapping
 applybestflat = lambda: applydmc(bestflat, False)
 applybestflat()
 dmcini = getdmc()
+=======
+#bestflat=np.load('bestflat.npy')
+#bestflat=np.load('bestflat_off_fpm.npy')
+#bestflat=np.load('bestflat_shwfs.npy')
+bestflat=np.load('bestflat_zopt.npy') #for bootstrapping
+applydmc(bestflat)
+dmcini=getdmc()
+>>>>>>> 1d75cef188523b0c098458c043344a1f6c8d79e4
 
 #applytip/tilt, manually steering the PSF around until the PSF is sufficiently off the FPM and not saturating DM commands
 ydim,xdim = dmcini.shape
@@ -22,22 +31,50 @@ grid = np.mgrid[0:ydim,0:xdim].astype(float32)
 ygrid,xgrid = grid[0]-ydim/2,grid[1]-xdim/2
 tip,tilt = (ygrid+ydim/2)/ydim,(xgrid+xdim/2)/xdim #min value is zero, max is one
 
+<<<<<<< HEAD
 #DM aperture:
 undersize = 27/32 #assuming 27 of the 32 actuators are illuminated
 rho,phi = ao_utils.polar_grid(xdim,xdim*undersize)
 cenaperture = np.zeros(rho.shape).astype(float32)
 indapcen = np.where(rho>0)
 cenaperture[indapcen] = 1
+=======
+#old DM aperture:
+'''
+undersize=27/32 #assuming 27 of the 32 actuators are illuminated
+rho,phi=functions.polar_grid(xdim,xdim*undersize)
+cenaperture=np.zeros(rho.shape).astype(float32)
+indapcen=np.where(rho>0)
+cenaperture[indapcen]=1
+>>>>>>> 1d75cef188523b0c098458c043344a1f6c8d79e4
 
 aperture = np.load('DMmap.npy').astype(float32) #actual aperture, from close_SHWFS_loop.py
 
 #from comparing cenaperture and aperture, the actual aperture is shifted down and to the right (in ds9) each by 1 pixel from the center
+<<<<<<< HEAD
 yapcen,xapcen = ydim/2.-0.5-1,xdim/2.-0.5-1
 rap = np.sqrt((grid[0]-yapcen)**2.+(grid[1]-xapcen)**2.)
 rap[np.where(rap>xdim/2.*undersize)] = 0.
 rhoap = rap/np.max(rap)
 phiap = np.arctan2(grid[1]-yapcen,grid[0]-xapcen)
 indap = np.where(rhoap>0)
+=======
+yapcen,xapcen=ydim/2.-0.5-1,xdim/2.-0.5-1
+rap=np.sqrt((grid[0]-yapcen)**2.+(grid[1]-xapcen)**2.)
+rap[np.where(rap>xdim/2.*undersize)]=0.
+rhoap=rap/np.max(rap)
+phiap=np.arctan2(grid[1]-yapcen,grid[0]-xapcen)
+indap=np.where(rhoap>0)
+'''
+
+#regular DM aperture:
+undersize=29/32 #29 of the 32 actuators are illuminated
+rho,phi=functions.polar_grid(xdim,xdim*undersize)
+aperture=np.zeros(rho.shape).astype(float32)
+indap=np.where(rho>0)
+indnap=np.where(rho==0)
+aperture[indap]=1
+>>>>>>> 1d75cef188523b0c098458c043344a1f6c8d79e4
 
 remove_piston  =  lambda dmc: dmc-np.mean(dmc[indap]) #function to remove piston from dm command to have zero mean (must be intermediate)
 
@@ -70,11 +107,21 @@ for n in range(2,norder):
 	for m in range(-n,n+1,2):
 		nmarr.append([n,m])
 
+<<<<<<< HEAD
 def funz(n,m,amp,bestflat = ttdmc): #apply zernike to the DM
 	z = ao_utils.zernike(n,m,rhoap,phiap)/2
 	zdm = amp*(z.astype(float32))
 	dmc = remove_piston(bestflat)+remove_piston(rmtt(zdm))+0.5
 	applydmc(dmc*aperture)
+=======
+def funz(n,m,amp,bestflat=ttdmc): #apply zernike to the DM
+	z=functions.zernike(n,m,rhoap,phiap)/2
+	zdm=amp*(z.astype(float32))
+	dmc=np.zeros(aperture.shape).astype(float32)
+	dmc[indap]=(remove_piston(bestflat)+remove_piston(rmtt(zdm))+0.5)[indap]
+	dmc[indnap]=bestflat[indnap]
+	applydmc(dmc)
+>>>>>>> 1d75cef188523b0c098458c043344a1f6c8d79e4
 	return dmc
 
 namp = 100 #how many grid points to walk through Zernike amplitude coefficients

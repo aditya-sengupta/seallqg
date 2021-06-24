@@ -23,8 +23,8 @@ applybestflat()
 ygrid, xgrid = grid[0]-ydim/2, grid[1]-xdim/2
 xy = np.sqrt(ygrid**2 + xgrid**2)
 
-expt(4e-3) #set exposure time
-imini = getim()
+expt(1e-4) #set exposure time; for source intensity of 0.25 mW
+imini=getim()
 
 ydim, xdim = dmcini.shape
 grid = np.mgrid[0:ydim,0:xdim].astype(float32)
@@ -77,6 +77,13 @@ def dmcos(amp, freq, pa, bestflat=bestflat): #generate cosine wave
 	applydmc(dmc)
 	return cosdm
 
+def dmf(amp,freq,pa,ph,bestflat=bestflat,returncos=False): #generate sin/cos wave (adjust phase)
+	cos=amp*0.5*np.cos(2*np.pi*freq*rgrid(pa)-ph*np.pi/180)
+	cosdm=cos.astype(float32)
+	dmc=remove_piston(remove_piston(bestflat)+remove_piston(rmtt(cosdm)))
+	applydmc(dmc)
+	if returncos==True:
+		return cos
 
 def optt(tsleep): #function to optimize how long to wait in between applying DM command and recording image
 	dmsin(0.02,10,90)
@@ -88,18 +95,89 @@ def optt(tsleep): #function to optimize how long to wait in between applying DM 
 	ds9.view(im1-imf)
 #looks like I need to wait 3 seconds (full frame) or 0.05 seconds (320x320 ROI) in between each DM command to generate a stable image that isn't influenced by the previous command
 
-#tsleep = 0.05 #on good days...
-tsleep = 0.4 #on bad days...
+tsleep=0.05 #on good days...
+#tsleep=0.4 #on bad days...
+
+#try to manually null a few speckles in the remaining flat from Zygo; (only needed to run once)
+'''
+
+#second set of speckle generated after leaving the DM on of the weekend (5/25/21); not working!! giving up, just sticking with bestflat...
+
+cos1=dmf(0.01,5,0,100,returncos=True)
+cos2=dmf(0.01,4,0,280,bestflat=bestflat+cos1,returncos=True)
+cos3=dmf(0.01,7,0,250,bestflat=bestflat+cos1+cos2,returncos=True)
+
+ac = lambda a,pa,f,ph: dmf(a,f,pa,ph,bestflat=bestflat+cos1+cos2+cos3)
+
+yind,xind=176,239 #brightest top speckle
+nf,na,nph=5,10,10
+farr=np.linspace(7,9,nf)
+amparr=np.linspace(0.01,0.02,na)
+pharr=np.linspace(0,360-360/nph,nph)
+optarr=np.zeros((nf,na,nph))
+for ff in range(nf):
+	freq=farr[ff]
+	for aa in range(na):
+		amptune=amparr[aa]
+		for pp in range(nph):
+			ph=pharr[pp]
+			dmf(amptune,freq,10,ph,bestflat=bestflat+cos1+cos2+cos3)
+			time.sleep(tsleep)
+			im=stack(10)
+			optarr[ff,aa,pp]=im[yind,xind]
+indopt=np.where(optarr==np.min(optarr))
+dmf(amparr[indopt[1][0]],farr[indopt[0][0]],10,pharr[indopt[2][0]],bestflat=bestflat+cos1+cos2+cos3)
+
+#first set of speckles leftover from Zygo flattening: 
+yind,xind=182,125 #top bottom speckle pair
+nf,na,nph=10,10,10
+farr=np.linspace(6,10,nf)
+amparr=np.linspace(0.01,0.02,na)
+pharr=np.linspace(0,360-360/nph,nph)
+optarr=np.zeros((nf,na,nph))
+for ff in range(nf):
+	freq=farr[ff]
+	for aa in range(na):
+		amptune=amparr[aa]
+		for pp in range(nph):
+			ph=pharr[pp]
+			#dmf(amptune,freq,90,ph)
+			dmf(amptune,freq,0,ph)
+			time.sleep(tsleep)
+			im=stack(10)
+			optarr[ff,aa,pp]=im[yind,xind]
+indopt=np.where(optarr==np.min(optarr))
+dmf(amparr[indopt[1][0]],farr[indopt[0][0]],90,pharr[indopt[2][0]])
+bestflat=getdmc()
+
+yind,xind=134,175 #left right speckle pair
+optarr=np.zeros((nf,na,nph))
+for ff in range(nf):
+	freq=farr[ff]
+	for aa in range(na):
+		amptune=amparr[aa]
+		for pp in range(nph):
+			ph=pharr[pp]
+			dmf(amptune,freq,0,ph,bestflat=bestflat)
+			time.sleep(tsleep)
+			im=stack(100)
+			optarr[ff,aa,pp]=im[yind,xind]
+indopt=np.where(optarr==np.min(optarr))
+dmf(amparr[indopt[1][0]],farr[indopt[0][0]],0,pharr[indopt[2][0]],bestflat=bestflat)
+bestflat=getdmc()
+np.save('bestflat.npy',bestflat)
+'''
 
 #apply four sine spots and fit Gaussians to find the image center
-amp, freq = 0.03, 10
-dmsin(amp,freq,0)
+amp,freq=0.02,12
+dmsin(amp,freq,2)
 time.sleep(tsleep)
-imcen1 = stack(1000)
-dmsin(amp,freq,90)
+imcen1=stack(100)
+dmsin(amp,freq,92)
 time.sleep(tsleep)
-imcen2 = stack(1000)
-applybestflat()
+imcen2=stack(100)
+applydmc(bestflat)
+imcenf=stack(100)
 #PAUSE, take a look at the image and guess the image center initially
 
 beam_ratio = 0.635*750/10.8/6.5 #theoretical number of pixels/resel: lambda (in microns)*focal length to camera (in mm)/coronagraphic beam diameter at the Lyot stop (in mm)/Andor pixel size (in microns)
@@ -121,11 +199,11 @@ def vc(imxcenini,imycenini,fudge,cropi,rcrop = False): #syntax: vc(158,173,0.95,
 	crop3 = imcen1[ycropmin[2]:ycropmax[2],xcropmin[2]:xcropmax[2]]
 	crop4 = imcen2[ycropmin[3]:ycropmax[3],xcropmin[3]:xcropmax[3]]
 	ds9.view([crop1,crop2,crop3,crop4][cropi-1])
-	if rcrop == True:
+	if rcrop:
 		return crop1,crop2,crop3,crop4,xcropmax,ycropmax
 
-imxcenini,imycenini,freqfudge = 166,138,0.95
-crop1, crop2, crop3, crop4, xcropmax, ycropmax = vc(imxcenini, imycenini, freqfudge, 0, rcrop=True)
+imxcenini,imycenini,freqfudge=186,175,0.8
+crop1, crop2, crop3, crop4, xcropmax, ycropmax=vc(imxcenini, imycenini, freqfudge, 0, rcrop=True)
 
 from astropy.modeling import models,fitting
 xpos,ypos = np.zeros(4),np.zeros(4)
@@ -177,7 +255,7 @@ def processim(imin, mask=sidemask): #process SCC image, isolating the sidelobe i
 	Iminus = np.fft.ifft2(otf_masked,norm = 'ortho') #(3) IFFT back to the image plane, now generating a complex-valued image
 	return Iminus
 
-beam_ratio = 6.4 #setting this as a hard value at the momnet as determined by the vf function below
+beam_ratio=5.5 #setting this as a hard value at the momnet as determined by the vf function below
 np.save('beam_ratio.npy',beam_ratio)
 
 Im_grid = np.mgrid[0:imini.shape[0],0:imini.shape[1]]
@@ -229,12 +307,12 @@ def tune_beam_ratio(beam_ratio, i, v=True):
 	imcb = stack(100)
 
 
-	#diffimuf = np.abs(processim(imcb,mask = cenmask))-np.abs(processim(imf,mask = cenmask)) #unfringed differential image
-	#indfmask = np.where(diffimuf == np.max(diffimuf[ind_dh]))
-	#rmask = np.sqrt((mtfgrid[0]-indfmask[0][0])**2+(mtfgrid[1]-indfmask[1][0])**2)
-	rmask = np.sqrt((Im_grid[0]-loopy[i])**2+(Im_grid[1]-loopx[i])**2)
-	fmask = np.zeros(imini.shape)
-	fmask[np.where(rmask<1*beam_ratio)] = 1
+	#diffimuf=np.abs(processim(imcb,mask=cenmask))-np.abs(processim(imf,mask=cenmask)) #unfringed differential image
+	#indfmask=np.where(diffimuf==np.max(diffimuf[ind_dh]))
+	#rmask=np.sqrt((mtfgrid[0]-indfmask[0][0])**2+(mtfgrid[1]-indfmask[1][0])**2)
+	rmask=np.sqrt((Im_grid[0]-loopy[i])**2+(Im_grid[1]-loopx[i])**2)
+	fmask=np.zeros(imini.shape)
+	fmask[np.where(rmask<2*beam_ratio)]=1
 
 	if v:
 		ds9.view(np.abs(processim(imcb-imf))*fmask)
@@ -245,7 +323,7 @@ def tune_beam_ratio(beam_ratio, i, v=True):
 pa_loop, freq_loop, loopx, loopy = tune_beam_ratio(beam_ratio,0,v = False)
 applybestflat()
 
-nstack = 1000 #number of frames to stack to reach sufficient fringe SNR
+nstack = 10 #number of frames to stack to reach sufficient fringe SNR
 applybestflat()
 time.sleep(tsleep)
 imf = stack(nstack)
@@ -263,9 +341,9 @@ for i in range(len(freq_loop)):
 	indfmask = np.where(diffimuf == np.max(diffimuf[ind_dh]))
 	rmask = np.sqrt((mtfgrid[0]-indfmask[0][0])**2+(mtfgrid[1]-indfmask[1][0])**2)
 	'''
-	rmask = np.sqrt((Im_grid[0]-loopy[i])**2+(Im_grid[1]-loopx[i])**2)
+	rmask=np.sqrt((Im_grid[0]-loopy[i])**2+(Im_grid[1]-loopx[i])**2)
 	fmask = np.zeros(imini.shape)
-	fmask[np.where(rmask<1*beam_ratio)] = 1
+	fmask[np.where(rmask<2*beam_ratio)]=1
 
 	#add for full DH mask (to flatten DM)
 	'''
@@ -273,12 +351,12 @@ for i in range(len(freq_loop)):
 	fmask[np.where(rmask2<1*beam_ratio)] = 1	
 	'''
 
-	sin = dmsin(0.01,freq_loop[i],pa_loop[i])
-	#sin = dmsin(0.1,freq_loop[i],pa_loop[i])
+	sin=dmsin(0.005,freq_loop[i],pa_loop[i])
+	#sin=dmsin(0.1,freq_loop[i],pa_loop[i])
 	time.sleep(tsleep)
-	ims = stack(nstack)
-	cos = dmcos(0.01,freq_loop[i],pa_loop[i])
-	#cos = dmcos(0.1,freq_loop[i],pa_loop[i])
+	ims=stack(nstack)
+	cos=dmcos(0.005,freq_loop[i],pa_loop[i])
+	#cos=dmcos(0.1,freq_loop[i],pa_loop[i])
 	time.sleep(tsleep)
 	imc = stack(nstack)
 
@@ -313,10 +391,10 @@ def pc(rcond,i):
 	plt.plot(coeffs)
 
 
-rcond = 5e-4
-#rcond = 1e-1 #for attempted DM flattening
-IMinv = np.linalg.pinv(IM,rcond = rcond)
-cmd_mtx = np.dot(IMinv,refvec)
+rcond = 1e-3
+#rcond=1e-1 #for attempted DM flattening
+IMinv = np.linalg.pinv(IM, rcond=rcond)
+cmd_mtx = np.dot(IMinv, refvec)
 
 numiter = 30
 gain = 0.5
@@ -324,11 +402,19 @@ leak = 1
 applybestflat()
 time.sleep(tsleep)
 for nit in range(numiter):
+<<<<<<< HEAD
 	imin = stack(100) #larger number of stacks increases the amount by which you can gain...
 	tar = scc_imin(imin)
 	coeffs = np.dot(cmd_mtx,tar)
 	cmd = np.dot(fourierarr.T,-coeffs).reshape(dmcini.shape).astype(float32)
 	applydmc(leak*getdmc()+cmd*gain)
+=======
+	imin=stack(10) #larger number of stacks increases the amount by which you can gain...
+	tar=scc_imin(imin)
+	coeffs=np.dot(cmd_mtx,tar)
+	cmd=np.dot(fourierarr.T,-coeffs).reshape(dmcini.shape).astype(float32)
+	applydmc((remove_piston(leak*getdmc()+cmd*gain)))
+>>>>>>> 1d75cef188523b0c098458c043344a1f6c8d79e4
 	time.sleep(tsleep)
 
 dmc_dh = getdmc()

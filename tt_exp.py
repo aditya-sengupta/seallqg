@@ -25,9 +25,6 @@ def find_limits():
     return limits[:2], limits[2:] # the first is min_tip, max_tip; the second is min_tilt, max_tilt
 
 def command_linearity():
-    """
-    
-    """
     pass
 
 def uniformity():

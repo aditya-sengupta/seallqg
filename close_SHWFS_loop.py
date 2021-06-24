@@ -30,6 +30,7 @@ np.save('refscc2.npy',refscc2)
 
 '''
 
+<<<<<<< HEAD
 #bestflat = np.load('bestflat.npy') #on FPM
 #bestflat = np.load('bestflat_offfpm.npy') #off FPM
 bestflat = dmzero+0.5
@@ -37,6 +38,14 @@ applybestflat = lambda: applydmc(bestflat, False)
 #bestflat = np.load('bestflat_shwfs.npy') #bootstrapping: previous SHWFS
 applybestflat()
 dmcini = getdmc()
+=======
+bestflat=np.load('bestflat.npy') #on FPM
+#bestflat=np.load('bestflat_offfpm.npy') #off FPM
+#bestflat=dmzero+0.5
+#bestflat=np.load('bestflat_shwfs.npy') #bootstrapping: previous SHWFS
+applydmc(bestflat)
+dmcini=getdmc()
+>>>>>>> 1d75cef188523b0c098458c043344a1f6c8d79e4
 
 wf_ini = getwf()
 wf_ind = np.where(np.isnan(wf_ini) == False) #index for where the pupil is defined
