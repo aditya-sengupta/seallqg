@@ -8,6 +8,7 @@ must first run align_fpm.py, and genDH.py through saving the image center (np.sa
 
 from ancillary_code import *
 import numpy as np
+from matplotlib import pyplot as plt
 from numpy import float32
 import time
 import functions
@@ -156,7 +157,7 @@ def genzerncoeffs(i,zernamp):
 	imzern=stack(10)
 	imdiff=(imzern-imflat)
 	tar_ini=processim(imdiff)
-	tar = np.array([np.real(tar_ini[indttmask]),np.imag(tar_ini[indttmask])])	
+	tar = np.array([np.real(tar_ini[indttmask]),np.imag(tar_ini[indttmask])]).flatten()	
 	coeffs=np.dot(cmd_mtx, tar)
 	return coeffs*IMamp
 
