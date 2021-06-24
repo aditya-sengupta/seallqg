@@ -4,11 +4,13 @@ close the AO loop with a SHWFS
 
 import numpy as np
 from numpy import float32
-from pysao import ds9
+import pysao
 from matplotlib import pyplot as plt
 import sys
 import time
-from ancillary_code import *
+from ..src import tt
+
+ds9 = pysao.ds9()
 
 
 #4/6/21: Darren placed the dummy DM on the MEMs, during which I saved offset slopes and wavefront to close the loop to (slopes may be bogus; Sylvain hadn't yet fixed the slopes recording in real time problem).
@@ -30,7 +32,6 @@ np.save('refscc2.npy',refscc2)
 
 '''
 
-<<<<<<< HEAD
 #bestflat = np.load('bestflat.npy') #on FPM
 #bestflat = np.load('bestflat_offfpm.npy') #off FPM
 bestflat = dmzero+0.5
@@ -38,14 +39,6 @@ applybestflat = lambda: applydmc(bestflat, False)
 #bestflat = np.load('bestflat_shwfs.npy') #bootstrapping: previous SHWFS
 applybestflat()
 dmcini = getdmc()
-=======
-bestflat=np.load('bestflat.npy') #on FPM
-#bestflat=np.load('bestflat_offfpm.npy') #off FPM
-#bestflat=dmzero+0.5
-#bestflat=np.load('bestflat_shwfs.npy') #bootstrapping: previous SHWFS
-applydmc(bestflat)
-dmcini=getdmc()
->>>>>>> 1d75cef188523b0c098458c043344a1f6c8d79e4
 
 wf_ini = getwf()
 wf_ind = np.where(np.isnan(wf_ini) == False) #index for where the pupil is defined

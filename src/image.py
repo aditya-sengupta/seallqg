@@ -1,29 +1,24 @@
-'''
-code for functions to read out images and apply and readout DM commands
-'''
-
 from krtc import *
 import zmq
-from pysao import ds9
+import pysao
 import numpy as np
 import sys
 import time
 import ao_utils
 
+ds9 = pysao.ds9()
+
 #initialize; no need to load this more than once
 #for full frame:
-
-
-# Andor camera commands
-#for large format
-#a=shmlib.shm('/tmp/ca01dit.im.shm') 
-#im=shmlib.shm('/tmp/ca01im.im.shm')
-
-#for 320x320 subarray
 
 a = shmlib.shm('/tmp/ca03dit.im.shm') 
 im = shmlib.shm('/tmp/ca03im.im.shm')
 
+#for 150x150 subarray
+'''
+a = shmlib.shm('/tmp/ca03dit.im.shm') 
+im = shmlib.shm('/tmp/ca03im.im.shm')
+'''
 def expt(t):
 	'''
 	change the exposure time
@@ -33,9 +28,11 @@ def expt(t):
 	dit = a.get_data()
 	dit[0][0] = t; a.set_data(dit)
 
+#To view images in pysao ds9:
 def getim():
-	return im.get_data(check=True) #check=True ensures in chopper mode it only gets a new image when the chopper triggers a new frame
-def vim(): #view image in ds9
+	return im.get_data(check=True)
+
+def vim(): #view image
 	ds9.view(getim())
 
 def vmtf(): #view image MTF
@@ -44,14 +41,13 @@ def vmtf(): #view image MTF
 	ds9.view(mtf)
 
 def stack(n):
-	ims = np.zeros(getim().shape)
-	for i in range(n):
+	ims = getim()
+	for _ in range(n-1):
 		ims = ims+getim()
 	ims = ims/n
 	return ims
 
 mtf = lambda im: np.abs(np.fft.fftshift(np.fft.fft2(im)))
-
 
 #kilo DM commands
 
@@ -92,28 +88,28 @@ context  =  zmq.Context()
 socket  =  context.socket(zmq.REQ)
 socket.connect("tcp://128.114.22.20:%s" % port)
 
-def getPupilSize(sock):
+def get_pupil_size(sock):
     socket.send_string("pupSize");
     data = socket.recv()
     pupSize  =  np.frombuffer(data, dtype = np.int32)
     return pupSize
 
-pupSize  =  getPupilSize(socket)[0]
+pupSize = getPupilSize(socket)[0]
 
-def getWavefront():
+def get_wavefront():
     socket.send_string("wavefront");
     data = socket.recv()
     wf = np.frombuffer(data, dtype = np.float32).reshape(pupSize, pupSize)
     return wf
 
-def stackWavefront(n): #average some number of frames of wavefront
+def stack_wavefront(n): #average some number of frames of wavefront
 	imw=np.zeros(getWavefront().shape)
 	for i in range(n):
 		imw=imw+getWavefront()
 	imw=imw/n
 	return imw
 
-def getSlopes():
+def get_slopes():
     socket.send_string("slopes");
     data = socket.recv()
     slopes = np.frombuffer(data, dtype = np.float32).reshape(pupSize, 2*pupSize)
@@ -121,26 +117,17 @@ def getSlopes():
     sy = slopes[:,pupSize:]
     return np.array([sx, sy])
 
-def stackSlopes(n): #average some number of frames of slopes
+def stack_slopes(n): #average some number of frames of slopes
 	ims = getSlopes()
 	for i in range(n-1):
 		ims = ims+getSlopes()
 	ims = ims/n
 	return ims
 
-
-#wf = getWavefront()
-#sx,sy = getSlopes()
-'''
-
-'''
-# Push each actuator
-for k in range(0,32):
+def push_actuators():
+	for k in range(0,32):
     for l in range(0,32):
      cmd = cmd*0;
      cmd[k][l]  =  1
      dmChannel.set_data(cmd)
      time.sleep(0.2)
-
-##fig,axs = plt.subplots(ncols = 1,nrows = 2)
-

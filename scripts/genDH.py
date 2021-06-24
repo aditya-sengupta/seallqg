@@ -2,14 +2,16 @@
 generate SCC interaction matrix of Fourier modes and close the loop!
 '''
 
-from ancillary_code import *
+from ..src import tt
 import numpy as np
 from numpy import float32
-from pysao import ds9
+import pysao
 from matplotlib import pyplot as plt
 import time
 import ao_utils
 import itertools
+
+ds9 = pysao.ds9()
 
 #initial setup: apply best flat, generate DM grid to apply future shapes
 dmcini = getdmc()
@@ -402,19 +404,11 @@ leak = 1
 applybestflat()
 time.sleep(tsleep)
 for nit in range(numiter):
-<<<<<<< HEAD
-	imin = stack(100) #larger number of stacks increases the amount by which you can gain...
-	tar = scc_imin(imin)
-	coeffs = np.dot(cmd_mtx,tar)
-	cmd = np.dot(fourierarr.T,-coeffs).reshape(dmcini.shape).astype(float32)
-	applydmc(leak*getdmc()+cmd*gain)
-=======
 	imin=stack(10) #larger number of stacks increases the amount by which you can gain...
 	tar=scc_imin(imin)
 	coeffs=np.dot(cmd_mtx,tar)
 	cmd=np.dot(fourierarr.T,-coeffs).reshape(dmcini.shape).astype(float32)
 	applydmc((remove_piston(leak*getdmc()+cmd*gain)))
->>>>>>> 1d75cef188523b0c098458c043344a1f6c8d79e4
 	time.sleep(tsleep)
 
 dmc_dh = getdmc()

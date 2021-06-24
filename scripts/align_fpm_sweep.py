@@ -5,69 +5,10 @@ so far, manual steering by eye seems better than the optimal determined value
 
 note that at the moment, code only works with the chopper not runing and pinhole unblocked
 '''
-from ancillary_code import *
-import numpy as np
-from numpy import float32
-import time
-import functions
-import itertools
-from scipy.ndimage.filters import median_filter
-
-dmcini=getdmc()
-ydim,xdim=dmcini.shape
-grid=np.mgrid[0:ydim,0:xdim].astype(float32)
-#bestflat=np.load('bestflat_zopt.npy') #if running code after running zern_opt.py (i.e., non-coronagraphic PSF)
-#bestflat=np.load('bestflat.npy') #if running code to realign coronagraphic PSF
-#bestflat=np.load('bestflat_shwfs.npy')
-bestflat=np.load('zygo/dm2_apply11.npy') #zygo, best flat
-applydmc(bestflat)
-
-expt(1e-5) #set exposure time; for 0.25 mW
-imini=getim() #Andor image just for referencing dimensions
-
-#DM aperture:
-ydim,xdim=dmcini.shape
-grid=np.mgrid[0:ydim,0:xdim].astype(float32)
-ygrid,xgrid=grid[0]-ydim/2,grid[1]-xdim/2
-tip,tilt=(ygrid+ydim/2)/ydim,(xgrid+xdim/2)/xdim #min value is zero, max is one
-
-#DM aperture:
-undersize=27/32 #assuming 27 of the 32 actuators are illuminated
-rho,phi=functions.polar_grid(xdim,xdim*undersize)
-cenaperture=np.zeros(rho.shape).astype(float32)
-indapcen=np.where(rho>0)
-cenaperture[indapcen]=1
-
-#aperture=np.load('DMmap.npy').astype(float32) #actual aperture, from close_SHWFS_loop.py
-
-#from comparing cenaperture and aperture, the actual aperture is shifted down and to the right (in ds9) each by 1 pixel from the center
-yapcen,xapcen=ydim/2.-0.5-1,xdim/2.-0.5-1
-rap=np.sqrt((grid[0]-yapcen)**2.+(grid[1]-xapcen)**2.)
-rap[np.where(rap>xdim/2.*undersize)]=0.
-rhoap=rap/np.max(rap)
-phiap=np.arctan2(grid[1]-yapcen,grid[0]-xapcen)
-indap=np.where(rhoap>0)
-
-#remove_piston = lambda dmc: dmc-np.mean(dmc[indap]) #function to remove piston from dm command to have zero mean (must be intermediate)
-remove_piston = lambda dmc: dmc-np.median(dmc)
-
-#applying tip/tilt recursively (use if steering back onto the FPM after running zern_opt)
-def applytip(amp): #apply tip; amp is the P2V in DM units
-	dmc=getdmc()
-	dmctip=amp*tip
-	dmc=remove_piston(dmc)+remove_piston(dmctip)+0.5
-	#applydmc(dmc*aperture)
-	applydmc(dmc)
-
-def applytilt(amp): #apply tilt; amp is the P2V in DM units
-	dmc=getdmc()
-	dmctilt=amp*tilt
-	dmc=remove_piston(dmc)+remove_piston(dmctilt)+0.5
-	#applydmc(dmc*aperture)
-	applydmc(dmc)
-
 #MANUALLY USE ABOVE FUNCTIONS TO STEER THE PSF BACK ONTO THE FPM AS NEEDED, then:
-bestflat=getdmc()
+from ..src import tt
+
+bestflat = getdmc()
 
 #apply tip/tilt starting only from the bestflat point (start here if realigning the non-coronagraphic PSF) 
 def applytiptilt(amptip,amptilt,bestflat=bestflat): #amp is the P2V in DM units
@@ -87,7 +28,7 @@ sidemaskind=np.where(sidemaskrho<sidemaskrad)
 sidemask[sidemaskind]=1
 
 #side lobe mask where there is no signal to measure SNR
-xnoise,ynoise=161.66,252.22
+xnoise, ynoise=161.66, 252.22
 sidemaskrhon=np.sqrt((mtfgrid[0]-ynoise)**2+(mtfgrid[1]-xnoise)**2)
 sidemaskn=np.zeros(imini.shape)
 sidemaskindn=np.where(sidemaskrhon<sidemaskrad)
@@ -112,15 +53,15 @@ tsleep=0.05 #optimized from above function
 #tsleep=0.4 #on bad days
 
 
-cenmaskrho=np.sqrt((mtfgrid[0]-mtfgrid[0].shape[0]/2)**2+(mtfgrid[1]-mtfgrid[0].shape[0]/2)**2) #radial grid for central MTF lobe
-cenmask=np.zeros(imini.shape)
-cenmaskradmax,cenmaskradmin=49,10 #mask radii for central lobe, ignoring central part where the pinhole PSF is (if not ignored, this would bias the alignment algorithm)   
-cenmaskind=np.where(np.logical_and(cenmaskrho<cenmaskradmax,cenmaskrho>cenmaskradmin))
-cenmask[cenmaskind]=1
+cenmaskrho = np.sqrt((mtfgrid[0]-mtfgrid[0].shape[0]/2)**2+(mtfgrid[1]-mtfgrid[0].shape[0]/2)**2) #radial grid for central MTF lobe
+cenmask = np.zeros(imini.shape)
+cenmaskradmax, cenmaskradmin=49, 10 #mask radii for central lobe, ignoring central part where the pinhole PSF is (if not ignored, this would bias the alignment algorithm)   
+cenmaskind=np.where(np.logical_and(cenmaskrho<cenmaskradmax, cenmaskrho>cenmaskradmin))
+cenmask[cenmaskind] = 1
 
 #grid tip/tilt search 
-namp=10
-amparr=np.linspace(-0.1,0.1,namp) #note the range of this grid search is can be small, assuming day to day drifts are minimal and so you don't need to search far from the previous day to find the new optimal alignment; for larger offsets the range may need to be increases (manimum search range is -1 to 1); but, without spanning the full -1 to 1 range this requires manual tuning of the limits to ensure that the minimum is not at the edge
+namp = 10
+amparr = np.linspace(-0.1,0.1,namp) #note the range of this grid search is can be small, assuming day to day drifts are minimal and so you don't need to search far from the previous day to find the new optimal alignment; for larger offsets the range may need to be increases (manimum search range is -1 to 1); but, without spanning the full -1 to 1 range this requires manual tuning of the limits to ensure that the minimum is not at the edge
 ttoptarr=np.zeros((namp,namp))
 for i in range(namp):
 	for j in range(namp):
@@ -193,9 +134,9 @@ def vim(tsleep): #if I want to close the tip/tilt loop, take a look at what time
 	applydmc(bestflat)
 	time.sleep(tsleep)
 	imref=cropim(getim())
-	applytiptilt(-0.1,0)
+	applytiptilt(-0.1, 0)
 	time.sleep(tsleep)
-	imtip=cropim(getim())
+	imtip = cropim(getim())
 	#applytiptilt(0,0.1)
 	#time.sleep(tsleep)
 	#imtilt=cropim(getim())

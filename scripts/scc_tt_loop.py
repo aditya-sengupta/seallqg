@@ -6,7 +6,7 @@ does not use optical chopper.
 must first run align_fpm.py, and genDH.py through saving the image center (np.save('imcen.npy',np.array([imxcen,imycen])))
 '''
 
-from ancillary_code import *
+from ..src import tt
 import numpy as np
 from matplotlib import pyplot as plt
 from numpy import float32
@@ -47,7 +47,7 @@ for n in range(1,norder):
 	for m in range(-n,n+1,2):
 		nmarr.append([n,m])
 
-def funz(n,m,amp,bestflat=bestflat): #apply zernike to the DM
+def funz(n, m, amp, bestflat=bestflat): #apply zernike to the DM
 	z=functions.zernike(n,m,rhoap,phiap)/2
 	zdm=amp*(z.astype(float32))
 	dmc=remove_piston(remove_piston(bestflat)+remove_piston(zdm))
