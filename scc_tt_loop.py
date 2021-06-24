@@ -103,7 +103,7 @@ for i in range(len(nmarr)):
 	imflat=stack(10)
 	imdiff=(imzern-imflat)
 	Im_diff=processim(imdiff)
-			    refvec[i]=np.array([np.real(Im_diff[indttmask]),np.imag(Im_diff[indttmask])]).flatten()
+	refvec[i]=np.array([np.real(Im_diff[indttmask]),np.imag(Im_diff[indttmask])]).flatten()
 	zernarr[i]=zern[indap]
 
 IM=np.dot(refvec,refvec.T) #interaction matrix
@@ -131,7 +131,7 @@ def pc(rcond,i,sf):
 	imflat=stack(10)
 	imdiff=(imzern-imflat)
 	Im_diff=processim(imdiff)
-	tar=np.array([np.real(Im_diff[indttmask]),np.imag(Im_diff[indttmask])]).flatten()
+	tar = np.array([np.real(Im_diff[indttmask]),np.imag(Im_diff[indttmask])]).flatten()
 	
 	coeffs=np.dot(cmd_mtx,tar)
 	plt.plot(coeffs*IMamp)
@@ -156,12 +156,12 @@ def genzerncoeffs(i,zernamp):
 	imzern=stack(10)
 	imdiff=(imzern-imflat)
 	tar_ini=processim(imdiff)
-	tar=np.array([np.real(tar_ini[indttmask]),np.imag(tar_ini[indttmask])])	
-	coeffs=np.dot(cmd_mtx,tar)
+	tar = np.array([np.real(tar_ini[indttmask]),np.imag(tar_ini[indttmask])])	
+	coeffs=np.dot(cmd_mtx, tar)
 	return coeffs*IMamp
 
-nlin=20 #number of data points to scan through linearity measurements
-zernamparr=np.linspace(-1.5*IMamp,1.5*IMamp,nlin)
+nlin = 20 #number of data points to scan through linearity measurements
+zernamparr = np.linspace(-1.5*IMamp,1.5*IMamp,nlin)
 
 #try linearity measurement for Zernike mode 0
 zernampout=np.zeros((len(nmarr),nlin))
