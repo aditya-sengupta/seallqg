@@ -7,6 +7,7 @@ note that at the moment, code only works with the chopper not runing and pinhole
 '''
 from ancillary_code import *
 import numpy as np
+from numpy import float32
 import time
 import functions
 import itertools

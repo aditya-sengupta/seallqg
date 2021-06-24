@@ -8,6 +8,7 @@ must first run align_fpm.py, and genDH.py through saving the image center (np.sa
 
 from ancillary_code import *
 import numpy as np
+from numpy import float32
 import time
 import functions
 
@@ -21,9 +22,9 @@ applydmc(bestflat)
 
 expt(1e-5) #set exposure time
 imini=getim()
-imydim,imxdim=imini.shape()
+imydim,imxdim=imini.shape
 
-tsleep=0.05 #should be the same values from align_fpm.py and genDH.py
+tsleep=0.01 #should be the same values from align_fpm.py and genDH.py
 
 #DM aperture:
 undersize=29/32 #29 of the 32 actuators are illuminated
@@ -55,15 +56,15 @@ def funz(n,m,amp,bestflat=bestflat): #apply zernike to the DM
 #calibrated image center and beam ratio from genDH.py
 imxcen,imycen=np.load('imcen.npy')
 beam_ratio=np.load('beam_ratio.npy')
-gridim=np.mgrid[0:yimdim,0:ximdim]
-rim=np.sqrt((gridim[0]-imycen)**2+(grid[1]-imxcen)**2)
+gridim=np.mgrid[0:imydim,0:imxdim]
+rim=np.sqrt((gridim[0]-imycen)**2+(gridim[1]-imxcen)**2)
 
-#algorithmic LOWFS mask (centered around the core, for light less than 3 lambda/D)
+#algorithmic LOWFS mask (centered around the core, for light less than 6 lambda/D)
 ttmask=np.zeros(imini.shape)
-indttmask=np.where(rim/beam_ratio<3)
+indttmask=np.where(rim/beam_ratio<6)
 ttmask[indttmask]=1
 
-def vz(n,m,IMamp): #determine the minimum IMamp to be visible in differential images
+def vz(n,m,IMamp): #determine the minimum IMamp (interaction matrix amplitude) to be visible in differential images
 	zern=funz(n,m,IMamp)
 	time.sleep(tsleep)
 	imzern=stack(10)
@@ -90,9 +91,9 @@ def processim(imin): #process SCC image, isolating the sidelobe in the FFT and I
 	return Iminus
 
 #make interaction matrix
-IM=np.zeros((len(nmarr),ttmask[indttmask].shape[0]*2))
-refvec=np.zeros((len(nmarr),aperture[indap].shape))
-for i in len(nmarr):
+refvec=np.zeros((len(nmarr),ttmask[indttmask].shape[0]*2))
+zernarr=np.zeros((len(nmarr),aperture[indap].shape[0]))
+for i in range(len(nmarr)):
 	n,m=nmarr[i]
 	zern=funz(n,m,IMamp)
 	time.sleep(tsleep)
@@ -102,11 +103,15 @@ for i in len(nmarr):
 	imflat=stack(10)
 	imdiff=(imzern-imflat)
 	Im_diff=processim(imdiff)
-	IM[i]=Im_diff[indttmask]
-	refvec[i]=zern[indap]
+			    refvec[i]=np.array([np.real(Im_diff[indttmask]),np.imag(Im_diff[indttmask])]).flatten()
+	zernarr[i]=zern[indap]
+
+IM=np.dot(refvec,refvec.T) #interaction matrix
 
 #determine the optimal SVD cutoff, looking at what SVD cutoff will best reconstruct individual modes
 plt.figure()
+plt.ylabel('DM units')
+plt.xlabel('Zernike mode')
 def pc(rcond,i,sf):
 	'''
 	rcond: svd cutoff to be optimized
@@ -125,10 +130,11 @@ def pc(rcond,i,sf):
 	time.sleep(tsleep)
 	imflat=stack(10)
 	imdiff=(imzern-imflat)
-	tar=processim(imdiff)[indttmask]
+	Im_diff=processim(imdiff)
+	tar=np.array([np.real(Im_diff[indttmask]),np.imag(Im_diff[indttmask])]).flatten()
 	
 	coeffs=np.dot(cmd_mtx,tar)
-	plt.plot(coeffs)
+	plt.plot(coeffs*IMamp)
 	plt.axhline(IMamp*sf,0,len(coeffs),ls='--')
 
 rcond=1e-3 #from above pc function
@@ -149,12 +155,13 @@ def genzerncoeffs(i,zernamp):
 	time.sleep(tsleep)
 	imzern=stack(10)
 	imdiff=(imzern-imflat)
-	tar=processim(imdiff)[indttmask]	
+	tar_ini=processim(imdiff)
+	tar=np.array([np.real(tar_ini[indttmask]),np.imag(tar_ini[indttmask])])	
 	coeffs=np.dot(cmd_mtx,tar)
 	return coeffs*IMamp
 
 nlin=20 #number of data points to scan through linearity measurements
-zernamparr=np.linspace(-1.5*IMamp,1.5,IMamp,nlin)
+zernamparr=np.linspace(-1.5*IMamp,1.5*IMamp,nlin)
 
 #try linearity measurement for Zernike mode 0
 zernampout=np.zeros((len(nmarr),nlin))

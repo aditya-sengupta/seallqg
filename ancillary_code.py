@@ -13,6 +13,9 @@ import functions
 #initialize; no need to load this more than once
 #for full frame:
 
+
+# Andor camera commands
+#for large format
 #a=shmlib.shm('/tmp/ca01dit.im.shm') 
 #im=shmlib.shm('/tmp/ca01im.im.shm')
 
@@ -50,7 +53,7 @@ def stack(n):
 mtf = lambda im: np.abs(np.fft.fftshift(np.fft.fft2(im)))
 
 
-#DM commands
+#kilo DM commands
 
 b=shmlib.shm('/tmp/dm02itfStatus.im.shm')
 status=b.get_data()
@@ -77,7 +80,7 @@ dmcini=getdmc()
 dmzero=np.zeros(dmcini.shape,dtype=np.float32)
 applyzero = lambda : applydmc(dmzero)
 
-
+'''
 #WFS slopes
 port="5556"
 context = zmq.Context()
@@ -123,6 +126,7 @@ def stackSlopes(n): #average some number of frames of slopes
 
 #wf = getWavefront()
 #sx,sy = getSlopes()
+'''
 
 '''
 # Push each actuator
