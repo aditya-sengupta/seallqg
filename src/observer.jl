@@ -37,3 +37,4 @@ function make_kfilter_ar(ar_len::Int64, openloops::Vector; σ::Float64=0.06)
 
     KFilter(A, B, C, Q, R)
 end
+

@@ -8,7 +8,7 @@ import tqdm
 N_vib_app = 10
 f_sampling = 1000  # Hz
 f_1 = f_sampling / 60  # lowest possible frequency of a vibration mode
-f_2 = f_sampling / 3  # highest possible frequency of a vibration mode
+f_2 = f_sampling / 10  # highest possible frequency of a vibration mode
 f_w = f_sampling / 3  # frequency above which measurement noise dominates
 measurement_noise = 0.06  # milliarcseconds; pulled from previous notebook
 D = 10.95
@@ -38,17 +38,27 @@ def make_1D_vibe_data(steps, vib_params=None, N=N_vib_app):
     # adjusted so that each 'pos' mode is the solution to the DE
     # x'' + 2k w0 x' + w0^2 x = 0 with w0 = 2pi*f/sqrt(1-k^2) 
     # (chosen so that vib_freqs matches up with the PSD freq)
+    if N == 0:
+        return np.zeros(steps,)
+
     if vib_params is None:
         vib_amps, vib_freqs, vib_damping, vib_phase = make_vibe_params(N)
     else:
         vib_amps, vib_freqs, vib_damping, vib_phase = vib_params
         N = vib_freqs.size
 
+    fixed_freqs = True
+    if fixed_freqs:
+        freqs = np.array([88.21534603, 47.70646298, 35.72925028, 28.98017157, 88.40496394, 39.51316352, 74.18223167, 99.04095768, 38.84731573, 96.0509727])
+        #vib_freqs = np.random.choice(freqs, N)
+        vib_freqs = freqs[:N]
+
     times = np.linspace(0, steps / f_sampling, steps)
     pos = sum([vib_amps[i] * np.cos(2 * np.pi * vib_freqs[i] * times - vib_phase[i])
                * np.exp(-(vib_damping[i]/(1 - vib_damping[i]**2)) * 2 * np.pi * vib_freqs[i] * times) 
                for i in range(N)])
 
+    assert isinstance(pos, np.ndarray)
     return pos
 
 def make_2D_vibe_data(steps, N=N_vib_app):
@@ -68,17 +78,28 @@ def center_of_mass(f):
     return normalize * np.array([(f.grid.x * f).sum(), (f.grid.y * f).sum()])/f.sum()
 
 def make_atm_data(steps, wf=None, layers=layers, zerotime=0):
-    conversion = (wavelength / D) * 206265000 / focal_samples
-    if wf is None:
-        wf = hcipy.Wavefront(aperture, wavelength) # can induce a specified TT here if desired
-
     tt_cms = np.zeros((steps, 2))
-    for n in tqdm.trange(steps):
-        wf = hcipy.Wavefront(aperture, wavelength)
-        for layer in layers:
-            layer.evolve_until(n / f_sampling + zerotime)
-            wf = layer(wf)
-        tt_cms[n] = center_of_mass(prop(wf).intensity)
+    conversion = (wavelength / D) * 206265000 / focal_samples
+    if len(layers) > 0:
+        if wf is None:
+            wf = hcipy.Wavefront(aperture, wavelength) # can induce a specified TT here if desired
+
+        for n in tqdm.trange(steps):
+            wf = hcipy.Wavefront(aperture, wavelength)
+            for layer in layers:
+                layer.evolve_until(n / f_sampling + zerotime)
+                wf = layer(wf)
+            tt_cms[n] = center_of_mass(prop(wf).intensity)
 
     tt_cms *= conversion # pixels to mas
     return tt_cms
+
+if __name__ == "__main__":
+    nlayers = 6
+    nvib = 1
+    nsteps = 10000
+    for (nlayers, nvib) in zip([0, 0, 0, 1, 1, 1, 2, 6], [2, 3, 10, 0, 2, 3, 0, 0]):
+        fname = "ol_atm_{0}_vib_{1}.npy".format(nlayers, nvib)
+        atm_ol = make_atm_data(nsteps, layers=layers[:nlayers])
+        vib_ol = make_2D_vibe_data(nsteps, nvib)
+        np.save("../data/sims/" + fname, atm_ol + vib_ol)

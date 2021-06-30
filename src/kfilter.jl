@@ -1,4 +1,6 @@
 using LinearAlgebra: Matrix
+using ControlSystems
+import ControlSystems: dare, kalman
 """
 Functionality for observing a state (mainly via a Kalman filter), in interaction with a ControlSystems.jl system.
 """
@@ -31,10 +33,19 @@ end
 predict(kf::KFilter, x::Vector, u::Vector) = kf.A * x + kf.B * u
 update(kf::KFilter, x::Vector, y::Vector) = x + kf.K * (y - kf.C * x)
 
-function simulate(kf::KFilter, measurements::Vector, inputs::Vector)
+dare(kf::KFilter) = dare(kf.A', kf.C', kf.Q, kf.R)
+
+function kalman(kf::KFilter)
+    P = dare(kf)
+    return P * kf.C' * inv(kf.C * P * kf.C' + kf.R)
+end
+
+function simulate(kf::KFilter, measurements::Vector, inputs::Vector, x0::Vector)
     states = [zeros(size(kf.A, 1)) for _ in measurements]
+    x = copy(x0)
     for (i, (u, m)) in enumerate(zip(inputs, measurements))
-        states[i] = update(kf, predict(kf, states[i-1], u), m)
+        x = update(kf, predict(kf, x, u), m)
+        states[i] = x
     end
     return states
 end
