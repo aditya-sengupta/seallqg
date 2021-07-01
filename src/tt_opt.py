@@ -1,5 +1,78 @@
-# split off from tt_opt.py for convenience, so that we can separately %run that from IPython.
-# to be run after tt_opt.py.
+'''
+optimize tip/tilt offset based on fringe visibility
+
+so far, manual steering by eye seems better than the optimal determined value
+'''
+import numpy as np
+from numpy import float32
+import time
+import itertools
+from scipy.ndimage.filters import median_filter
+
+from tt import *
+
+dmcini = getdmc()
+ydim,xdim = dmcini.shape
+grid = np.mgrid[0:ydim,0:xdim].astype(float32)
+bestflat = np.load('/home/lab/blgerard/bestflat.npy') #if running code after running zern_opt.py (i.e., non-coronagraphic PSF)
+#bestflat = np.load('bestflat.npy') #if running code to realign coronagraphic PSF
+#bestflat = np.load('bestflat_shwfs.npy')
+applybestflat = lambda: applydmc(bestflat, False)
+applybestflat()
+
+expt(1e-4) #set exposure time; must be at 1e-4 to void saturating when steering off the FPM
+imini = getim() #Andor image just for referencing dimensions
+
+#DM aperture:
+ydim, xdim = dmcini.shape
+grid = np.mgrid[0:ydim, 0:xdim].astype(float32)
+ygrid, xgrid = grid[0]-ydim/2, grid[1]-xdim/2
+tip, tilt = (ygrid+ydim/2)/ydim, (xgrid+xdim/2)/xdim #min value is zero, max is one
+
+#DM aperture:
+undersize = 27/32 #assuming 27 of the 32 actuators are illuminated
+rho, phi = ao.polar_grid(xdim,xdim*undersize)
+cenaperture = np.zeros(rho.shape).astype(float32)
+indapcen = np.where(rho > 0)
+cenaperture[indapcen] = 1
+
+aperture = np.load('/home/lab/blgerard/DMmap.npy').astype(float32) #actual aperture, from close_SHWFS_loop.py
+
+#from comparing cenaperture and aperture, the actual aperture is shifted down and to the right (in ds9) each by 1 pixel from the center
+yapcen,xapcen = ydim/2.-0.5-1,xdim/2.-0.5-1
+rap = np.sqrt((grid[0]-yapcen)**2.+(grid[1]-xapcen)**2.)
+rap[np.where(rap > xdim/2. *undersize)] = 0.
+rhoap = rap/np.max(rap)
+phiap = np.arctan2(grid[1]-yapcen,grid[0]-xapcen)
+indap = np.where(rhoap>0)
+
+def remove_piston(dmc):
+	assert isinstance(dmc, np.ndarray), "invalid input to remove_piston"
+	return dmc - np.mean(dmc[indap])
+
+#applying tip/tilt recursively (use if steering back onto the FPM after running zern_opt)
+def applytip(amp, verbose=True): #apply tip; amp is the P2V in DM units
+	dmc = getdmc()
+	dmctip = amp*tip
+	dmc = remove_piston(dmc)+remove_piston(dmctip)+0.5
+	return applydmc(dmc*aperture, verbose)
+
+def applytilt(amp, verbose=True): #apply tilt; amp is the P2V in DM units
+	dmc = getdmc()
+	dmctilt = amp*tilt
+	dmc = remove_piston(dmc)+remove_piston(dmctilt)+0.5
+	return applydmc(dmc*aperture, verbose)
+
+#MANUALLY USE ABOVE FUNCTIONS TO STEER THE PSF BACK ONTO THE FPM AS NEEDED, then:
+bestflat = getdmc()
+
+#apply tip/tilt starting only from the bestflat point (start here if realigning the non-coronagraphic PSF) 
+def applytiptilt(amptip, amptilt, bestflat = bestflat, verbose=True): #amp is the P2V in DM units
+	dmctip = amptip*tip
+	dmctilt = amptilt*tilt
+	dmctiptilt = remove_piston(dmctip)+remove_piston(dmctilt)+remove_piston(bestflat)+0.5 #combining tip, tilt, and best flat, setting mean piston to 0.5
+	return applydmc(aperture*dmctiptilt, verbose)
+	
 
 #make MTF side lobe mask
 xsidemaskcen, ysidemaskcen = 161.66, 252.22 #x and y location of the side lobe mask in the cropped image
@@ -96,10 +169,10 @@ sin2 = dmsin(0.1,2.5,0,bestflat = bestflat)
 #MANUALLY: APPLY applytilt(NUMBER) until satisfied
 bestflat = getdmc()-sin2
 '''
-np.save('bestflat.npy',bestflat)
+np.save('../data/bestflat.npy', sbestflat)
 
 #unfinished code to close the tip/tilt loop:
-def vim(tsleep): #if I want to close the tip/tilt loop, take a look at what timesteps in between images are needed 
+def vim_sleep(tsleep): #if I want to close the tip/tilt loop, take a look at what timesteps in between images are needed 
 	applybestflat()
 	time.sleep(tsleep)
 	imref = cropim(getim())
@@ -111,4 +184,4 @@ def vim(tsleep): #if I want to close the tip/tilt loop, take a look at what time
 	#imtilt = cropim(getim())
 	applybestflat()
 	ds9.view(imtip-imref)
-	
+

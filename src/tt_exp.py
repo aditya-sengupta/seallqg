@@ -1,5 +1,5 @@
 # my tip-tilt experiments
-# to be run after %run tt_align.py
+# to be run after %run tt
 
 def find_limits():
     """
@@ -42,9 +42,9 @@ def measurement_noise_diff_image():
         applytiptilt(ttval[0], ttval[1])
         for (j, d) in enumerate(delays):
             for _ in niters:
-                im1 = stack(10) # getim()
+                im1 = getim()
                 time.sleep(d)
-                im2 = stack(10) # getim()
+                im2 = getim()
                 imdiff = im2 - im1
                 tar_ini = processim(imdiff)
                 tar = np.array([np.real(tar_ini[indttmask]), np.imag(tar_ini[indttmask])]).flatten()	

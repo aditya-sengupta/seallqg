@@ -1,9 +1,10 @@
 import numpy as np
 from numpy import float32
 import time
-import functions
 import itertools
 from scipy.ndimage.filters import median_filter
+
+from image import *
 
 dmcini=getdmc()
 ydim,xdim=dmcini.shape
@@ -11,7 +12,7 @@ grid=np.mgrid[0:ydim,0:xdim].astype(float32)
 #bestflat=np.load('bestflat_zopt.npy') #if running code after running zern_opt.py (i.e., non-coronagraphic PSF)
 #bestflat=np.load('bestflat.npy') #if running code to realign coronagraphic PSF
 #bestflat=np.load('bestflat_shwfs.npy')
-bestflat=np.load('zygo/dm2_apply11.npy') #zygo, best flat
+bestflat=np.load('/home/lab/blgerard/bestflat.npy') #zygo, best flat
 applydmc(bestflat)
 
 expt(1e-4) #set exposure time; for 0.25 mW
@@ -25,7 +26,7 @@ tip,tilt=(ygrid+ydim/2)/ydim,(xgrid+xdim/2)/xdim #min value is zero, max is one
 
 #DM aperture:
 undersize=27/32 #assuming 27 of the 32 actuators are illuminated
-rho,phi=functions.polar_grid(xdim,xdim*undersize)
+rho,phi = ao.polar_grid(xdim,xdim*undersize)
 cenaperture=np.zeros(rho.shape).astype(float32)
 indapcen=np.where(rho>0)
 cenaperture[indapcen]=1

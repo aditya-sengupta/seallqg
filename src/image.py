@@ -4,7 +4,7 @@ import pysao
 import numpy as np
 import sys
 import time
-import ao_utils
+import ao
 
 ds9 = pysao.ds9()
 
@@ -82,6 +82,7 @@ dmcini = getdmc()
 dmzero = np.zeros(dmcini.shape, dtype=np.float32)
 applyzero  =  lambda : applydmc(dmzero, False)
 
+"""
 #WFS slopes
 port = "5556"
 context  =  zmq.Context()
@@ -94,7 +95,7 @@ def get_pupil_size(sock):
     pupSize  =  np.frombuffer(data, dtype = np.int32)
     return pupSize
 
-pupSize = getPupilSize(socket)[0]
+pupSize = get_pupil_size(socket)[0]
 
 def get_wavefront():
     socket.send_string("wavefront");
@@ -126,8 +127,9 @@ def stack_slopes(n): #average some number of frames of slopes
 
 def push_actuators():
 	for k in range(0,32):
-    for l in range(0,32):
-     cmd = cmd*0;
-     cmd[k][l]  =  1
-     dmChannel.set_data(cmd)
-     time.sleep(0.2)
+		for l in range(0,32):
+     			cmd = cmd*0;
+     			cmd[k][l]  =  1
+     			dmChannel.set_data(cmd)
+     			time.sleep(0.2)
+ """
