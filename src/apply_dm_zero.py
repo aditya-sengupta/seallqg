@@ -1,4 +1,4 @@
-from ancillary_code import *
+from tt import *
 import numpy as np
 
 applydmc(dmzero)

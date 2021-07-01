@@ -2,11 +2,11 @@
 code to attempt Zernike optimization, aka "focal plane sharpening"
 '''
 
-from ancillary_code import *
+from tt import *
 import numpy as np
 from numpy import float32
 import time
-import ao_utils
+import ao
 
 #setup
 #bestflat = np.load('bestflat.npy')
@@ -44,10 +44,10 @@ indap=np.where(rhoap>0)
 
 #regular DM aperture:
 undersize=29/32 #29 of the 32 actuators are illuminated
-rho,phi=functions.polar_grid(xdim,xdim*undersize)
-aperture=np.zeros(rho.shape).astype(float32)
-indap=np.where(rho>0)
-indnap=np.where(rho==0)
+rho,phi = ao.polar_grid(xdim,xdim*undersize)
+aperture = np.zeros(rho.shape).astype(float32)
+indap = np.where(rho>0)
+indnap = np.where(rho==0)
 aperture[indap]=1
 
 remove_piston  =  lambda dmc: dmc-np.mean(dmc[indap]) #function to remove piston from dm command to have zero mean (must be intermediate)
