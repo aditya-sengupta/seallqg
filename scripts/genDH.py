@@ -370,7 +370,7 @@ for i in range(len(freq_loop)):
 	print(i/len(freq_loop))
 
 applybestflat()
-IM = np.dot(refvec,refvec.T)
+IM = np.dot(refvec, refvec.T)
 
 from datetime import datetime
 np.save('IM/SCC/'+datetime.now().strftime("%d_%m_%Y_%H_%M")+'.npy',IM)
@@ -380,10 +380,10 @@ np.save('SCC_IM.npy',IM)
 #the following code will help determine the optimal SVD cutoff, looking at what SVD cutoff will best reconstruct individual modes
 
 plt.figure()
-def pc(rcond,i):
+def pc(rcond, i):
 	#rcond = 1e-3
 	IMinv = np.linalg.pinv(IM,rcond = rcond)
-	cmd_mtx = np.dot(IMinv,refvec)
+	cmd_mtx = np.dot(IMinv, refvec)
 	#i = 100
 	sin = dmsin(0.01,freq_loop[i],pa_loop[i])
 	time.sleep(0.1)
@@ -404,10 +404,10 @@ leak = 1
 applybestflat()
 time.sleep(tsleep)
 for nit in range(numiter):
-	imin=stack(10) #larger number of stacks increases the amount by which you can gain...
-	tar=scc_imin(imin)
-	coeffs=np.dot(cmd_mtx,tar)
-	cmd=np.dot(fourierarr.T,-coeffs).reshape(dmcini.shape).astype(float32)
+	imin = stack(10) #larger number of stacks increases the amount by which you can gain...
+	tar = scc_imin(imin)
+	coeffs = np.dot(cmd_mtx,tar)
+	cmd = np.dot(fourierarr.T,-coeffs).reshape(dmcini.shape).astype(float32)
 	applydmc((remove_piston(leak*getdmc()+cmd*gain)))
 	time.sleep(tsleep)
 

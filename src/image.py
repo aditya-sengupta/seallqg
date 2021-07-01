@@ -79,7 +79,7 @@ def applydmc(cmd, verbose=True): #apply command to the DM
 		return (len(indneg[0]) <= 0, len(indpos[0]) <= 0)
 
 dmcini = getdmc()
-dmzero = np.zeros(dmcini.shape,dtype = np.float32)
+dmzero = np.zeros(dmcini.shape, dtype=np.float32)
 applyzero  =  lambda : applydmc(dmzero, False)
 
 #WFS slopes
@@ -103,10 +103,10 @@ def get_wavefront():
     return wf
 
 def stack_wavefront(n): #average some number of frames of wavefront
-	imw=np.zeros(getWavefront().shape)
-	for i in range(n):
-		imw=imw+getWavefront()
-	imw=imw/n
+	imw = getWavefront()
+	for i in range(n-1):
+		imw = imw + getWavefront()
+	imw = imw/n
 	return imw
 
 def get_slopes():

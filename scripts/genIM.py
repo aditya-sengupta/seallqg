@@ -224,7 +224,7 @@ for i in range(len(freq_loop)):
 	print(i/len(freq_loop))
 
 applybestflat()
-IM = np.dot(refvec,refvec.T)
+IM = np.dot(refvec, refvec.T)
 #the following code will help determine the optimal SVD cutoff, looking at what SVD cutoff will best reconstruct individual modes
 '''
 plt.figure()
@@ -242,8 +242,8 @@ def pc(rcond,i):
 '''
 
 rcond = 1e-4
-IMinv = np.linalg.pinv(IM,rcond = rcond)
-cmd_mtx = np.dot(IMinv,refvec)
+IMinv = np.linalg.pinv(IM, rcond=rcond)
+cmd_mtx = np.dot(IMinv, refvec)
 
 numiter = 20
 gain = 0.5
@@ -251,7 +251,7 @@ leak = 1
 applybestflat()
 time.sleep(tsleep)
 for nit in range(numiter):
-	imin = stack(10000) #larger number of stacks increases the amount by which you can gain...
+	imin = stack(10000) # larger number of stacks increases the amount by which you can gain...
 	tar = scc_imin(imin)
 	coeffs = np.dot(cmd_mtx,tar)
 	cmd = np.dot(fourierarr.T,-coeffs).reshape(dmcini.shape).astype(float32)

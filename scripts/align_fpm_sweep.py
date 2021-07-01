@@ -98,8 +98,8 @@ for i in range(namp):
 indopttip1,indopttilt1=np.where(ttoptarr1==np.max(ttoptarr1))
 applytiptilt(tipamparr[indopttip1][0],tiltamparr[indopttilt1][0])
 
-bestflat=getdmc()
-im_bestflat=stack(100)
+bestflat = getdmc()
+im_bestflat = stack(100)
 
 #next: manually fine tune bestflat by placing sine waves and adjusting by eye that the spot intensities look even...still having trouble with implementing this section; it seems like my eyes may be biased to evening out speckles that are interfering with the sinespots, thereby degrading the quality of the alignment
 '''
@@ -125,8 +125,8 @@ bestflat=getdmc()-sin2
 '''
 
 from datetime import datetime
-np.save('bestflats/'+datetime.now().strftime("%d_%m_%Y_%H")+'.npy',bestflat)
-np.save('bestflats/im_'+datetime.now().strftime("%d_%m_%Y_%H")+'.npy',im_bestflat)
+np.save('bestflats/'+datetime.now().strftime("%d_%m_%Y_%H")+'.npy', bestflat)
+np.save('bestflats/im_'+datetime.now().strftime("%d_%m_%Y_%H")+'.npy', im_bestflat)
 np.save('bestflat.npy',bestflat)
 
 #unfinished code to close the tip/tilt loop:

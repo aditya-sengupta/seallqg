@@ -137,7 +137,7 @@ plt.tight_layout()
 np.save('bestflat_zopt.npy',bestflat)
 
 #testing sine wave code:
-ycen,xcen = ydim/2-0.5,xdim/2-0.5
+ycen, xcen = ydim/2-0.5, xdim/2-0.5
 rgrid = lambda pa:(grid[0]-ycen)/grid[0][-1,0]*np.cos(pa*np.pi/180)+(grid[1]-xcen)/grid[0][-1,0]*np.sin(pa*np.pi/180)
 def dmsin(amp,freq,pa): 
 	sin = amp*0.5*np.sin(2*np.pi*freq*rgrid(pa))
