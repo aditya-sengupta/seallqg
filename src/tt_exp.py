@@ -1,5 +1,7 @@
 # my tip-tilt experiments
-# to be run after %run tt
+from tt_opt import *
+from datetime import datetime
+import tqdm
 
 def find_limits():
     """
@@ -9,15 +11,16 @@ def find_limits():
 
     Returns: (list, list); the first is min_tip, max_tip; the second is min_tilt, max_tilt
     """
-    min_amp = 1e-3
-    max_amp = 1e-1
+    min_amp = 1e-4
+    max_amp = 1e-0
 
     limits = []
     for dmfn in [applytip, applytilt]:
         for sgn in [-1, +1]:
-            applybestflat()
+            applybestflat
             applied_cmd = 0.0
             for step_size in 10 ** np.arange(np.log10(max_amp), np.log10(min_amp)-1, -1):
+                time.sleep(tsleep)
                 in_range = True
                 while in_range:
                     applied_cmd += sgn * step_size
@@ -39,7 +42,7 @@ def measurement_noise_diff_image():
     tt_vals = np.zeros((len(applied_tts), len(delays), 2))
 
     for (i, applied_tt) in enumerate(applied_tts): # maybe change this later
-        applytiptilt(ttval[0], ttval[1])
+        applytiptilt(applied_tt[0], applied_tt[1])
         for (j, d) in enumerate(delays):
             for _ in niters:
                 im1 = getim()
@@ -49,11 +52,11 @@ def measurement_noise_diff_image():
                 tar_ini = processim(imdiff)
                 tar = np.array([np.real(tar_ini[indttmask]), np.imag(tar_ini[indttmask])]).flatten()	
                 coeffs = np.dot(cmd_mtx, tar)
-                ttvals[i][j] += coeffs * IMamp
+                tt_vals[i][j] += coeffs * IMamp
 
-    ttvals = ttvals / niters
+    ttvals = tt_vals / niters
     applybestflat()
-    fname = "~/asengupta/data/measurenoise_ttvals_{}".format(datetime.now().strftime("%d_%m_%Y_%H"))
+    fname = "/home/lab/asengupta/data/measurenoise_ttvals_{}".format(datetime.now().strftime("%d_%m_%Y_%H"))
     np.save(fname, ttvals)
     return ttvals
     
@@ -69,7 +72,7 @@ def amplitude_linearity():
 def unit_steps(min_amp, max_amp, steps_amp, steps_ang=12, tsleep=tsleep):
     angles = np.linspace(0.0, 2 * np.pi, steps_ang)
     amplitudes = np.linspace(min_amp, max_amp, steps_amp)
-    for amp in amplitudes:
+    for amp in tqdm.tqdm(amplitudes):
         for ang in angles:
             applybestflat()
             time.sleep(tsleep) # vary this later: for now I'm after steady-state error
@@ -77,13 +80,11 @@ def unit_steps(min_amp, max_amp, steps_amp, steps_ang=12, tsleep=tsleep):
             applytiptilt(amp * np.cos(ang), amp * np.sin(ang))
             time.sleep(tsleep)
             imtt = stack(10)
-            fname = "~/asengupta/data/unitstep_amp_{0}_ang_{1}_dt_{2}".format(round(amp, 3), round(ang, 3), datetime.now().strftime("%d_%m_%Y_%H"))
+            fname = "/home/lab/asengupta/data/unitstep_amp_{0}_ang_{1}_dt_{2}".format(round(amp, 3), round(ang, 3), datetime.now().strftime("%d_%m_%Y_%H"))
             fname.replace(".", "p")
             fname += ".npy"
             np.save(fname, imtt-imflat)
     applybestflat()
-
-    # dinosaur
 
 def sinusoids():
     pass

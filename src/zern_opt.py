@@ -7,6 +7,7 @@ import numpy as np
 from numpy import float32
 import time
 import ao
+from matplotlib import pyplot as plt
 
 #setup
 #bestflat = np.load('bestflat.npy')
@@ -82,7 +83,7 @@ for n in range(2,norder):
 		nmarr.append([n,m])
 
 def funz(n,m,amp,bestflat=ttdmc): #apply zernike to the DM
-	z=functions.zernike(n,m,rhoap,phiap)/2
+	z = ao.zernike(n,m,rhoap,phiap)/2
 	zdm=amp*(z.astype(float32))
 	dmc=np.zeros(aperture.shape).astype(float32)
 	dmc[indap]=(remove_piston(bestflat)+remove_piston(rmtt(zdm))+0.5)[indap]
