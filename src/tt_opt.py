@@ -8,6 +8,7 @@ from numpy import float32
 import time
 import itertools
 from scipy.ndimage.filters import median_filter
+import tqdm
 
 from tt import *
 
@@ -67,7 +68,7 @@ def applytilt(amp, verbose=True): #apply tilt; amp is the P2V in DM units
 bestflat = getdmc()
 
 #apply tip/tilt starting only from the bestflat point (start here if realigning the non-coronagraphic PSF) 
-def applytiptilt(amptip, amptilt, bestflat = bestflat, verbose=True): #amp is the P2V in DM units
+def applytiptilt(amptip, amptilt, bestflat=bestflat, verbose=True): #amp is the P2V in DM units
 	dmctip = amptip*tip
 	dmctilt = amptilt*tilt
 	dmctiptilt = remove_piston(dmctip) + remove_piston(dmctilt) + remove_piston(bestflat) + 0.5 #combining tip, tilt, and best flat, setting mean piston to 0.5
@@ -105,83 +106,85 @@ cenmaskradmax,cenmaskradmin = 49, 10 #mask radii for central lobe, ignoring cent
 cenmaskind = np.where(np.logical_and(cenmaskrho<cenmaskradmax, cenmaskrho>cenmaskradmin))
 cenmask[cenmaskind] = 1
 
-namp = 10
-amparr = np.linspace(-0.3, 0.3, namp) #note the range of this grid search is can be small, assuming day to day drifts are minimal and so you don't need to search far from the previous day to find the new optimal alignment; for larger offsets the range may need to be increases (manimum search range is -1 to 1); but, without spanning the full -1 to 1 range this requires manual tuning of the limits to ensure that the minimum is not at the edge
-ttoptarr = np.zeros((namp, namp))
-for i in range(namp):
-	for j in range(namp):
-		applytiptilt(amparr[i], amparr[j], False)
+if __name__ == "__main__":
+	# for some reason all of this takes a long time
+	namp = 10
+	amparr = np.linspace(-0.3, 0.3, namp) #note the range of this grid search is can be small, assuming day to day drifts are minimal and so you don't need to search far from the previous day to find the new optimal alignment; for larger offsets the range may need to be increases (manimum search range is -1 to 1); but, without spanning the full -1 to 1 range this requires manual tuning of the limits to ensure that the minimum is not at the edge
+	ttoptarr = np.zeros((namp, namp))
+	for i in tqdm.trange(namp):
+		for j in range(namp):
+			applytiptilt(amparr[i], amparr[j], verbose=False)
+			time.sleep(tsleep)
+			imopt = stack(1000)
+			mtfopt = mtf(imopt)
+			sidefraction = np.sum(mtfopt[sidemaskind])/np.sum(mtfopt)
+			cenfraction = np.sum(mtfopt[cenmaskind])/np.sum(mtfopt)
+			ttoptarr[i,j] = sidefraction+0.01/cenfraction #the factor of 0.01 is a relative weight; because we only expect the fringe visibility to max out at 1%, this attempts to give equal weight to both terms 
+
+	#medttoptarr = median_filter(ttoptarr,3) #smooth out hot pizels, attenuating noise issues
+	indopttip, indopttilt = np.where(ttoptarr == np.max(ttoptarr))
+	indopttip, indopttilt = indopttip[0],indopttilt[0]
+	applytiptilt(amparr[indopttip],amparr[indopttilt])
+
+	expt(1e-3)
+
+
+	ampdiff = amparr[2]-amparr[0] #how many discretized points to zoom in to from the previous iteration
+	tipamparr = np.linspace(amparr[indopttip]-ampdiff,amparr[indopttip]+ampdiff,namp)
+	tiltamparr = np.linspace(amparr[indopttilt]-ampdiff,amparr[indopttilt]+ampdiff,namp)
+	ttoptarr1 = np.zeros((namp,namp))
+	for i in range(namp):
+		for j in range(namp):
+			applytiptilt(tipamparr[i], tiltamparr[j])
+			time.sleep(tsleep)
+			imopt = stack(1000)
+			mtfopt = mtf(imopt)
+			sidefraction = np.sum(mtfopt[sidemaskind])/np.sum(mtfopt)
+			cenfraction = np.sum(mtfopt[cenmaskind])/np.sum(mtfopt)
+			ttoptarr1[i,j] = sidefraction+0.01/cenfraction 
+
+	#medttoptarr1 = median_filter(ttoptarr1,3) #smooth out hot pizels, attenuating noise issues
+	indopttip1,indopttilt1 = np.where(ttoptarr1 == np.max(ttoptarr1))
+	applytiptilt(tipamparr[indopttip1][0],tiltamparr[indopttilt1][0])
+
+	bestflat = getdmc()
+
+	#next: manually fine tune bestflat by placing sine waves and adjusting by eye that the spot intensities look even
+	#...still having trouble with implementing this section; it seems like my eyes may be biased to evening out speckles 
+	# that are interfering with the sinespots, thereby degrading the quality of the alignment
+	'''
+	#functions to apply DM Fourier modes 
+	ycen,xcen = ydim/2-0.5,xdim/2-0.5
+	indrho1 = np.where(rho == 1)
+	gridnorm = np.max(grid[0][indrho1])
+	rgrid = lambda pa:(grid[0]-ycen)/gridnorm*np.cos(pa*np.pi/180)+(grid[1]-xcen)/gridnorm*np.sin(pa*np.pi/180)
+	def dmsin(amp,freq,pa,bestflat = bestflat): #generate sine wave
+		sin = amp*0.5*np.sin(2*np.pi*freq*rgrid(pa))
+		sindm = sin.astype(float32)
+		dmc = bestflat+sindm
+		applydmc(dmc*aperture)
+		return sindm
+
+	sin1 = dmsin(0.1,2.5,90,bestflat = bestflat)
+	#MANUALLY: APPLY applytilt(NUMBER) until satisfied
+	#applytilt(-0.1)
+	bestflat = getdmc()-sin1
+	sin2 = dmsin(0.1,2.5,0,bestflat = bestflat)
+	#MANUALLY: APPLY applytilt(NUMBER) until satisfied
+	bestflat = getdmc()-sin2
+	'''
+	np.save('../data/bestflat.npy', bestflat)
+
+	#unfinished code to close the tip/tilt loop:
+	def vim_sleep(tsleep): #if I want to close the tip/tilt loop, take a look at what timesteps in between images are needed 
+		applybestflat()
 		time.sleep(tsleep)
-		imopt = stack(1000)
-		mtfopt = mtf(imopt)
-		sidefraction = np.sum(mtfopt[sidemaskind])/np.sum(mtfopt)
-		cenfraction = np.sum(mtfopt[cenmaskind])/np.sum(mtfopt)
-		ttoptarr[i,j] = sidefraction+0.01/cenfraction #the factor of 0.01 is a relative weight; because we only expect the fringe visibility to max out at 1%, this attempts to give equal weight to both terms 
-
-#medttoptarr = median_filter(ttoptarr,3) #smooth out hot pizels, attenuating noise issues
-indopttip, indopttilt = np.where(ttoptarr == np.max(ttoptarr))
-indopttip, indopttilt = indopttip[0],indopttilt[0]
-applytiptilt(amparr[indopttip],amparr[indopttilt])
-
-expt(1e-3)
-
-ampdiff = amparr[2]-amparr[0] #how many discretized points to zoom in to from the previous iteration
-tipamparr = np.linspace(amparr[indopttip]-ampdiff,amparr[indopttip]+ampdiff,namp)
-tiltamparr = np.linspace(amparr[indopttilt]-ampdiff,amparr[indopttilt]+ampdiff,namp)
-ttoptarr1 = np.zeros((namp,namp))
-for i in range(namp):
-	for j in range(namp):
-		applytiptilt(tipamparr[i], tiltamparr[j])
+		imref = getim()
+		applytiptilt(-0.1, 0)
 		time.sleep(tsleep)
-		imopt = stack(1000)
-		mtfopt = mtf(imopt)
-		sidefraction = np.sum(mtfopt[sidemaskind])/np.sum(mtfopt)
-		cenfraction = np.sum(mtfopt[cenmaskind])/np.sum(mtfopt)
-		ttoptarr1[i,j] = sidefraction+0.01/cenfraction 
-
-#medttoptarr1 = median_filter(ttoptarr1,3) #smooth out hot pizels, attenuating noise issues
-indopttip1,indopttilt1 = np.where(ttoptarr1 == np.max(ttoptarr1))
-applytiptilt(tipamparr[indopttip1][0],tiltamparr[indopttilt1][0])
-
-bestflat = getdmc()
-
-#next: manually fine tune bestflat by placing sine waves and adjusting by eye that the spot intensities look even
-#...still having trouble with implementing this section; it seems like my eyes may be biased to evening out speckles 
-# that are interfering with the sinespots, thereby degrading the quality of the alignment
-'''
-#functions to apply DM Fourier modes 
-ycen,xcen = ydim/2-0.5,xdim/2-0.5
-indrho1 = np.where(rho == 1)
-gridnorm = np.max(grid[0][indrho1])
-rgrid = lambda pa:(grid[0]-ycen)/gridnorm*np.cos(pa*np.pi/180)+(grid[1]-xcen)/gridnorm*np.sin(pa*np.pi/180)
-def dmsin(amp,freq,pa,bestflat = bestflat): #generate sine wave
-	sin = amp*0.5*np.sin(2*np.pi*freq*rgrid(pa))
-	sindm = sin.astype(float32)
-	dmc = bestflat+sindm
-	applydmc(dmc*aperture)
-	return sindm
-
-sin1 = dmsin(0.1,2.5,90,bestflat = bestflat)
-#MANUALLY: APPLY applytilt(NUMBER) until satisfied
-#applytilt(-0.1)
-bestflat = getdmc()-sin1
-sin2 = dmsin(0.1,2.5,0,bestflat = bestflat)
-#MANUALLY: APPLY applytilt(NUMBER) until satisfied
-bestflat = getdmc()-sin2
-'''
-np.save('../data/bestflat.npy', sbestflat)
-
-#unfinished code to close the tip/tilt loop:
-def vim_sleep(tsleep): #if I want to close the tip/tilt loop, take a look at what timesteps in between images are needed 
-	applybestflat()
-	time.sleep(tsleep)
-	imref = cropim(getim())
-	applytiptilt(-0.1, 0)
-	time.sleep(tsleep)
-	imtip = cropim(getim())
-	#applytiptilt(0,0.1)
-	#time.sleep(tsleep)
-	#imtilt = cropim(getim())
-	applybestflat()
-	ds9.view(imtip-imref)
-
+		imtip = getim()
+		#applytiptilt(0,0.1)
+		#time.sleep(tsleep)
+		#imtilt = getim()
+		applybestflat()
+		ds9.view(imtip-imref)
