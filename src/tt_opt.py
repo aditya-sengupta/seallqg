@@ -70,7 +70,7 @@ bestflat = getdmc()
 def applytiptilt(amptip, amptilt, bestflat = bestflat, verbose=True): #amp is the P2V in DM units
 	dmctip = amptip*tip
 	dmctilt = amptilt*tilt
-	dmctiptilt = remove_piston(dmctip)+remove_piston(dmctilt)+remove_piston(bestflat)+0.5 #combining tip, tilt, and best flat, setting mean piston to 0.5
+	dmctiptilt = remove_piston(dmctip) + remove_piston(dmctilt) + remove_piston(bestflat) + 0.5 #combining tip, tilt, and best flat, setting mean piston to 0.5
 	return applydmc(aperture*dmctiptilt, verbose)
 	
 

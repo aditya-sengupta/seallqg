@@ -86,9 +86,9 @@ sidemaskind = np.where(sidemaskrho<sidemaskrad)
 sidemask[sidemaskind] = 1
 
 def processim(imin): #process SCC image, isolating the sidelobe in the FFT and IFFT back to the image
-	otf=np.fft.fftshift(np.fft.fft2(imin,norm='ortho')) #(1) FFT the image
-	otf_masked=otf*sidemask #(2) multiply by binary mask to isolate side lobe
-	Iminus = np.fft.ifft2(otf_masked,norm='ortho') #(3) IFFT back to the image plane, now generating a complex-valued image
+	otf = np.fft.fftshift(np.fft.fft2(imin, norm='ortho')) #(1) FFT the image
+	otf_masked = otf * sidemask #(2) multiply by binary mask to isolate side lobe
+	Iminus = np.fft.ifft2(otf_masked, norm='ortho') #(3) IFFT back to the image plane, now generating a complex-valued image
 	return Iminus
 
 #make interaction matrix
