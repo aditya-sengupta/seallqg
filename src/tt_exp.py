@@ -1,9 +1,12 @@
 # my tip-tilt experiments
-from tt_opt import *
+import numpy as np
 from datetime import datetime
 import tqdm
 
-def find_limits():
+from tt import *
+from compute_cm_im import *
+
+def find_limits(min_amp=1e-4, max_amp=1e-0):
     """
     Applies tips and tilts from the best flat to find the feasible range of DM TT commands.
 
@@ -11,13 +14,10 @@ def find_limits():
 
     Returns: (list, list); the first is min_tip, max_tip; the second is min_tilt, max_tilt
     """
-    min_amp = 1e-4
-    max_amp = 1e-0
-
     limits = []
     for dmfn in [applytip, applytilt]:
         for sgn in [-1, +1]:
-            applybestflat
+            applydmc(bestflat)
             applied_cmd = 0.0
             for step_size in 10 ** np.arange(np.log10(max_amp), np.log10(min_amp)-1, -1):
                 time.sleep(tsleep)
@@ -29,8 +29,48 @@ def find_limits():
                 dmfn(-sgn * step_size, False) # move it back within range, and retry with the smaller step size
             limits.append(applied_cmd)
                 
-    applybestflat()
+    applydmc(bestflat)
     return limits[:2], limits[2:] # the first is min_tip, max_tip; the second is min_tilt, max_tilt
+
+def poisson_ll(data, lam):
+    from scipy.special import gammaln
+    
+    n = len(data)
+    return -n * lam + np.sum(data) * np.log(lam) - np.sum(np.nan_to_num(gammaln(imdiff), posinf=0))
+
+def get_noise(delay=1e-2):
+    im1 = getim()
+    time.sleep(delay)
+    im2 = getim()
+    imdiff = np.abs(im2 - im1)
+    return imdiff
+
+def noise_fishing(delay=1e-2):
+    """
+    Take a differential image and fit a Poisson distribution to it.
+    """
+    imdiff = get_noise(delay).ravel()
+    lam = np.mean(imdiff)
+    ll = poisson_ll(imdiff, lam)
+    return lam, ll
+
+def masked_noise_fishing(delay=1e-2):
+    im = getim()
+    mean, sd = np.mean(im), np.std(im)
+    imdiff = get_noise(delay)[im < mean + sd].ravel()
+    lam = np.mean(imdiff)
+    ll = poisson_ll(imdiff, lam)
+    return lam, ll
+
+def random_removal_noise_fishing(delay=1e-2):
+    random_mask = np.ones((320, 320), dtype=bool)
+    for _ in range(2150):
+        r, c = np.random.randint(0, 319, (2,))
+        random_mask[r][c] = False
+    imdiff = get_noise(delay)[random_mask].ravel()
+    lam = np.mean(imdiff)
+    ll = poisson_ll(imdiff, lam)
+    return lam, ll
 
 def measurement_noise_diff_image():
     """
@@ -44,7 +84,7 @@ def measurement_noise_diff_image():
     for (i, applied_tt) in enumerate(applied_tts): # maybe change this later
         applytiptilt(applied_tt[0], applied_tt[1])
         for (j, d) in enumerate(delays):
-            for _ in niters:
+            for _ in range(niters):
                 im1 = getim()
                 time.sleep(d)
                 im2 = getim()
@@ -55,7 +95,7 @@ def measurement_noise_diff_image():
                 tt_vals[i][j] += coeffs * IMamp
 
     ttvals = tt_vals / niters
-    applybestflat()
+    applydmc(bestflat)
     fname = "/home/lab/asengupta/data/measurenoise_ttvals_{}".format(datetime.now().strftime("%d_%m_%Y_%H"))
     np.save(fname, ttvals)
     return ttvals
@@ -69,22 +109,21 @@ def uniformity():
 def amplitude_linearity():
     pass
 
-def unit_steps(min_amp, max_amp, steps_amp, steps_ang=12, tsleep=tsleep):
+def unit_steps(min_amp, max_amp, steps_amp, steps_ang=12, tsleep=tsleep, nframes=50):
     angles = np.linspace(0.0, 2 * np.pi, steps_ang)
     amplitudes = np.linspace(min_amp, max_amp, steps_amp)
     for amp in tqdm.tqdm(amplitudes):
         for ang in angles:
-            applybestflat()
+            applydmc(bestflat)
             time.sleep(tsleep) # vary this later: for now I'm after steady-state error
-            imflat = stack(10)
+            imflat = stack(nframes)
             applytiptilt(amp * np.cos(ang), amp * np.sin(ang))
             time.sleep(tsleep)
-            imtt = stack(10)
+            imtt = stack(nframes)
             fname = "/home/lab/asengupta/data/unitstep_amp_{0}_ang_{1}_dt_{2}".format(round(amp, 3), round(ang, 3), datetime.now().strftime("%d_%m_%Y_%H"))
-            fname.replace(".", "p")
             fname += ".npy"
             np.save(fname, imtt-imflat)
-    applybestflat()
+    applydmc(bestflat)
 
 def sinusoids():
     pass

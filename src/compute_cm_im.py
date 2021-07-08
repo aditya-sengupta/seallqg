@@ -6,31 +6,31 @@ does not use optical chopper.
 must first run align_fpm.py, and genDH.py through saving the image center (np.save('imcen.npy',np.array([imxcen,imycen])))
 '''
 
-from ..src import tt
+from tt import *
 import numpy as np
 from matplotlib import pyplot as plt
 from numpy import float32
 import time
-import functions
+import ao
 
 #initial setup: apply best flat, generate DM grid to apply future shapes
 dmcini=getdmc()
 ydim,xdim=dmcini.shape
 grid=np.mgrid[0:ydim,0:xdim].astype(float32)
 #bestflat=np.load('dmc_dh.npy') #dark hole
-bestflat=np.load('bestflat.npy') #load bestflat, which should be an aligned FPM
+bestflat=np.load('/home/lab/blgerard/bestflat.npy') #load bestflat, which should be an aligned FPM
 applydmc(bestflat)
 
 expt(1e-4) #set exposure time
 imini=getim()
-imydim,imxdim=imini.shape
+imydim,imxdim = imini.shape
 
 tsleep = 0.01 #should be the same values from align_fpm.py and genDH.py
 
 #DM aperture:
 undersize=29/32 #29 of the 32 actuators are illuminated
-rho,phi=functions.polar_grid(xdim,xdim*undersize)
-aperture=np.zeros(rho.shape).astype(float32)
+rho,phi = ao.polar_grid(xdim,xdim*undersize)
+aperture = np.zeros(rho.shape).astype(float32)
 indap = np.where(rho > 0)
 indnap = np.where(rho == 0)
 aperture[indap] = 1
@@ -48,15 +48,15 @@ for n in range(1,norder):
 		nmarr.append([n,m])
 
 def funz(n, m, amp, bestflat=bestflat): #apply zernike to the DM
-	z=functions.zernike(n,m,rhoap,phiap)/2
-	zdm=amp*(z.astype(float32))
-	dmc=remove_piston(remove_piston(bestflat)+remove_piston(zdm))
+	z = ao.zernike(n,m,rhoap,phiap)/2
+	zdm = amp*(z.astype(float32))
+	dmc = remove_piston(remove_piston(bestflat)+remove_piston(zdm))
 	applydmc(dmc)
 	return dmc
 
 #calibrated image center and beam ratio from genDH.py
-imxcen, imycen = np.load('~/blgerard/imcen.npy')
-beam_ratio = np.load('~/blgerard/beam_ratio.npy')
+imxcen, imycen = np.load('/home/lab/blgerard/imcen.npy')
+beam_ratio = np.load('/home/lab/blgerard/beam_ratio.npy')
 gridim=np.mgrid[0:imydim,0:imxdim]
 rim=np.sqrt((gridim[0]-imycen)**2+(gridim[1]-imxcen)**2)
 
@@ -164,16 +164,17 @@ def genzerncoeffs(i, zernamp):
 nlin = 20 #number of data points to scan through linearity measurements
 zernamparr = np.linspace(-1.5*IMamp, 1.5*IMamp, nlin)
 
-#try linearity measurement for Zernike mode 0
-zernampout=np.zeros((len(nmarr),nlin))
-for i in range(nlin):
-	zernamp=zernamparr[i]
-	coeffsout=genzerncoeffs(0,zernamp)
-	zernampout[:,i]=coeffsout
+if __name__ == "__main__":
+	#try linearity measurement for Zernike mode 0
+	zernampout=np.zeros((len(nmarr),nlin))
+	for i in range(nlin):
+		zernamp=zernamparr[i]
+		coeffsout=genzerncoeffs(0,zernamp)
+		zernampout[:,i]=coeffsout
 
-plt.figure()
-plt.plot(zernamparr,zernamparr,lw=1,color='k',ls='--',label='y=x')
-plt.plot(zernamparr,zernampout[0,:],lw=2,color='k',label='i=0')
-plt.plot(zernamparr,zernampout[1,:],lw=2,color='blue',label='i=1')
-plt.legend(loc='best')
+	plt.figure()
+	plt.plot(zernamparr,zernamparr,lw=1,color='k',ls='--',label='y=x')
+	plt.plot(zernamparr,zernampout[0,:],lw=2,color='k',label='i=0')
+	plt.plot(zernamparr,zernampout[1,:],lw=2,color='blue',label='i=1')
+	plt.legend(loc='best')
 

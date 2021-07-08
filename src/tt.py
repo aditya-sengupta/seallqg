@@ -17,12 +17,23 @@ applydmc(bestflat)
 
 expt(1e-4) #set exposure time; for 0.25 mW
 imini = getim() #Andor image just for referencing dimensions
+imydim, imxdim = imini.shape
 
 #DM aperture:
+tsleep=0.01 #should be the same values from align_fpm.py and genDH.py
+
+#DM aperture:
+undersize=29/32 #29 of the 32 actuators are illuminated
+rho,phi = ao.polar_grid(xdim,xdim*undersize)
+aperture=np.zeros(rho.shape).astype(float32)
+indap=np.where(rho>0)
+indnap=np.where(rho==0)
+aperture[indap]=1
+
 ydim,xdim=dmcini.shape
 grid=np.mgrid[0:ydim,0:xdim].astype(float32)
 ygrid, xgrid = grid[0]-ydim/2, grid[1]-xdim/2
-tip, tilt=(ygrid+ydim/2)/ydim, (xgrid+xdim/2)/xdim #min value is zero, max is one
+tip, tilt = (ygrid+ydim/2)/ydim, (xgrid+xdim/2)/xdim #min value is zero, max is one
 
 #DM aperture:
 undersize = 27/32 #assuming 27 of the 32 actuators are illuminated
@@ -45,21 +56,50 @@ indap = np.where(rhoap > 0)
 remove_piston = lambda dmc: dmc-np.median(dmc)
 
 #applying tip/tilt recursively (use if steering back onto the FPM after running zern_opt)
-def applytip(amp): #apply tip; amp is the P2V in DM units
+def applytip(amp, verbose=True): #apply tip; amp is the P2V in DM units
 	dmc = getdmc()
 	dmctip = amp*tip
-	dmc = remove_piston(dmc) + remove_piston(dmctip) + 0.5
-	#applydmc(dmc*aperture)
-	applydmc(dmc)
+	dmc = remove_piston(dmc)+remove_piston(dmctip)+0.5
+	return applydmc(dmc*aperture, verbose)
 
-def applytilt(amp): #apply tilt; amp is the P2V in DM units
+def applytilt(amp, verbose=True): #apply tilt; amp is the P2V in DM units
 	dmc = getdmc()
 	dmctilt = amp*tilt
-	dmc = remove_piston(dmc) + remove_piston(dmctilt) + 0.5
-	#applydmc(dmc*aperture)
-	applydmc(dmc)
+	dmc = remove_piston(dmc)+remove_piston(dmctilt)+0.5
+	return applydmc(dmc*aperture, verbose)
 
-IMamp=0.1 #from above function
+def applytiptilt(amptip, amptilt, bestflat=bestflat, verbose=True): #amp is the P2V in DM units
+	dmctip = amptip*tip
+	dmctilt = amptilt*tilt
+	dmctiptilt = remove_piston(dmctip)+remove_piston(dmctilt)+remove_piston(bestflat)+0.5 #combining tip, tilt, and best flat, setting mean piston to 0.5
+	return applydmc(aperture*dmctiptilt, verbose)
+
+#setup Zernike polynomials
+nmarr = []
+norder = 2 #how many radial Zernike orders to look at; just start with tip/tilt
+for n in range(norder):
+	for m in range(-n, n+1, 2):
+		nmarr.append([n, m])
+
+def funz(n, m, amp, bestflat=bestflat): #apply zernike to the DM
+	z = ao.zernike(n,m,rhoap,phiap)/2
+	zdm = amp*(z.astype(float32))
+	dmc = remove_piston(remove_piston(bestflat)+remove_piston(zdm))
+	applydmc(dmc)
+	return dmc
+
+#calibrated image center and beam ratio from genDH.py
+imxcen, imycen = np.load('/home/lab/blgerard/imcen.npy')
+beam_ratio = np.load('/home/lab/blgerard/beam_ratio.npy')
+gridim = np.mgrid[0:imydim, 0:imxdim]
+rim = np.sqrt((gridim[0]-imycen)**2+(gridim[1]-imxcen)**2)
+
+#algorithmic LOWFS mask (centered around the core, for light less than 6 lambda/D)
+ttmask = np.zeros(imini.shape)
+indttmask = np.where(rim/beam_ratio<6)
+ttmask[indttmask] = 1
+
+IMamp = 0.1
 
 #make MTF side lobe mask
 xsidemaskcen,ysidemaskcen = 252.01, 159.4 #x and y location of the side lobe mask in the cropped image
@@ -77,10 +117,10 @@ def processim(imin): #process SCC image, isolating the sidelobe in the FFT and I
 	return Iminus
 
 # make interaction matrix
-refvec = np.zeros((len(nmarr), ttmask[indttmask].shape[0]*2))
-zernarr = np.zeros((len(nmarr),aperture[indap].shape[0]))
+"""refvec = np.zeros((len(nmarr), ttmask[indttmask].shape[0]*2))
+zernarr = np.zeros((len(nmarr), aperture[indap].shape[0]))
 for i in range(len(nmarr)):
-	n, m=nmarr[i]
+	n, m = nmarr[i]
 	zern = funz(n, m, IMamp)
 	time.sleep(tsleep)
 	imzern = stack(10)
@@ -94,4 +134,4 @@ for i in range(len(nmarr)):
 
 IM = np.dot(refvec, refvec.T) #interaction matrix
 IMinv = np.linalg.pinv(IM,rcond=1e-3)
-cmd_mtx = np.dot(IMinv, refvec)
+cmd_mtx = np.dot(IMinv, refvec)"""
