@@ -4,7 +4,7 @@ from datetime import datetime
 import tqdm
 
 from tt import *
-from compute_cm_im import *
+from compute_cmd_int import *
 
 def find_limits(min_amp=1e-4, max_amp=1e-0):
     """
@@ -36,7 +36,7 @@ def poisson_ll(data, lam):
     from scipy.special import gammaln
     
     n = len(data)
-    return -n * lam + np.sum(data) * np.log(lam) - np.sum(np.nan_to_num(gammaln(imdiff), posinf=0))
+    return -n * lam + np.sum(data) * np.log(lam) - np.sum(np.nan_to_num(gammaln(data), posinf=0))
 
 def get_noise(delay=1e-2):
     im1 = getim()
@@ -71,6 +71,17 @@ def random_removal_noise_fishing(delay=1e-2):
     lam = np.mean(imdiff)
     ll = poisson_ll(imdiff, lam)
     return lam, ll
+
+def lambda_against_delays():
+    delays = np.arange(1e-3, 1, 1e-3)
+    llvals = np.zeros_like(delays)
+    for (i, d) in enumerate(tqdm.tqdm(delays)):
+        diff = get_noise(d).ravel()
+        lam = np.mean(diff)
+        llvals[i] = poisson_ll(diff, lam)
+
+    return delays, llvals
+
 
 def measurement_noise_diff_image():
     """
