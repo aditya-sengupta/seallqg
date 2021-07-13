@@ -15,7 +15,7 @@ grid = np.mgrid[0:ydim, 0:xdim].astype(float32)
 bestflat = np.load('/home/lab/blgerard/bestflat.npy') #zygo, best flat
 applydmc(bestflat)
 
-expt(1e-4) #set exposure time; for 0.25 mW
+expt(1e-3) #set exposure time; for 0.15 mW
 imini = getim() #Andor image just for referencing dimensions
 imydim, imxdim = imini.shape
 

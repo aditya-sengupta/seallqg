@@ -21,7 +21,7 @@ grid=np.mgrid[0:ydim,0:xdim].astype(float32)
 bestflat=np.load('/home/lab/blgerard/bestflat.npy') #load bestflat, which should be an aligned FPM
 applydmc(bestflat)
 
-expt(1e-4) #set exposure time
+expt(1e-3) #set exposure time
 imini=getim()
 imydim,imxdim = imini.shape
 
