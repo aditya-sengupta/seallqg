@@ -47,6 +47,11 @@ def stack(n):
 	ims = ims/n
 	return ims
 
+def cm(im):
+	r, c = im.shape
+	xv, yv = np.sum(im, axis=0), np.sum(im, axis=1)
+	return (xv @ np.arange(r)) / np.sum(im), (yv @ np.arange(r)) / np.sum(im)
+
 mtf = lambda im: np.abs(np.fft.fftshift(np.fft.fft2(im)))
 
 #kilo DM commands

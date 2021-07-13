@@ -57,7 +57,9 @@ def noise_fishing(delay=1e-2):
 def masked_noise_fishing(delay=1e-2):
     im = getim()
     mean, sd = np.mean(im), np.std(im)
-    imdiff = get_noise(delay)[im < mean + sd].ravel()
+    yy, xx = np.mgrid[:im.shape[0], :im.shape[1]]
+    npix_mask = 20
+    imdiff = (get_noise(delay) * (yy**2 + xx**2 >= 30 **2)).ravel()
     lam = np.mean(imdiff)
     ll = poisson_ll(imdiff, lam)
     return lam, ll
@@ -82,6 +84,13 @@ def lambda_against_delays():
 
     return delays, llvals
 
+def measure_tt(im=None):
+    if im is None:
+        im = getim()
+    tar_ini = processim(im)
+    tar = np.array([np.real(tar_ini[indttmask]), np.imag(tar_ini[indttmask])]).flatten()	
+    coeffs = np.dot(cmd_mtx, tar)
+    return coeffs * IMamp
 
 def measurement_noise_diff_image():
     """
@@ -93,17 +102,15 @@ def measurement_noise_diff_image():
     tt_vals = np.zeros((len(applied_tts), len(delays), 2))
 
     for (i, applied_tt) in enumerate(applied_tts): # maybe change this later
+        print("Applying TT {}".format(applied_tt))
         applytiptilt(applied_tt[0], applied_tt[1])
-        for (j, d) in enumerate(delays):
+        for (j, d) in enumerate(tqdm.tqdm(delays)):
             for _ in range(niters):
                 im1 = getim()
                 time.sleep(d)
                 im2 = getim()
                 imdiff = im2 - im1
-                tar_ini = processim(imdiff)
-                tar = np.array([np.real(tar_ini[indttmask]), np.imag(tar_ini[indttmask])]).flatten()	
-                coeffs = np.dot(cmd_mtx, tar)
-                tt_vals[i][j] += coeffs * IMamp
+                tt_vals[i][j] += measure_tt(imdiff)
 
     ttvals = tt_vals / niters
     applydmc(bestflat)
@@ -111,14 +118,15 @@ def measurement_noise_diff_image():
     np.save(fname, ttvals)
     return ttvals
     
-def command_linearity():
-    pass
+def tt_center_noise(nsteps=1000, delay=1e-2):
+    ttvals = np.zeros((0,2))
+    for _ in tqdm.trange(nsteps):
+        time.sleep(delay)
+        im = getim()
+        ttvals = np.vstack((ttvals, measure_tt(im - imflat)))
 
-def uniformity():
-    pass
-
-def amplitude_linearity():
-    pass
+    np.save("/home/lab/asengupta/data/tt_center_noise_nsteps_{0}_delay_{1}_dt_{2}".format(str(nsteps), str(delay), datetime.now().strftime("%d_%m_%Y_%H")), ttvals)
+    return ttvals
 
 def unit_steps(min_amp, max_amp, steps_amp, steps_ang=12, tsleep=tsleep, nframes=50):
     angles = np.linspace(0.0, 2 * np.pi, steps_ang)
@@ -136,5 +144,6 @@ def unit_steps(min_amp, max_amp, steps_amp, steps_ang=12, tsleep=tsleep, nframes
             np.save(fname, imtt-imflat)
     applydmc(bestflat)
 
-def sinusoids():
-    pass
+def apply_sinusoids():
+    for dmfn in [applytip, applytilt]:
+        pass

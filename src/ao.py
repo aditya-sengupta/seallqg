@@ -37,11 +37,6 @@ def xy_plane(dim):
 	xy = np.sqrt((grid[0]-dim/2.)**2.+(grid[1]-dim/2.)**2.)
 	return xy
 
-def cm(im):
-	r, c = im.shape
-	xv, yv = np.sum(im, axis=0), np.sum(im, axis=1)
-	return (xv @ np.arange(r)) / np.sum(im), (yv @ np.arange(r)) / np.sum(im)
-
 def polar_grid(imagepix, pupilpix):
 	'''
 	make a polar image grid from a cartesian grid
