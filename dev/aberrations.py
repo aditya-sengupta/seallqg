@@ -16,11 +16,7 @@ f_2 = f_sampling / 3  # highest possible frequency of a vibration mode
 f_w = f_sampling / 3  # frequency above which measurement noise dominates
 measurement_noise = 0.06  # milliarcseconds; pulled from previous notebook
 D = 10.95
-<<<<<<< HEAD
 r0 = 16.5e-2
-=======
-r0 = 16.5e-2   
->>>>>>> control/main
 pupil_size = 16
 focal_samples = 8 # samples per lambda over D
 focal_width = 8 # half the number of lambda over Ds
@@ -83,11 +79,7 @@ def center_of_mass(f):
 
 
 def make_specific_tt(weights):
-<<<<<<< HEAD
-    # 
-=======
     # weights = number of desired lambda-over-Ds the center of the PSF is to be moved. Tuple with (tip_wt, tilt_wt).
->>>>>>> control/main
     tt = [zernike(*ansi_to_zernike(i), D_magic)(pupil_grid) for i in (1, 2)]
     tt_wf = Wavefront(aperture * np.exp(1j * np.pi * sum([w * z for w, z in zip(weights, tt)])), wavelength)
     return tt_wf

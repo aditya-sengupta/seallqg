@@ -33,7 +33,7 @@ end
 predict(kf::KFilter, x::Vector, u::Vector) = kf.A * x + kf.B * u
 update(kf::KFilter, x::Vector, y::Vector) = x + kf.K * (y - kf.C * x)
 
-dare(kf::KFilter) = dare(kf.A', kf.C', kf.Q, kf.R)
+dare(kf::KFilter) = dare(kf.A', kf.C', kf.Q, kf.R) # this pythons to scipy.linalg.solve_discrete_are
 
 function kalman(kf::KFilter)
     P = dare(kf)

@@ -40,11 +40,7 @@ class Controller:
             self.is_openloop = True
 
     def control(self, truth, noise=noise):
-<<<<<<< HEAD
         """
-=======
-        '''
->>>>>>> control/main
         Simulates the general tip-tilt control problem.
 
         Parameters:
@@ -68,11 +64,7 @@ class Controller:
 
         openloop - ndarray
         The pseudo-open-loops.
-<<<<<<< HEAD
         """
-=======
-        '''
->>>>>>> control/main
         residuals = np.zeros(truth.size)
         cumulative_actions = np.zeros(truth.size)
         time = self.calibration_time

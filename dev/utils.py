@@ -13,9 +13,5 @@ def get_keck_tts(num=128):
     commands = commands - np.mean(commands, axis=0)
     residuals = telemetry['DTTCENTROIDS'][0]
     pol = residuals[1:] + commands[:-1]
-<<<<<<< HEAD
     return residuals[1:], commands[:-1], pol
     
-=======
-    return residuals[1:], commands[:-1], pol
->>>>>>> control/main
