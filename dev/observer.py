@@ -5,7 +5,11 @@ import numpy as np
 from scipy import integrate, optimize, signal, stats, linalg
 from copy import deepcopy
 from matplotlib import pyplot as plt
+<<<<<<< HEAD
 # from fractal_deriv import design_filt
+=======
+from fractal_deriv import design_filt
+>>>>>>> control/main
 
 # global parameter definitions
 f_sampling = 1000  # Hz
@@ -17,6 +21,10 @@ energy_cutoff = 1e-8  # proportion of total energy after which PSD curve fit end
 measurement_noise = 0.06  # milliarcseconds; pulled from previous notebook
 time_id = 1  # timescale over which sysid runs. Pulled from Meimon 2010's suggested 1 Hz sysid frequency.
 times = np.arange(0, time_id, 1 / f_sampling)  # array of times to operate on
+<<<<<<< HEAD
+=======
+freqs = np.linspace(0, f_sampling // 2, f_sampling // 2 + 1)  # equivalent to signal.periodogram(...)[0]
+>>>>>>> control/main
 a = 1e-6 # the pole location for the f^(-2/3) powerlaw
 
 class KFilter:
@@ -123,27 +131,46 @@ class KFilter:
         return self.state, self.A, self.H, self.K
 
 def get_psd(pos):
+<<<<<<< HEAD
     return signal.welch(pos, f_sampling)[1]
+=======
+    return signal.periodogram(pos, f_sampling)[1]
+>>>>>>> control/main
     # return np.abs(np.fft.fftshift(np.fft.fft(pos))[pos.size//2-1:][1:]) ** 2
 
 
 def noise_filter(psd):
+<<<<<<< HEAD
     psd_clean = deepcopy(psd)
     freqs = np.linspace(0, f_sampling / 2, len(psd))
+=======
+>>>>>>> control/main
     # takes in a PSD.
     # returns a cleaned PSD with measurement noise hopefully removed.
     ind = np.argmax(freqs > f_w)
     assert ind != 0, "didn't find a high enough frequency"
+<<<<<<< HEAD
     avg_measurement_power = np.mean(psd_clean[ind:])
     measurement_noise_recovered = np.sqrt(f_sampling * avg_measurement_power)
     psd_clean -= avg_measurement_power
+=======
+    avg_measurement_power = np.mean(psd[ind:])
+    measurement_noise_recovered = np.sqrt(f_sampling * avg_measurement_power)
+    psd -= avg_measurement_power
+>>>>>>> control/main
 
     # this subtraction is problematic because it goes negative, so quick correction here.
     # Want a better way of doing this.
 
+<<<<<<< HEAD
     for i, p in enumerate(psd_clean):
         if p < 0:                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
             psd_clean[i] = energy_cutoff
+=======
+    for i, p in enumerate(psd):
+        if p < 0:                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+            psd[i] = energy_cutoff
+>>>>>>> control/main
 
     # squelch: removing noise by applying a smoothing filter (convolution with [0.05, 0.1, 0.7, 0.1, 0.05])
     conv_peak = 0.7
@@ -151,22 +178,38 @@ def noise_filter(psd):
     side = 1 - conv_peak
     kernel = np.array([side / 6, side / 3, conv_peak, side / 3, side / 6])
     c = kernel.size // 2
+<<<<<<< HEAD
     psd_clean = np.convolve(psd_clean, kernel)[c:-c]
 
     # ad hoc low-pass filter
     high_cutoff = np.argmax(freqs > f_2)
     psd_clean[high_cutoff:] = energy_cutoff * np.ones(len(psd_clean) - high_cutoff)  # or all zero?
+=======
+    psd = np.convolve(psd, kernel)[c:-c]
+
+    # ad hoc low-pass filter
+    high_cutoff = np.argmax(freqs > f_2)
+    psd[high_cutoff:] = energy_cutoff * np.ones(len(psd) - high_cutoff)  # or all zero?
+>>>>>>> control/main
 
     # high pass filter
     # low_cutoff = np.argmin(freqs < f_1)
     # psd[:low_cutoff] = energy_cutoff * np.ones(low_cutoff)
 
     # bring the peaks back to where they were
+<<<<<<< HEAD
     peak_ind = signal.find_peaks(psd_clean, height=energy_cutoff)[0]
     for i in peak_ind:
         psd_clean[i] = psd_clean[i] / conv_peak
 
     return psd_clean
+=======
+    peak_ind = signal.find_peaks(psd, height=energy_cutoff)[0]
+    for i in peak_ind:
+        psd[i] = psd[i] / conv_peak
+
+    return psd
+>>>>>>> control/main
 
 
 def damped_harmonic(pars_model):
@@ -175,8 +218,12 @@ def damped_harmonic(pars_model):
 
 
 def make_psd(pars_model):
+<<<<<<< HEAD
     s = damped_harmonic(pars_model)
     return signal.welch(s, fs=f_sampling, nfft=max(1000, len(s)//2))[1]
+=======
+    return signal.periodogram(damped_harmonic(pars_model), fs=f_sampling)[1]
+>>>>>>> control/main
 
 
 def log_likelihood(func, data):
@@ -200,10 +247,16 @@ def psd_f(f):
 def vibe_fit_freq(psd, N=N_vib_max):
     # takes in the frequency axis for a PSD, and the PSD.
     # returns a 4xN np array with fit parameters, and a 1xN np array with variances.
+<<<<<<< HEAD
     freqs = np.linspace(0, f_sampling / 2, len(psd))
     par0 = [1e-4, 1]
     PARAMS_SIZE = 2
     width = max(1, int(np.ceil(1/(freqs[1] - freqs[0]))))
+=======
+    par0 = [1e-4, 1]
+    PARAMS_SIZE = 2
+    width = 1
+>>>>>>> control/main
 
     peaks = []
     unsorted_peaks = signal.find_peaks(psd)[0]
@@ -219,7 +272,11 @@ def vibe_fit_freq(psd, N=N_vib_max):
     for peak_ind in peaks:
         if i >= N:
             break
+<<<<<<< HEAD
         if np.any(np.abs(params[:,0] - peak_ind) <= width) or freqs[peak_ind] < f_1 + width or freqs[peak_ind] > f_2 - width:
+=======
+        if np.any(np.abs(params[:,0] - peak_ind) <= width): #or peak_ind < f_1 + width or peak_ind > f_2 - width:
+>>>>>>> control/main
             continue
         l, r = peak_ind - width, peak_ind + width
         windowed = psd[l:r]

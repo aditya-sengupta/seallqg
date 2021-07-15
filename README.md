@@ -1,27 +1,10 @@
+
 # sysid-tip-tilt
 
-System identification for tip-tilt adaptive optics. This is a partial port of the tip-tilt control repository [here](github.com/aditya-sengupta/tip-tilt-control) to Julia. This code base will include:
+System identification for tip-tilt adaptive optics. This is a new project built off the history of the tip-tilt control repository [here](github.com/aditya-sengupta/tip-tilt-control). This code base will include:
 
 - a script to make tip-tilt aberrations (atmospheric + vibration modes)
 - control system simulations
 - analysis of experimental data
 
-This code base is using the Julia Language and [DrWatson](https://juliadynamics.github.io/DrWatson.jl/stable/)
-to make a reproducible scientific project named
-> ttsysid
-
-It is authored by aditya-sengupta. (The repo name is different for convenience - I can tab-autocomplete a name that doesn't have dashes in it easier)
-
-To (locally) reproduce this project, do the following:
-
-0. Download this code base. Notice that raw data are typically not included in the
-   git-history and may need to be downloaded independently.
-1. Open a Julia console and do:
-   ```
-   julia> using Pkg
-   julia> Pkg.activate("path/to/this/project")
-   julia> Pkg.instantiate()
-   ```
-
-This will install all necessary packages for you to be able to run the scripts and
-everything should work out of the box.
+Collection of utilities, experimental code, and results for adaptive optics control loop simulation.
