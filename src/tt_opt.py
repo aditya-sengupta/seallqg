@@ -2,8 +2,6 @@ import numpy as np
 
 from tt import *
 
-bestflat=getdmc()
-
 #side lobe mask where there is no signal to measure SNR
 xnoise,ynoise=161.66,252.22
 sidemaskrhon=np.sqrt((mtfgrid[0]-ynoise)**2+(mtfgrid[1]-xnoise)**2)
@@ -75,5 +73,4 @@ medttoptarr1=median_filter(ttoptarr1,3) #smooth out hot pixels, attenuating nois
 indopttip1,indopttilt1=np.where(medttoptarr1==np.max(medttoptarr1))
 applytiptilt(tipamparr[indopttip1][0],tiltamparr[indopttilt1][0])
 
-bestflat=getdmc()
 im_bestflat=stack(100)

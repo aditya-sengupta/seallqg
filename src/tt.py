@@ -60,19 +60,19 @@ def applytip(amp, verbose=True): #apply tip; amp is the P2V in DM units
 	dmc = getdmc()
 	dmctip = amp*tip
 	dmc = remove_piston(dmc)+remove_piston(dmctip)+0.5
-	return applydmc(dmc*aperture, verbose)
+	return applydmc(dmc, verbose)
 
 def applytilt(amp, verbose=True): #apply tilt; amp is the P2V in DM units
 	dmc = getdmc()
 	dmctilt = amp*tilt
 	dmc = remove_piston(dmc)+remove_piston(dmctilt)+0.5
-	return applydmc(dmc*aperture, verbose)
+	return applydmc(dmc, verbose)
 
-def applytiptilt(amptip, amptilt, bestflat=bestflat, verbose=True): #amp is the P2V in DM units
+def applytiptilt(amptip, amptilt, verbose=True): #amp is the P2V in DM units
 	dmctip = amptip*tip
 	dmctilt = amptilt*tilt
 	dmctiptilt = remove_piston(dmctip)+remove_piston(dmctilt)+remove_piston(bestflat)+0.5 #combining tip, tilt, and best flat, setting mean piston to 0.5
-	return applydmc(aperture*dmctiptilt, verbose)
+	return applydmc(dmctiptilt, verbose)
 
 #setup Zernike polynomials
 nmarr = []

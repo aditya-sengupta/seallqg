@@ -5,6 +5,7 @@ import numpy as np
 import sys
 import time
 import ao
+import warnings
 
 ds9 = pysao.ds9()
 
@@ -74,11 +75,11 @@ def applydmc(cmd, verbose=True): #apply command to the DM
 	indneg = np.where(cmd<0)
 	if len(indneg[0])>0:
 		cmd[indneg] = 0 #minimum value is zero
-		print('saturating DM zeros!')
+		warnings.warn('saturating DM zeros!')
 	indpos = np.where(cmd>1)
 	if len(indpos[0])>0:
 		cmd[indpos] = 1 #maximum value is 1
-		print('saturating DM ones!')
+		warnings.warn('saturating DM ones!')
 	dmChannel.set_data(cmd)
 	if verbose:
 		return (len(indneg[0]) <= 0, len(indpos[0]) <= 0)
@@ -86,55 +87,3 @@ def applydmc(cmd, verbose=True): #apply command to the DM
 dmcini = getdmc()
 dmzero = np.zeros(dmcini.shape, dtype=np.float32)
 applyzero  =  lambda : applydmc(dmzero, False)
-
-"""
-#WFS slopes
-port = "5556"
-context  =  zmq.Context()
-socket  =  context.socket(zmq.REQ)
-socket.connect("tcp://128.114.22.20:%s" % port)
-
-def get_pupil_size(sock):
-    socket.send_string("pupSize");
-    data = socket.recv()
-    pupSize  =  np.frombuffer(data, dtype = np.int32)
-    return pupSize
-
-pupSize = get_pupil_size(socket)[0]
-
-def get_wavefront():
-    socket.send_string("wavefront");
-    data = socket.recv()
-    wf = np.frombuffer(data, dtype = np.float32).reshape(pupSize, pupSize)
-    return wf
-
-def stack_wavefront(n): #average some number of frames of wavefront
-	imw = getWavefront()
-	for i in range(n-1):
-		imw = imw + getWavefront()
-	imw = imw/n
-	return imw
-
-def get_slopes():
-    socket.send_string("slopes");
-    data = socket.recv()
-    slopes = np.frombuffer(data, dtype = np.float32).reshape(pupSize, 2*pupSize)
-    sx = slopes[:,:pupSize]
-    sy = slopes[:,pupSize:]
-    return np.array([sx, sy])
-
-def stack_slopes(n): #average some number of frames of slopes
-	ims = getSlopes()
-	for i in range(n-1):
-		ims = ims+getSlopes()
-	ims = ims/n
-	return ims
-
-def push_actuators():
-	for k in range(0,32):
-		for l in range(0,32):
-     			cmd = cmd*0;
-     			cmd[k][l]  =  1
-     			dmChannel.set_data(cmd)
-     			time.sleep(0.2)
- """

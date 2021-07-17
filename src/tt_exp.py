@@ -2,6 +2,7 @@
 import numpy as np
 from datetime import datetime
 import tqdm
+from ao import amplitude
 
 from tt import *
 from compute_cmd_int import *
@@ -42,55 +43,8 @@ def get_noise(delay=1e-2):
     im1 = getim()
     time.sleep(delay)
     im2 = getim()
-    imdiff = np.abs(im2 - im1)
+    imdiff = im2 - im1
     return imdiff
-
-def noise_fishing(delay=1e-2):
-    """
-    Take a differential image and fit a Poisson distribution to it.
-    """
-    imdiff = get_noise(delay).ravel()
-    lam = np.mean(imdiff)
-    ll = poisson_ll(imdiff, lam)
-    return lam, ll
-
-def masked_noise_fishing(delay=1e-2):
-    im = getim()
-    mean, sd = np.mean(im), np.std(im)
-    yy, xx = np.mgrid[:im.shape[0], :im.shape[1]]
-    npix_mask = 20
-    imdiff = (get_noise(delay) * (yy**2 + xx**2 >= 30 **2)).ravel()
-    lam = np.mean(imdiff)
-    ll = poisson_ll(imdiff, lam)
-    return lam, ll
-
-def random_removal_noise_fishing(delay=1e-2):
-    random_mask = np.ones((320, 320), dtype=bool)
-    for _ in range(2150):
-        r, c = np.random.randint(0, 319, (2,))
-        random_mask[r][c] = False
-    imdiff = get_noise(delay)[random_mask].ravel()
-    lam = np.mean(imdiff)
-    ll = poisson_ll(imdiff, lam)
-    return lam, ll
-
-def lambda_against_delays():
-    delays = np.arange(1e-3, 1, 1e-3)
-    llvals = np.zeros_like(delays)
-    for (i, d) in enumerate(tqdm.tqdm(delays)):
-        diff = get_noise(d).ravel()
-        lam = np.mean(diff)
-        llvals[i] = poisson_ll(diff, lam)
-
-    return delays, llvals
-
-def measure_tt(im=None):
-    if im is None:
-        im = getim()
-    tar_ini = processim(im)
-    tar = np.array([np.real(tar_ini[indttmask]), np.imag(tar_ini[indttmask])]).flatten()	
-    coeffs = np.dot(cmd_mtx, tar)
-    return coeffs * IMamp
 
 def measurement_noise_diff_image():
     """
@@ -144,6 +98,51 @@ def unit_steps(min_amp, max_amp, steps_amp, steps_ang=12, tsleep=tsleep, nframes
             np.save(fname, imtt-imflat)
     applydmc(bestflat)
 
-def apply_sinusoids():
-    for dmfn in [applytip, applytilt]:
-        pass
+def apply_sinusoids(delay=1e-2):
+    nsteps_per_osc = 50
+    nosc = 50
+    times = np.arange(0, nsteps_per_osc * nosc * delay, delay)
+    f = 1
+    lims = [[-0.05, 0.15], [-0.05, 0.15]]
+    for (j, (dmcmd, lim)) in enumerate([("tip", lims[0]), ("tilt", lims[1])]):
+        print("Applying " + dmcmd)
+        dmfn = eval("apply" + dmcmd)
+        amplitude = 0.5 * min(np.abs(lim))
+        control_commands = amplitude * np.diff(np.sin(2 * np.pi * times * f))
+        ttresponse = np.zeros_like(control_commands)
+        for (i, cmd) in enumerate(control_commands):
+            dmfn(cmd)
+            time.sleep(delay)
+            ttresponse[i] = measure_tt()[j]
+        fname = "/home/lab/asengupta/data/sinusoid_amp_{0}_nsteps_{1}_nosc_{2}_f_{3}_delay_{4}_mode_{5}_dt_{6}".format(round(amplitude, 3), nsteps_per_osc, nosc, f, delay, dmcmd,  datetime.now().strftime("%d_%m_%Y_%H"))
+        np.save(fname, ttresponse)
+    
+def uconvert_ratio(amp=0.1):
+    applydmc(bestflat)
+    applytilt(amp)
+    dm2 = getdmc()
+    cm2 = measure_tt(stack(100))[0] # stack? does that accurately represent what I'm after?
+    applytip(-2*amp)
+    dm1 = getdmc()
+    cm1 = measure_tt(stack(100))[0]
+    applydmc(bestflat)
+    dmdiff = aperture * (dm2 - dm1)
+    return (np.max(dmdiff) - np.min(dmdiff)) /  (cm2 - cm1)
+
+def noise_floor(niters=100):
+    delays = np.array([5e-3, 1e-2, 5e-2, 1e-1, 5e-1, 1e-0])
+    noises = np.zeros((len(delays), 2))
+    for (i, delay) in enumerate(delays):
+        for _ in tqdm.trange(niters):
+            noises[i] += np.abs(measure_tt(getim() - (time.sleep(delay) or getim())))
+
+    noises /= niters
+    return noises
+
+def record(t=1, delay=1e-2):
+    images = np.zeros((320,320,0))
+    t1 = time.time()
+    while time.time() < t1 + t:
+        im = getim()
+        images = np.concatenate(...) # TODO FINISH THIS
+
