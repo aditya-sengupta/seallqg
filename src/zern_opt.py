@@ -24,25 +24,6 @@ grid = np.mgrid[0:ydim,0:xdim].astype(float32)
 ygrid,xgrid = grid[0]-ydim/2,grid[1]-xdim/2
 tip,tilt = (ygrid+ydim/2)/ydim,(xgrid+xdim/2)/xdim #min value is zero, max is one
 
-#old DM aperture:
-'''
-undersize=27/32 #assuming 27 of the 32 actuators are illuminated
-rho,phi=functions.polar_grid(xdim,xdim*undersize)
-cenaperture=np.zeros(rho.shape).astype(float32)
-indapcen=np.where(rho>0)
-cenaperture[indapcen]=1
-
-aperture = np.load('DMmap.npy').astype(float32) #actual aperture, from close_SHWFS_loop.py
-
-#from comparing cenaperture and aperture, the actual aperture is shifted down and to the right (in ds9) each by 1 pixel from the center
-yapcen,xapcen=ydim/2.-0.5-1,xdim/2.-0.5-1
-rap=np.sqrt((grid[0]-yapcen)**2.+(grid[1]-xapcen)**2.)
-rap[np.where(rap>xdim/2.*undersize)]=0.
-rhoap=rap/np.max(rap)
-phiap=np.arctan2(grid[1]-yapcen,grid[0]-xapcen)
-indap=np.where(rhoap>0)
-'''
-
 #regular DM aperture:
 undersize=29/32 #29 of the 32 actuators are illuminated
 rho,phi = ao.polar_grid(xdim,xdim*undersize)

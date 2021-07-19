@@ -114,7 +114,7 @@ def apply_sinusoids(delay=1e-2):
             dmfn(cmd)
             time.sleep(delay)
             ttresponse[i] = measure_tt()[j]
-        fname = "/home/lab/asengupta/data/sinusoid_amp_{0}_nsteps_{1}_nosc_{2}_f_{3}_delay_{4}_mode_{5}_dt_{6}".format(round(amplitude, 3), nsteps_per_osc, nosc, f, delay, dmcmd,  datetime.now().strftime("%d_%m_%Y_%H"))
+        fname = "/home/lab/asengupta/data/sinusoid_amp_{0}_nsteps_{1}_nosc_{2}_f_{3}_delay_{4}_mode_{5}_dt_{6}".format(round(amplitude, 3), nsteps_per_osc, nosc, f, delay, dmcmd, datetime.now().strftime("%d_%m_%Y_%H"))
         np.save(fname, ttresponse)
     
 def uconvert_ratio(amp=0.1):
@@ -139,10 +139,14 @@ def noise_floor(niters=100):
     noises /= niters
     return noises
 
-def record(t=1, delay=1e-2):
-    images = np.zeros((320,320,0))
+def record_tt(t=1, delay=1e-2):
+    ttvals = np.zeros((2, 0))
     t1 = time.time()
     while time.time() < t1 + t:
-        im = getim()
-        images = np.concatenate(...) # TODO FINISH THIS
+        tl = time.time()
+        ttvals = np.dstack((ttvals, measure_tt(getim())))
+        time.sleep(max(0, delay - (time.time() - tl)))
+    fname = "/home/lab/asengupta/data/recordings/rec_delay_{0}_dt_{1}".format(delay, datetime.now().strftime("%d_%m_%Y_%H_%M"))
+    np.save(fname, ttvals)
+    return ttvals
 
