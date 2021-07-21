@@ -1,10 +1,24 @@
-import numpy as np
-
 from tt import *
 from matplotlib import pyplot as plt
 
+bestflat = getdmc()
 
-expt(1e-4)
+#apply tip/tilt starting only from the bestflat point (start here if realigning the non-coronagraphic PSF) 
+def applytiptilt(amptip,amptilt,bestflat=bestflat): #amp is the P2V in DM units
+	dmctip=amptip*tip
+	dmctilt=amptilt*tilt
+	dmctiptilt=remove_piston(dmctip)+remove_piston(dmctilt)+remove_piston(bestflat)+0.5 #combining tip, tilt, and best flat, setting mean piston to 0.5
+	#applydmc(aperture*dmctiptilt)
+	applydmc(dmctiptilt)
+
+#make MTF side lobe mask
+xsidemaskcen,ysidemaskcen=240.7,161.0 #x and y location of the side lobe mask in the cropped image
+sidemaskrad=26.8 #radius of the side lobe mask
+mtfgrid=np.mgrid[0:imini.shape[0],0:imini.shape[1]]
+sidemaskrho=np.sqrt((mtfgrid[0]-ysidemaskcen)**2+(mtfgrid[1]-xsidemaskcen)**2)
+sidemask=np.zeros(imini.shape)
+sidemaskind=np.where(sidemaskrho<sidemaskrad)
+sidemask[sidemaskind]=1
 
 #side lobe mask where there is no signal to measure SNR
 xnoise,ynoise=161.66,252.22
@@ -61,26 +75,6 @@ def viewmed():
     plt.imshow(medttoptarr)
     plt.show()
 
-#expt(1e-4)
-
-ampdiff=amparr[2]-amparr[0] #how many discretized points to zoom in to from the previous iteration
-tipamparr=np.linspace(amparr[indopttip]-ampdiff,amparr[indopttip]+ampdiff,namp)
-tiltamparr=np.linspace(amparr[indopttilt]-ampdiff,amparr[indopttilt]+ampdiff,namp)
-ttoptarr1=np.zeros((namp,namp))
-for i in range(namp):
-	for j in range(namp):
-		applytiptilt(tipamparr[i],tiltamparr[j])
-		time.sleep(tsleep)
-		imopt=stack(10)
-		mtfopt=mtf(imopt)
-		sidefraction=np.sum(mtfopt[sidemaskind])/np.sum(mtfopt)
-		cenfraction=np.sum(mtfopt[cenmaskind])/np.sum(mtfopt)
-		ttoptarr1[i,j]=sidefraction+0.1/cenfraction 
-
-medttoptarr1=median_filter(ttoptarr1,3) #smooth out hot pixels, attenuating noise issues
-indopttip1,indopttilt1=np.where(medttoptarr1==np.max(medttoptarr1))
-applytiptilt(tipamparr[indopttip1][0],tiltamparr[indopttilt1][0])
-
-im_bestflat = stack(100)
-expt(1e-3)
+bestflat = getdmc()
 np.save("../data/bestflats/bestflat.npy", bestflat)
+print("Saved best flat")

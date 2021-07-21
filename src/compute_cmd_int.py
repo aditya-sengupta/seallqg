@@ -5,6 +5,7 @@ Compute command matrix and interaction matrix.
 from tt import *
 import numpy as np
 from numpy import float32
+from numba import njit, objmode
 import time
 import ao
 
@@ -13,7 +14,7 @@ dmcini = getdmc()
 ydim, xdim = dmcini.shape
 grid = np.mgrid[0:ydim, 0:xdim].astype(float32)
 #bestflat=np.load('dmc_dh.npy') #dark hole
-bestflat = np.load('/home/lab/blgerard/bestflat.npy') #load bestflat, which should be an aligned FPM
+bestflat = np.load('/home/lab/asengupta/data/bestflats/bestflat.npy') #load bestflat, which should be an aligned FPM
 applydmc(bestflat)
 
 expt(1e-3) #set exposure time
@@ -80,6 +81,13 @@ sidemask = np.zeros(imini.shape)
 sidemaskind = np.where(sidemaskrho < sidemaskrad)
 sidemask[sidemaskind] = 1
 
+def fftshift(arr):
+	"""
+	Just does np.fft.fftshift, but JIT-able
+	"""
+	s = int(np.ceil(len(arr) // 2))
+	return np.concatenate((arr[s:], arr[:s]))
+
 def processim(imin): #process SCC image, isolating the sidelobe in the FFT and IFFT back to the image
 	otf = np.fft.fftshift(np.fft.fft2(imin, norm='ortho')) #(1) FFT the image
 	otf_masked = otf * sidemask #(2) multiply by binary mask to isolate side lobe
@@ -113,13 +121,41 @@ applydmc(bestflat)
 time.sleep(tsleep)
 imflat = stack(100)
 
-def measure_tt(im=None):
-    if im is None:
+def measure_tt(im):
+    """
+	can't JIT this, so will have to explicitly pass it in
+	if im is None:
         im = getim()
+	"""
     tar_ini = processim(im)
     tar = np.array([np.real(tar_ini[indttmask]), np.imag(tar_ini[indttmask])]).flatten()	
     coeffs = np.dot(cmd_mtx, tar)
     return coeffs * IMamp
+
+def pc(rcond,i,sf):
+	'''
+	rcond: svd cutoff to be optimized
+	i: which Zernike mode to apply
+	sf: scale factor for amplitude to apply of given Zernike mode as a fraction of the input IM amplitude
+	'''
+	#rcond=1e-3
+	IMinv=np.linalg.pinv(IM,rcond=rcond)
+	cmd_mtx=np.dot(IMinv,refvec)
+
+	n,m=nmarr[i]
+	zern=funz(n,m,IMamp*sf)
+	time.sleep(tsleep)
+	imzern=stack(10)
+	applydmc(bestflat)
+	time.sleep(tsleep)
+	imflat=stack(10)
+	imdiff=(imzern-imflat)
+	Im_diff=processim(imdiff)
+	tar = np.array([np.real(Im_diff[indttmask]),np.imag(Im_diff[indttmask])]).flatten()
+	
+	coeffs=np.dot(cmd_mtx,tar)
+	plt.plot(coeffs*IMamp)
+	plt.axhline(IMamp*sf,0,len(coeffs),ls='--')
 
 
 if __name__ == "__main__":
@@ -148,6 +184,8 @@ if __name__ == "__main__":
 		zernamp=zernamparr[i]
 		coeffsout=genzerncoeffs(0,zernamp)
 		zernampout[:,i]=coeffsout
+	
+	applydmc(bestflat)
 
 	plt.figure()
 	plt.plot(zernamparr,zernamparr,lw=1,color='k',ls='--',label='y=x')

@@ -2,8 +2,9 @@
 import numpy as np
 from datetime import datetime
 import tqdm
-from ao import amplitude
+import threading
 
+from ao import amplitude
 from tt import *
 from compute_cmd_int import *
 
@@ -79,23 +80,18 @@ def tt_center_noise(nsteps=1000, delay=1e-2):
         im = getim()
         ttvals = np.vstack((ttvals, measure_tt(im - imflat)))
 
-    np.save("/home/lab/asengupta/data/tt_center_noise_nsteps_{0}_delay_{1}_dt_{2}".format(str(nsteps), str(delay), datetime.now().strftime("%d_%m_%Y_%H")), ttvals)
+    np.save("/home/lab/asengupta/data/tt_center_noise/tt_center_noise_nsteps_{0}_delay_{1}_dt_{2}".format(str(nsteps), str(delay), datetime.now().strftime("%d_%m_%Y_%H")), ttvals)
     return ttvals
 
-def unit_steps(min_amp, max_amp, steps_amp, steps_ang=12, tsleep=tsleep, nframes=50):
+def apply_usteps(min_amp, max_amp, steps_amp, steps_ang=12, tsleep=tsleep, nframes=50):
     angles = np.linspace(0.0, 2 * np.pi, steps_ang)
     amplitudes = np.linspace(min_amp, max_amp, steps_amp)
     for amp in tqdm.tqdm(amplitudes):
         for ang in angles:
             applydmc(bestflat)
             time.sleep(tsleep) # vary this later: for now I'm after steady-state error
-            imflat = stack(nframes)
             applytiptilt(amp * np.cos(ang), amp * np.sin(ang))
             time.sleep(tsleep)
-            imtt = stack(nframes)
-            fname = "/home/lab/asengupta/data/unitstep_amp_{0}_ang_{1}_dt_{2}".format(round(amp, 3), round(ang, 3), datetime.now().strftime("%d_%m_%Y_%H"))
-            fname += ".npy"
-            np.save(fname, imtt-imflat)
     applydmc(bestflat)
 
 def apply_sinusoids(delay=1e-2):
@@ -121,10 +117,10 @@ def uconvert_ratio(amp=0.1):
     applydmc(bestflat)
     applytilt(amp)
     dm2 = getdmc()
-    cm2 = measure_tt(stack(100))[0] # stack? does that accurately represent what I'm after?
+    cm2 = measure_tt(stack(1000))[0] # stack? does that accurately represent what I'm after?
     applytip(-2*amp)
     dm1 = getdmc()
-    cm1 = measure_tt(stack(100))[0]
+    cm1 = measure_tt(stack(1000))[0]
     applydmc(bestflat)
     dmdiff = aperture * (dm2 - dm1)
     return (np.max(dmdiff) - np.min(dmdiff)) /  (cm2 - cm1)
@@ -139,14 +135,37 @@ def noise_floor(niters=100):
     noises /= niters
     return noises
 
-def record_tt(t=1, delay=1e-2):
-    ttvals = np.zeros((2, 0))
+def record_im(t=0.5):
+    nimages = int(np.ceil(t / 1e-3)) * 3 # the 3 is a safety factor and 1e-3 is a fake delay
+    imvals = np.empty((nimages, 320, 320))
+    i = 0
+    t1 = time.time()
+    times = np.empty((nimages,))
+
+    while time.time() < t1 + t:
+        imvals[i] = im.get_data(check=False) - imflat
+        times[i] = time.time()
+        i += 1
+        #time.sleep(max(0, delay - (time.time() - tl)))
+    fname = "/home/lab/asengupta/data/recordings/recim_dt_{1}_delay_{0}".format(delay, datetime.now().strftime("%d_%m_%Y_%H_%M"))
+    np.save(fname, imvals)
+    print("np.load('{0}')".format(fname))
+    print(i)
+    return imvals
+
+def record_tt(t=0.5, delay=1e-3):
+    ttvals = np.zeros((0, 2))
     t1 = time.time()
     while time.time() < t1 + t:
         tl = time.time()
-        ttvals = np.dstack((ttvals, measure_tt(getim())))
+        ttvals = np.vstack((ttvals, measure_tt(im.get_data(check=False) - imflat)))
         time.sleep(max(0, delay - (time.time() - tl)))
-    fname = "/home/lab/asengupta/data/recordings/rec_delay_{0}_dt_{1}".format(delay, datetime.now().strftime("%d_%m_%Y_%H_%M"))
+    fname = "/home/lab/asengupta/data/recordings/rectt_dt_{1}_delay_{0}".format(delay, datetime.now().strftime("%d_%m_%Y_%H_%M"))
     np.save(fname, ttvals)
+    print("np.load('{0}')".format(fname))
     return ttvals
 
+def record_usteps():
+    applydmc(bestflat)
+    threading.Thread(target=record_tt).start()
+    threading.Thread(target=lambda: time.sleep(10) or applytip(0.1)).start()

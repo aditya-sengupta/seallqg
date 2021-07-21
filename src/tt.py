@@ -12,7 +12,7 @@ grid = np.mgrid[0:ydim, 0:xdim].astype(float32)
 #bestflat=np.load('bestflat_zopt.npy') #if running code after running zern_opt.py (i.e., non-coronagraphic PSF)
 #bestflat=np.load('bestflat.npy') #if running code to realign coronagraphic PSF
 #bestflat=np.load('bestflat_shwfs.npy')
-bestflat = np.load('/home/lab/blgerard/bestflat.npy') #zygo, best flat
+bestflat = np.load('/home/lab/asengupta/data/bestflats/bestflat.npy') #zygo, best flat
 applydmc(bestflat)
 
 expt(1e-3) #set exposure time; for 0.15 mW
@@ -67,6 +67,9 @@ def applytilt(amp, verbose=True): #apply tilt; amp is the P2V in DM units
 	dmctilt = amp*tilt
 	dmc = remove_piston(dmc)+remove_piston(dmctilt)+0.5
 	return applydmc(dmc, verbose)
+
+# add something to update best flat in here if needed
+bestflat=getdmc()
 
 def applytiptilt(amptip, amptilt, verbose=True): #amp is the P2V in DM units
 	dmctip = amptip*tip
