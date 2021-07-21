@@ -135,23 +135,25 @@ def noise_floor(niters=100):
     noises /= niters
     return noises
 
-def record_im(t=0.5):
-    nimages = int(np.ceil(t / 1e-3)) * 3 # the 3 is a safety factor and 1e-3 is a fake delay
+def record_im(t=1):
+    nimages = int(np.ceil(t / 1e-3)) * 5 # the 5 is a safety factor and 1e-3 is a fake delay
     imvals = np.empty((nimages, 320, 320))
     i = 0
     t1 = time.time()
-    times = np.empty((nimages,))
+    times = np.zeros((nimages,))
 
     while time.time() < t1 + t:
         imvals[i] = im.get_data(check=False) - imflat
         times[i] = time.time()
         i += 1
-        #time.sleep(max(0, delay - (time.time() - tl)))
-    fname = "/home/lab/asengupta/data/recordings/recim_dt_{1}_delay_{0}".format(delay, datetime.now().strftime("%d_%m_%Y_%H_%M"))
-    np.save(fname, imvals)
-    print("np.load('{0}')".format(fname))
-    print(i)
-    return imvals
+
+    times = times - np.min(times)
+    fname_im = "/home/lab/asengupta/data/recordings/recim_dt_{0}".format(datetime.now().strftime("%d_%m_%Y_%H_%M"))
+    fname_t = "/home/lab/asengupta/data/recordings/rectime_dt_{0}".format(datetime.now().strftime("%d_%m_%Y_%H_%M"))
+    np.save(fname_im, imvals)
+    np.save(fname_t, times)
+    print("np.load('{0}')".format(fname_im))
+    return times[:i], imvals[:i]
 
 def record_tt(t=0.5, delay=1e-3):
     ttvals = np.zeros((0, 2))
@@ -167,5 +169,8 @@ def record_tt(t=0.5, delay=1e-3):
 
 def record_usteps():
     applydmc(bestflat)
-    threading.Thread(target=record_tt).start()
-    threading.Thread(target=lambda: time.sleep(10) or applytip(0.1)).start()
+    record_thread = threading.Thread(target=record_tt)
+    command_thread = threading.Thread(target=lambda: time.sleep(0.5) or funz(1, 1, 0.05))
+    record_thread.start()
+    command_thread.start()
+    return record_thread.join()
