@@ -135,7 +135,7 @@ def noise_floor(niters=100):
     noises /= niters
     return noises
 
-def record_im(t=1):
+def record_im(t=1, dt=datetime.now().strftime("%d_%m_%Y_%H_%M")):
     nimages = int(np.ceil(t / 1e-3)) * 5 # the 5 is a safety factor and 1e-3 is a fake delay
     imvals = np.empty((nimages, 320, 320))
     i = 0
@@ -143,34 +143,57 @@ def record_im(t=1):
     times = np.zeros((nimages,))
 
     while time.time() < t1 + t:
-        imvals[i] = im.get_data(check=False) - imflat
+        imvals[i] = im.get_data(check=False)
         times[i] = time.time()
         i += 1
-
-    times = times - np.min(times)
-    fname_im = "/home/lab/asengupta/data/recordings/recim_dt_{0}".format(datetime.now().strftime("%d_%m_%Y_%H_%M"))
-    fname_t = "/home/lab/asengupta/data/recordings/rectime_dt_{0}".format(datetime.now().strftime("%d_%m_%Y_%H_%M"))
+    
+    times = times - t1
+    times = times[:i]
+    imvals = imvals[:i]
+    fname_im = "/home/lab/asengupta/data/recordings/recim_dt_{0}.npy".format(dt)
+    fname_t = "/home/lab/asengupta/data/recordings/rectime_dt_{0}.npy".format(dt)
     np.save(fname_im, imvals)
     np.save(fname_t, times)
     print("np.load('{0}')".format(fname_im))
-    return times[:i], imvals[:i]
+    return times, imvals, fname_im
 
-def record_tt(t=0.5, delay=1e-3):
-    ttvals = np.zeros((0, 2))
-    t1 = time.time()
-    while time.time() < t1 + t:
-        tl = time.time()
-        ttvals = np.vstack((ttvals, measure_tt(im.get_data(check=False) - imflat)))
-        time.sleep(max(0, delay - (time.time() - tl)))
-    fname = "/home/lab/asengupta/data/recordings/rectt_dt_{1}_delay_{0}".format(delay, datetime.now().strftime("%d_%m_%Y_%H_%M"))
-    np.save(fname, ttvals)
-    print("np.load('{0}')".format(fname))
+def tt_from_im(fname):
+    applydmc(bestflat)
+    imflat = stack(100)
+    ims = np.load(fname)
+    ttvals = np.zeros((ims.shape[0], 2))
+    for (i, im) in enumerate(ims):
+        ttvals[i] = measure_tt(im - imflat)
+    
+    fname_tt = fname.replace("im", "tt")
+    np.save(fname_tt, ttvals)
     return ttvals
 
 def record_usteps():
     applydmc(bestflat)
-    record_thread = threading.Thread(target=record_tt)
-    command_thread = threading.Thread(target=lambda: time.sleep(0.5) or funz(1, 1, 0.05))
+    dt = datetime.now().strftime("%d_%m_%Y_%H_%M")
+    record_thread = threading.Thread(target=lambda: record_im(t=1, dt=dt))
+    command_thread = threading.Thread(target=lambda: time.sleep(0.5) or funz(1, -1, 0.1, bestflat=bestflat))
+
+    print("Starting recording and commands...")
     record_thread.start()
     command_thread.start()
-    return record_thread.join()
+    record_thread.join()
+    command_thread.join()
+    print("Done with experiment.")
+
+    applydmc(bestflat)
+    return np.load("/home/lab/asengupta/data/recordings/rectime_dt_{0}.npy".format(dt)), tt_from_im("/home/lab/asengupta/data/recordings/recim_dt_{0}.npy".format(dt))
+    
+def clear_images():
+    """
+    Clears ../data/recordings/recim_*.
+    These files take up a lot of space and often aren't necessary or useful after TTs have been extracted, 
+    so this just deletes them after prompting the user to make sure they know what they're doing.
+    """
+    verify = input("WARNING: this function deletes all the saved timeseries of images. Are you sure you want to do this? [y/n] ")
+    if verify == 'y':
+        for file in os.listdir("/home/lab/asengupta/data/recordings"):
+            if file.startswith("recim"):
+                os.remove("/home/lab/asengupta/data/recordings/" + file)
+    print("Files deleted.")
