@@ -2,11 +2,15 @@
 import numpy as np
 from datetime import datetime
 import tqdm
-import threading
+from threading import Thread
+from queue import Queue
+
 
 from ao import amplitude
 from tt import *
 from compute_cmd_int import *
+from image import *
+
 
 def find_limits(min_amp=1e-4, max_amp=1e-0):
     """
@@ -83,47 +87,35 @@ def tt_center_noise(nsteps=1000, delay=1e-2):
     np.save("/home/lab/asengupta/data/tt_center_noise/tt_center_noise_nsteps_{0}_delay_{1}_dt_{2}".format(str(nsteps), str(delay), datetime.now().strftime("%d_%m_%Y_%H")), ttvals)
     return ttvals
 
-def apply_usteps(min_amp, max_amp, steps_amp, steps_ang=12, tsleep=tsleep, nframes=50):
-    angles = np.linspace(0.0, 2 * np.pi, steps_ang)
-    amplitudes = np.linspace(min_amp, max_amp, steps_amp)
-    for amp in tqdm.tqdm(amplitudes):
-        for ang in angles:
-            applydmc(bestflat)
-            time.sleep(tsleep) # vary this later: for now I'm after steady-state error
-            applytiptilt(amp * np.cos(ang), amp * np.sin(ang))
-            time.sleep(tsleep)
-    applydmc(bestflat)
+def uconvert_ratio(amp=1.0):
+    expt_init = get_expt()
+    set_expt(1e-5)
+    uconvert_matrix = np.zeros((2,2))
+    for (mode, dmcmd) in enumerate([applytip, applytilt]):
+        applydmc(bestflat)
+        dmcmd(amp)
+        dm2 = getdmc()
+        cm2x = []
+        while len(cm2x) != 1:
+            im2 = stack(100)
+            cm2x, cm2y = np.where(im2 == np.max(im2))
 
-def apply_sinusoids(delay=1e-2):
-    nsteps_per_osc = 50
-    nosc = 50
-    times = np.arange(0, nsteps_per_osc * nosc * delay, delay)
-    f = 1
-    lims = [[-0.05, 0.15], [-0.05, 0.15]]
-    for (j, (dmcmd, lim)) in enumerate([("tip", lims[0]), ("tilt", lims[1])]):
-        print("Applying " + dmcmd)
-        dmfn = eval("apply" + dmcmd)
-        amplitude = 0.5 * min(np.abs(lim))
-        control_commands = amplitude * np.diff(np.sin(2 * np.pi * times * f))
-        ttresponse = np.zeros_like(control_commands)
-        for (i, cmd) in enumerate(control_commands):
-            dmfn(cmd)
-            time.sleep(delay)
-            ttresponse[i] = measure_tt()[j]
-        fname = "/home/lab/asengupta/data/sinusoid_amp_{0}_nsteps_{1}_nosc_{2}_f_{3}_delay_{4}_mode_{5}_dt_{6}".format(round(amplitude, 3), nsteps_per_osc, nosc, f, delay, dmcmd, datetime.now().strftime("%d_%m_%Y_%H"))
-        np.save(fname, ttresponse)
-    
-def uconvert_ratio(amp=0.1):
+        applydmc(bestflat)
+        dmcmd(-amp)
+        dm1 = getdmc()
+        cm1x = []
+        while len(cm1x) != 1:
+            im1 = stack(100)
+            cm1x, cm1y = np.where(im1 == np.max(im1))
+
+        dmdiff = aperture * (dm2 - dm1)
+        
+        dmdrange = np.max(dmdiff) - np.min(dmdiff)
+        uconvert_matrix[mode] = [dmdrange /  (cm2x - cm1x), dmdrange / (cm2y - cm1y)]
+
+    set_expt(expt_init)
     applydmc(bestflat)
-    applytilt(amp)
-    dm2 = getdmc()
-    cm2 = measure_tt(stack(1000))[0] # stack? does that accurately represent what I'm after?
-    applytip(-2*amp)
-    dm1 = getdmc()
-    cm1 = measure_tt(stack(1000))[0]
-    applydmc(bestflat)
-    dmdiff = aperture * (dm2 - dm1)
-    return (np.max(dmdiff) - np.min(dmdiff)) /  (cm2 - cm1)
+    return uconvert_matrix
 
 def noise_floor(niters=100):
     delays = np.array([5e-3, 1e-2, 5e-2, 1e-1, 5e-1, 1e-0])
@@ -143,7 +135,7 @@ def record_im(t=1, dt=datetime.now().strftime("%d_%m_%Y_%H_%M")):
     times = np.zeros((nimages,))
 
     while time.time() < t1 + t:
-        imvals[i] = im.get_data(check=False)
+        imvals[i] = im.get_data(check=True) # False doesn't wait for a new frame
         times[i] = time.time()
         i += 1
     
@@ -169,22 +161,81 @@ def tt_from_im(fname):
     np.save(fname_tt, ttvals)
     return ttvals
 
-def record_usteps():
+def record_experiment(command_schedule, path, t=1, verbose=True):
     applydmc(bestflat)
-    dt = datetime.now().strftime("%d_%m_%Y_%H_%M")
-    record_thread = threading.Thread(target=lambda: record_im(t=1, dt=dt))
-    command_thread = threading.Thread(target=lambda: time.sleep(0.5) or funz(1, -1, 0.1, bestflat=bestflat))
+    dt = datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
+    path = path + "_dt_" + dt + ".npy"
 
-    print("Starting recording and commands...")
+    record_thread = threading.Thread(target=lambda: record_im(t=t, dt=dt))
+    command_thread = threading.Thread(target=command_schedule)
+
+    if verbose:
+        print("Starting recording and commands...")
+
     record_thread.start()
     command_thread.start()
     record_thread.join()
     command_thread.join()
-    print("Done with experiment.")
+
+    if verbose:
+        print("Done with experiment.")
 
     applydmc(bestflat)
-    return np.load("/home/lab/asengupta/data/recordings/rectime_dt_{0}.npy".format(dt)), tt_from_im("/home/lab/asengupta/data/recordings/recim_dt_{0}.npy".format(dt))
+
+    times = np.load("/home/lab/asengupta/data/recordings/rectime_dt_{0}.npy".format(dt))
+    ttvals = tt_from_im("/home/lab/asengupta/data/recordings/recim_dt_{0}.npy".format(dt))
+    np.save(path, times)
+    path = path.replace("time", "tt")
+    np.save(path, ttvals)
+    return times, ttvals 
+
+def record_usteps(tip_amp=0.1, tilt_amp=0.0):
+    path = "../data/usteps/ustep_time_amps_{1}_{2}".format(tip_amp, tilt_amp)
+    def command_schedule(tip_amp, tilt_amp):
+        time.sleep(0.5)
+        funz(1, -1, tip_amp, bestflat=bestflat)
+        funz(1, 1, tilt_amp, bestflat=bestflat)
+
+    return record_experiment(command_schedule, path)
+
+def record_usteps_in_circle(niters=10, amp=0.1, nangles=12):
+    for _ in tqdm.trange(niters):
+        for ang in np.arange(0, 2 * np.pi, np.pi / 6):
+            record_usteps(amp * np.cos(ang), amp * np.sin(ang), verbose=False)
+
+def record_sinusoids(delay=1e-2):
+    for mode in [0, 1]:
+        nsteps_per_osc = 50
+        nosc = 50
+        times = np.arange(0, nsteps_per_osc * nosc * delay, delay)
+        f = 1
+        amplitude = 1.0
+        dmfn = lambda cmd: funz(1, 2*mode-1, cmd, bestflat=bestflat)
+        path = "../data/sinusoid/sinusoid_amp_{0}_nsteps_{1}_nosc_{2}_f_{3}_delay_{4}_mode_{5}".format(round(amplitude, 3), nsteps_per_osc, nosc, f, delay, mode)
+
+        def command_schedule():
+            control_commands = amplitude * np.diff(np.sin(2 * np.pi * times * f))
+            for (i, cmd) in enumerate(control_commands):
+                dmfn(cmd)
+                time.sleep(delay)
+            
+        record_experiment(command_schedule, path)
     
+def record_atm_vib(atm=0, vib=2, delay=1e-2, scaledown=10):
+    """
+    Plays vibrations/turbulence on the DM - scaled down in amplitude and in time by a factor of 10.
+    """
+    fname = "../data/sims/ol_atm_{0}_vib_{1}.npy".format(atm, vib)
+    path = "../data/atmvib/atm_{0}_vib_{1}.npy".format(atm, vib)
+    
+    def command_schedule():
+        control_commands = np.diff(np.load(fname), axis=0) / scaledown
+        for (i, cmd) in enumerate(control_commands):
+            applytiptilt(cmd[0], cmd[1], verbose=False)
+            time.sleep(delay)
+
+    record_experiment(command_schedule, path)
+
 def clear_images():
     """
     Clears ../data/recordings/recim_*.
@@ -195,5 +246,45 @@ def clear_images():
     if verify == 'y':
         for file in os.listdir("/home/lab/asengupta/data/recordings"):
             if file.startswith("recim"):
+                print("Deleting " + file)
                 os.remove("/home/lab/asengupta/data/recordings/" + file)
     print("Files deleted.")
+
+def tt_to_dmc(tt):
+    """
+    Converts a measured tip-tilt value to an ideal DM command, using the amplitude of the linearity matrix.
+    
+    Arguments
+    ---------
+    tt : np.ndarray, (2,)
+    The tip and tilt values.
+
+    Returns
+    -------
+    dmc : np.ndarray, (dm_x, dm_y)
+    The corresponding DM command.
+    """
+    pass
+
+def integrator_control(gain=0.1, leak=1, niters=1000):
+    """
+    Runs closed-loop integrator control with a fixed gain.
+    
+    Arguments
+    ---------
+    gain : float
+    The gain value to use for the integrator.
+
+    Returns
+    -------
+    times : np.ndarray, (niters,)
+    The times at which new tip-tilt values are measured.
+
+    ttvals : np.ndarray, (niters, 2)
+    The tip-tilt values in closed loop.
+    """
+    for i in tqdm.trange(niters):
+        frame = getim()
+        tt = measure_tt(frame)
+        dmcn = tt_to_dmc(tt)
+        applydmc(leak * getdmc() + gain * dmcn) 

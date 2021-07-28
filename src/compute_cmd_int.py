@@ -8,6 +8,9 @@ from numpy import float32
 from numba import njit, objmode
 import time
 import ao
+from matplotlib import pyplot as plt
+import tqdm
+from scipy.optimize import newton
 
 #initial setup: apply best flat, generate DM grid to apply future shapes
 dmcini = getdmc()
@@ -122,11 +125,9 @@ time.sleep(tsleep)
 imflat = stack(100)
 
 def measure_tt(im):
-    """
-	can't JIT this, so will have to explicitly pass it in
-	if im is None:
-        im = getim()
-	"""
+	# can't JIT this, so will have to explicitly pass it in
+	# if im is None:
+    #     im = getim()
     tar_ini = processim(im)
     tar = np.array([np.real(tar_ini[indttmask]), np.imag(tar_ini[indttmask])]).flatten()	
     coeffs = np.dot(cmd_mtx, tar)
@@ -158,9 +159,7 @@ def pc(rcond,i,sf):
 	plt.axhline(IMamp*sf,0,len(coeffs),ls='--')
 
 
-if __name__ == "__main__":
-	from matplotlib import pyplot as plt
-
+def compute_linearity_curve(mode=0, nlin=20, amp=IMamp, plot=True):
 	def genzerncoeffs(i, zernamp):
 		'''
 		i: zernike mode
@@ -177,19 +176,56 @@ if __name__ == "__main__":
 		return coeffs*IMamp
 
 	nlin = 20 #number of data points to scan through linearity measurements
-	zernamparr = np.linspace(-1.5*IMamp, 1.5*IMamp, nlin)
-	#try linearity measurement for Zernike mode 0
-	zernampout=np.zeros((len(nmarr),nlin))
-	for i in range(nlin):
+	zernamparr = np.linspace(-1.5*amp, 1.5*amp, nlin)
+	#try linearity measurement for Zernike mode 'mode'
+	zernampout=np.zeros((len(nmarr), nlin))
+	for i in tqdm.trange(nlin):
 		zernamp=zernamparr[i]
-		coeffsout=genzerncoeffs(0,zernamp)
-		zernampout[:,i]=coeffsout
+		coeffsout = genzerncoeffs(mode, zernamp)
+		zernampout[:,i] = coeffsout
 	
 	applydmc(bestflat)
 
-	plt.figure()
-	plt.plot(zernamparr,zernamparr,lw=1,color='k',ls='--',label='y=x')
-	plt.plot(zernamparr,zernampout[0,:],lw=2,color='k',label='i=0')
-	plt.plot(zernamparr,zernampout[1,:],lw=2,color='blue',label='i=1')
-	plt.legend(loc='best')
+	if plot:
+		plt.figure()
+		plt.plot(zernamparr,zernamparr,lw=1,color='k',ls='--',label='y=x')
+		plt.plot(zernamparr,zernampout[0,:],lw=2,color='k',label='i=0')
+		plt.plot(zernamparr,zernampout[1,:],lw=2,color='blue',label='i=1')
+		plt.legend(loc='best')
+		plt.xlabel("Applied command")
+		plt.ylabel("System response")
+		plt.show()
 
+	return zernamparr, zernampout
+
+def fit_polynomial(x, y, maxdeg=10, abstol=1e-4):
+	"""
+	Slight extension to np.polyfit that varies the degree.
+	"""
+	for deg in range(maxdeg):
+		p = np.polyfit(x, y, deg=deg)
+		errs = np.polyval(p, x) - y
+		err = np.sum(errs ** 2)
+		if err <= abstol:
+			return p, err
+	return p, err
+
+def fit_linearity_curves():
+	ps = []
+	for mode in range(2):
+		zin, zout = compute_linearity_curve(mode=mode, plot=False)
+		ps.append(fit_polynomial(zin, zout[mode])[0])
+	return ps
+
+def command_for_actual(act, p):
+	"""
+	Uses Newton's method and a polynomial fit to the linearity curve 
+	to calculate the command you should send to get an actual response of 'act'.
+	"""
+	d = len(p)
+	obj = lambda x: np.dot(p, x ** np.arange(d-1, -1, -1)) - act
+	dobj = lambda x: np.dot(np.arange(d-1, -1, -1), x ** np.arange(d-2, -2, -1))
+	return newton(obj, act, fprime=dobj)
+
+if __name__ == "__main__":
+	compute_linearity_curve()

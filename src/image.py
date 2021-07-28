@@ -7,7 +7,10 @@ import time
 import ao
 import warnings
 
-ds9 = pysao.ds9()
+try:
+    ds9 = pysao.ds9()
+except OSError:
+    pass
 
 #initialize; no need to load this more than once
 #for full frame:
@@ -28,6 +31,12 @@ def expt(t):
 	'''
 	dit = a.get_data()
 	dit[0][0] = t; a.set_data(dit)
+
+def get_expt():
+	return a.get_data()[0][0]
+
+def set_expt(t):
+	expt(t)
 
 #To view images in pysao ds9:
 def getim():
