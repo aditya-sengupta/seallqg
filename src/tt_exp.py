@@ -128,7 +128,7 @@ def tt_from_im(fname):
     np.save(fname_tt, ttvals)
     return ttvals
 
-def record_experiment(command_schedule, path, t=1, verbose=True):
+def record_openloop(command_schedule, path, t=1, verbose=True):
     applydmc(bestflat)
     dt = datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
     path = path + "_dt_" + dt + ".npy"
