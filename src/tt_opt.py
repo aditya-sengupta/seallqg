@@ -14,9 +14,9 @@ sidemaskindn=np.where(sidemaskrhon<sidemaskrad)
 sidemaskn[sidemaskindn]=1
 
 def processimabs(imin,mask): #process SCC image, isolating the sidelobe in the FFT and IFFT back to the image
-	otf=np.fft.fftshift(np.fft.fft2(imin,norm='ortho')) #(1) FFT the image
-	otf_masked=otf*mask #(2) multiply by binary mask to isolate side lobe or noise mask
-	Iminus=np.fft.ifft2(otf_masked,norm='ortho') #(3) IFFT back to the image plane, now generating a complex-valued image
+	otf = np.fft.fftshift(np.fft.fft2(imin,norm='ortho')) #(1) FFT the image
+	otf_masked = otf * mask #(2) multiply by binary mask to isolate side lobe or noise mask
+	Iminus = np.fft.ifft2(otf_masked,norm='ortho') #(3) IFFT back to the image plane, now generating a complex-valued image
 	return np.abs(Iminus)
 
 def optt(tsleep): #function to optimize how long to wait in between applying DM command and recording image

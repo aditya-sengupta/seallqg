@@ -3,16 +3,14 @@ from numpy import float32
 import time
 import itertools
 from scipy.ndimage.filters import median_filter
+from scipy import fft
 
 from image import *
 
 dmcini = getdmc()
 ydim, xdim = dmcini.shape
 grid = np.mgrid[0:ydim, 0:xdim].astype(float32)
-#bestflat=np.load('bestflat_zopt.npy') #if running code after running zern_opt.py (i.e., non-coronagraphic PSF)
-#bestflat=np.load('bestflat.npy') #if running code to realign coronagraphic PSF
-#bestflat=np.load('bestflat_shwfs.npy')
-bestflat = np.load('/home/lab/asengupta/data/bestflats/bestflat.npy') #zygo, best flat
+bestflat = np.load('/home/lab/asengupta/data/bestflats/bestflat.npy')
 applydmc(bestflat)
 
 expt(1e-3) #set exposure time; for 0.15 mW
@@ -107,34 +105,14 @@ IMamp = 0.1
 #make MTF side lobe mask
 xsidemaskcen,ysidemaskcen = 252.01, 159.4 #x and y location of the side lobe mask in the cropped image
 sidemaskrad = 26.8 #radius of the side lobe mask
-mtfgrid = np.mgrid[0:imini.shape[0], 0:imini.shape[1]]
+mtfgrid = np.mgrid[0:imini.shape[0], 0:imini.shape[1]].astype(float32)
 sidemaskrho = np.sqrt((mtfgrid[0]-ysidemaskcen)**2+(mtfgrid[1]-xsidemaskcen)**2)
-sidemask = np.zeros(imini.shape)
+sidemask = np.zeros(imini.shape, dtype=float32)
 sidemaskind = np.where(sidemaskrho < sidemaskrad)
 sidemask[sidemaskind] = 1
 
 def processim(imin): #process SCC image, isolating the sidelobe in the FFT and IFFT back to the image
-	otf=np.fft.fftshift(np.fft.fft2(imin,norm='ortho')) #(1) FFT the image
-	otf_masked=otf*sidemask #(2) multiply by binary mask to isolate side lobe
-	Iminus=np.fft.ifft2(otf_masked,norm='ortho') #(3) IFFT back to the image plane, now generating a complex-valued image
+	otf = np.fft.fftshift(fft.fft2(imin, norm='ortho')) #(1) FFT the image
+	otf_masked = otf * sidemask #(2) multiply by binary mask to isolate side lobe
+	Iminus = fft.ifft2(otf_masked, norm='ortho') #(3) IFFT back to the image plane, now generating a complex-valued image
 	return Iminus
-
-# make interaction matrix
-"""refvec = np.zeros((len(nmarr), ttmask[indttmask].shape[0]*2))
-zernarr = np.zeros((len(nmarr), aperture[indap].shape[0]))
-for i in range(len(nmarr)):
-	n, m = nmarr[i]
-	zern = funz(n, m, IMamp)
-	time.sleep(tsleep)
-	imzern = stack(10)
-	applydmc(bestflat)
-	time.sleep(tsleep)
-	imflat = stack(10)
-	imdiff = imzern - imflat
-	Im_diff = processim(imdiff)
-	refvec[i] = np.array([np.real(Im_diff[indttmask]), np.imag(Im_diff[indttmask])]).flatten()
-	zernarr[i] = zern[indap]
-
-IM = np.dot(refvec, refvec.T) #interaction matrix
-IMinv = np.linalg.pinv(IM,rcond=1e-3)
-cmd_mtx = np.dot(IMinv, refvec)"""

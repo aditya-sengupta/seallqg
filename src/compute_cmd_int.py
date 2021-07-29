@@ -75,28 +75,6 @@ def vz(n, m, IMamp): #determine the minimum IMamp (interaction matrix amplitude)
 
 IMamp = 0.1 #from above function
 
-#make MTF side lobe mask
-xsidemaskcen, ysidemaskcen=252.01, 159.4 #x and y location of the side lobe mask in the cropped image
-sidemaskrad = 26.8 #radius of the side lobe mask
-mtfgrid = np.mgrid[0:imini.shape[0], 0:imini.shape[1]]
-sidemaskrho = np.sqrt((mtfgrid[0]-ysidemaskcen)**2 + (mtfgrid[1]-xsidemaskcen)**2)
-sidemask = np.zeros(imini.shape)
-sidemaskind = np.where(sidemaskrho < sidemaskrad)
-sidemask[sidemaskind] = 1
-
-def fftshift(arr):
-	"""
-	Just does np.fft.fftshift, but JIT-able
-	"""
-	s = int(np.ceil(len(arr) // 2))
-	return np.concatenate((arr[s:], arr[:s]))
-
-def processim(imin): #process SCC image, isolating the sidelobe in the FFT and IFFT back to the image
-	otf = np.fft.fftshift(np.fft.fft2(imin, norm='ortho')) #(1) FFT the image
-	otf_masked = otf * sidemask #(2) multiply by binary mask to isolate side lobe
-	Iminus = np.fft.ifft2(otf_masked, norm='ortho') #(3) IFFT back to the image plane, now generating a complex-valued image
-	return Iminus
-
 #make interaction matrix
 refvec = np.zeros((len(nmarr), ttmask[indttmask].shape[0]*2))
 zernarr = np.zeros((len(nmarr), aperture[indap].shape[0]))
@@ -115,7 +93,7 @@ for i in range(len(nmarr)):
 
 IM = np.dot(refvec, refvec.T) #interaction matrix
 IMinv = np.linalg.pinv(IM, rcond=1e-3)
-cmd_mtx = np.dot(IMinv, refvec)
+cmd_mtx = np.dot(IMinv, refvec).astype(float32)
 print("Recomputed interaction matrix and command matrix")
 time_cmd_mtx = time.time()
 cmd_mtx_age = lambda: time.time() - time_cmd_mtx
@@ -125,13 +103,11 @@ time.sleep(tsleep)
 imflat = stack(100)
 
 def measure_tt(im):
-	# can't JIT this, so will have to explicitly pass it in
-	# if im is None:
-    #     im = getim()
-    tar_ini = processim(im)
-    tar = np.array([np.real(tar_ini[indttmask]), np.imag(tar_ini[indttmask])]).flatten()	
-    coeffs = np.dot(cmd_mtx, tar)
-    return coeffs * IMamp
+	tar_ini = processim(im)
+	tar = np.array([np.real(tar_ini[indttmask]), np.imag(tar_ini[indttmask])])
+	tar = tar.reshape((tar.size, 1))	
+	coeffs = np.dot(cmd_mtx, tar)
+	return coeffs * IMamp
 
 def pc(rcond,i,sf):
 	'''
@@ -143,7 +119,7 @@ def pc(rcond,i,sf):
 	IMinv=np.linalg.pinv(IM,rcond=rcond)
 	cmd_mtx=np.dot(IMinv,refvec)
 
-	n,m=nmarr[i]
+	n,m = nmarr[i]
 	zern=funz(n,m,IMamp*sf)
 	time.sleep(tsleep)
 	imzern=stack(10)

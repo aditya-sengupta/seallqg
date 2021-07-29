@@ -5,44 +5,11 @@ import tqdm
 from threading import Thread
 from queue import Queue
 
-
-from ao import amplitude
 from tt import *
 from compute_cmd_int import *
 from image import *
 
-
-def find_limits(min_amp=1e-4, max_amp=1e-0):
-    """
-    Applies tips and tilts from the best flat to find the feasible range of DM TT commands.
-
-    Arguments: none
-
-    Returns: (list, list); the first is min_tip, max_tip; the second is min_tilt, max_tilt
-    """
-    limits = []
-    for dmfn in [applytip, applytilt]:
-        for sgn in [-1, +1]:
-            applydmc(bestflat)
-            applied_cmd = 0.0
-            for step_size in 10 ** np.arange(np.log10(max_amp), np.log10(min_amp)-1, -1):
-                time.sleep(tsleep)
-                in_range = True
-                while in_range:
-                    applied_cmd += sgn * step_size
-                    in_range = all(dmfn(sgn * step_size))
-                applied_cmd -= sgn * step_size
-                dmfn(-sgn * step_size, False) # move it back within range, and retry with the smaller step size
-            limits.append(applied_cmd)
-                
-    applydmc(bestflat)
-    return limits[:2], limits[2:] # the first is min_tip, max_tip; the second is min_tilt, max_tilt
-
-def poisson_ll(data, lam):
-    from scipy.special import gammaln
-    
-    n = len(data)
-    return -n * lam + np.sum(data) * np.log(lam) - np.sum(np.nan_to_num(gammaln(data), posinf=0))
+# find limits and poisson ll are in git somewhere
 
 def get_noise(delay=1e-2):
     im1 = getim()
@@ -111,7 +78,7 @@ def uconvert_ratio(amp=1.0):
         dmdiff = aperture * (dm2 - dm1)
         
         dmdrange = np.max(dmdiff) - np.min(dmdiff)
-        uconvert_matrix[mode] = [dmdrange /  (cm2x - cm1x), dmdrange / (cm2y - cm1y)]
+        uconvert_matrix[mode] = [dmdrange /  (cm2y - cm1y), dmdrange / (cm2x - cm1x)]
 
     set_expt(expt_init)
     applydmc(bestflat)
@@ -155,7 +122,7 @@ def tt_from_im(fname):
     ims = np.load(fname)
     ttvals = np.zeros((ims.shape[0], 2))
     for (i, im) in enumerate(ims):
-        ttvals[i] = measure_tt(im - imflat)
+        ttvals[i] = measure_tt(im - imflat).flatten()
     
     fname_tt = fname.replace("im", "tt")
     np.save(fname_tt, ttvals)
@@ -166,8 +133,8 @@ def record_experiment(command_schedule, path, t=1, verbose=True):
     dt = datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
     path = path + "_dt_" + dt + ".npy"
 
-    record_thread = threading.Thread(target=lambda: record_im(t=t, dt=dt))
-    command_thread = threading.Thread(target=command_schedule)
+    record_thread = Thread(target=lambda: record_im(t=t, dt=dt))
+    command_thread = Thread(target=command_schedule)
 
     if verbose:
         print("Starting recording and commands...")
@@ -190,17 +157,17 @@ def record_experiment(command_schedule, path, t=1, verbose=True):
     return times, ttvals 
 
 def record_usteps(tip_amp=0.1, tilt_amp=0.0):
-    path = "../data/usteps/ustep_time_amps_{1}_{2}".format(tip_amp, tilt_amp)
+    path = "../data/usteps/ustep_time_amps_{0}_{1}".format(tip_amp, tilt_amp)
     def command_schedule(tip_amp, tilt_amp):
         time.sleep(0.5)
         funz(1, -1, tip_amp, bestflat=bestflat)
         funz(1, 1, tilt_amp, bestflat=bestflat)
 
-    return record_experiment(command_schedule, path)
+    return record_experiment(lambda: command_schedule(tip_amp, tilt_amp), path)
 
 def record_usteps_in_circle(niters=10, amp=0.1, nangles=12):
     for _ in tqdm.trange(niters):
-        for ang in np.arange(0, 2 * np.pi, np.pi / 6):
+        for ang in np.arange(0, 2 * np.pi, np.pi / nangles):
             record_usteps(amp * np.cos(ang), amp * np.sin(ang), verbose=False)
 
 def record_sinusoids(delay=1e-2):
@@ -230,7 +197,7 @@ def record_atm_vib(atm=0, vib=2, delay=1e-2, scaledown=10):
     
     def command_schedule():
         control_commands = np.diff(np.load(fname), axis=0) / scaledown
-        for (i, cmd) in enumerate(control_commands):
+        for cmd in control_commands:
             applytiptilt(cmd[0], cmd[1], verbose=False)
             time.sleep(delay)
 
@@ -249,42 +216,3 @@ def clear_images():
                 print("Deleting " + file)
                 os.remove("/home/lab/asengupta/data/recordings/" + file)
     print("Files deleted.")
-
-def tt_to_dmc(tt):
-    """
-    Converts a measured tip-tilt value to an ideal DM command, using the amplitude of the linearity matrix.
-    
-    Arguments
-    ---------
-    tt : np.ndarray, (2,)
-    The tip and tilt values.
-
-    Returns
-    -------
-    dmc : np.ndarray, (dm_x, dm_y)
-    The corresponding DM command.
-    """
-    pass
-
-def integrator_control(gain=0.1, leak=1, niters=1000):
-    """
-    Runs closed-loop integrator control with a fixed gain.
-    
-    Arguments
-    ---------
-    gain : float
-    The gain value to use for the integrator.
-
-    Returns
-    -------
-    times : np.ndarray, (niters,)
-    The times at which new tip-tilt values are measured.
-
-    ttvals : np.ndarray, (niters, 2)
-    The tip-tilt values in closed loop.
-    """
-    for i in tqdm.trange(niters):
-        frame = getim()
-        tt = measure_tt(frame)
-        dmcn = tt_to_dmc(tt)
-        applydmc(leak * getdmc() + gain * dmcn) 
