@@ -1,6 +1,8 @@
 from tt import *
 from matplotlib import pyplot as plt
 
+expt(1e-4)
+
 bestflat = getdmc()
 
 #apply tip/tilt starting only from the bestflat point (start here if realigning the non-coronagraphic PSF) 

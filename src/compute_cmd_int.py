@@ -12,6 +12,8 @@ from matplotlib import pyplot as plt
 import tqdm
 from scipy.optimize import newton
 
+global imflat
+
 #initial setup: apply best flat, generate DM grid to apply future shapes
 dmcini = getdmc()
 ydim, xdim = dmcini.shape
@@ -99,8 +101,8 @@ time_cmd_mtx = time.time()
 cmd_mtx_age = lambda: time.time() - time_cmd_mtx
 
 applydmc(bestflat)
-time.sleep(tsleep)
-imflat = stack(100)
+# time.sleep(tsleep)
+# imflat = stack(100)
 
 def measure_tt(im):
 	tar_ini = processim(im)

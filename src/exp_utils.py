@@ -7,6 +7,7 @@ from tt import *
 from compute_cmd_int import measure_tt
 
 tiptiltarr = np.array([tilt.flatten(), tip.flatten()]).T
+bestflat = np.load("../data/bestflats/bestflat.npy")
 
 def record_im(t=1, dt=datetime.now().strftime("%d_%m_%Y_%H_%M")):
     nimages = int(np.ceil(t / 1e-3)) * 5 # the 5 is a safety factor and 1e-3 is a fake delay
@@ -43,7 +44,9 @@ def tt_from_im(fname):
     return ttvals
 
 def record_experiment(command_schedule, path, t=1, verbose=True):
-    applydmc(bestflat)
+    bestflat = np.load("../data/bestflats/bestflat.npy")
+    # applydmc(bestflat)
+    # imflat = stack(100)
     dt = datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
     path = path + "_time_dt_" + dt + ".npy"
 
@@ -69,7 +72,6 @@ def record_experiment(command_schedule, path, t=1, verbose=True):
     path = path.replace("time", "tt")
     np.save(path, ttvals)
     return times, ttvals 
-
 
 def tt_to_dmc(tt):
     """
@@ -102,3 +104,9 @@ def clear_images():
                 print("Deleting " + file)
                 os.remove("/home/lab/asengupta/data/recordings/" + file)
     print("Files deleted.")
+
+def refresh_imflat():
+    dmc = getdmc()
+    applydmc(bestflat)
+    imflat = stack(100)
+    applydmc(dmc)

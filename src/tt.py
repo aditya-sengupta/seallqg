@@ -10,6 +10,7 @@ from image import *
 dmcini = getdmc()
 ydim, xdim = dmcini.shape
 grid = np.mgrid[0:ydim, 0:xdim].astype(float32)
+global bestflat 
 bestflat = np.load('/home/lab/asengupta/data/bestflats/bestflat.npy')
 applydmc(bestflat)
 

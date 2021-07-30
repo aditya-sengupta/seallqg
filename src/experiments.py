@@ -5,9 +5,12 @@ import time
 
 from tt import *
 from compute_cmd_int import measure_tt
-#from image import *
 from compute_cmd_int import imflat
 from exp_utils import record_experiment, tt_to_dmc
+
+bestflat = np.load("../data/bestflats/bestflat.npy")
+applydmc(bestflat)
+imflat = stack(100)
 
 def record_usteps(tip_amp=0.1, tilt_amp=0.0):
     path = "../data/usteps/ustep_amps_{0}_{1}".format(tip_amp, tilt_amp)
@@ -19,11 +22,17 @@ def record_usteps(tip_amp=0.1, tilt_amp=0.0):
     return record_experiment(lambda: command_schedule(tip_amp, tilt_amp), path)
 
 def record_usteps_in_circle(niters=10, amp=0.1, nangles=12):
+    timearrs, ttvalarrs = [], []
     for _ in tqdm.trange(niters):
         for ang in np.arange(0, 2 * np.pi, np.pi / nangles):
-            record_usteps(amp * np.cos(ang), amp * np.sin(ang), verbose=False)
+            times, ttvals = record_usteps(amp * np.cos(ang), amp * np.sin(ang), verbose=False)
+            timearrs.append(times)
+            ttvalarrs.append(ttvals)
+
+    return timearrs, ttvalarrs
 
 def record_sinusoids(delay=1e-2):
+    timearrs, ttvalarrs = [], []
     for mode in [0, 1]:
         nsteps_per_osc = 50
         nosc = 50
@@ -39,7 +48,9 @@ def record_sinusoids(delay=1e-2):
                 dmfn(cmd)
                 time.sleep(delay)
             
-        record_experiment(command_schedule, path)
+        times, ttvals = record_experiment(command_schedule, path)
+        timearrs.append(times)
+        ttvalarrs.append(ttvals)
     
 def record_atm_vib(atm=0, vib=2, delay=1e-2, scaledown=10):
     """
@@ -54,9 +65,9 @@ def record_atm_vib(atm=0, vib=2, delay=1e-2, scaledown=10):
             applytiptilt(cmd[0], cmd[1], verbose=False)
             time.sleep(delay)
 
-    record_experiment(command_schedule, path)
+    return record_experiment(command_schedule, path)
 
-def record_integrator(t=1, delay=0.01, gain=0.1, leak=1.0,):
+def record_integrator(t=1, delay=0.01, gain=0.1, leak=1.0):
     path = "../data/closedloop/cl_gain_{0}_leak_{1}".format(gain, leak)
 
     def command_schedule():
@@ -69,5 +80,5 @@ def record_integrator(t=1, delay=0.01, gain=0.1, leak=1.0,):
             applydmc(leak * getdmc() + gain * dmcn) 
             time.sleep(max(0, delay - (time.time() - ti)))
 
-    record_experiment(command_schedule, path)
+    return record_experiment(command_schedule, path, t)
     
