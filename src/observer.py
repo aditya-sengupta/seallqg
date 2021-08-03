@@ -128,7 +128,7 @@ class Observer:
         Q[0][0] = 1 # arbitrary: I have no idea how to set this yet.
         C = np.zeros((1,n))
         C[:,0] = 1
-        R = np.array([measurement_noise**2])
+        R = np.array([measurement_noise ** 2])
         return KFilter(A, C, Q, R)
 
     def make_kfilter_ar(self, ar_len, openloops, sigma=0.06):
