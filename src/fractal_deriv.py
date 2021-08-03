@@ -20,7 +20,7 @@ def te(N=1024,a=1.e-6,n=Fraction(-2,3),dt=1,eps=.25,trunc=None,oplot=False,color
     i = 1j
     t = np.arange(0,N).astype(float)*dt
     t[0] = eps*t[1]
-    x = t**(n)*np.exp(-a*t)
+    x = t**n * np.exp(-a*t)
     #x[0] = 0
     x[N//2:N] = 0
     if trunc is not None:
@@ -52,7 +52,7 @@ def te(N=1024,a=1.e-6,n=Fraction(-2,3),dt=1,eps=.25,trunc=None,oplot=False,color
     plt.ylabel(r'$X(f) \sim f^{%s}$'%(-n-1,))
     globals().update(locals())
 
-def design_filt(dt=1, N=1024, fc=0.1, a=1e-6, tf=None, plot=True,oplot=False):
+def design_filt(dt=1, N=1024, fc=0.1, a=1e-6, tf=None, plot=True, oplot=False):
     '''Design a filter that takes white noise as input
     and produces the f^-2/3 transitioning to f^-11/3 spectrum of atmospheric
     tip/tilt. The way to do this is to put a "1/3" pole
@@ -114,7 +114,7 @@ def design_filt(dt=1, N=1024, fc=0.1, a=1e-6, tf=None, plot=True,oplot=False):
     globals().update(locals())
     return np.real(x) / sum(np.real(x))
 
-def filt(a,dt=1,u=None,N=1024,plot=True,oplot=False):
+def filt(a, dt=1, u=None, N=1024, plot=True, oplot=False):
     '''filter the time series u by the filter a, defined
     in terms of its impulse response
 
