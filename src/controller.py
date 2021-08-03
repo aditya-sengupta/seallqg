@@ -2,7 +2,6 @@
 
 import numpy as np
 from matplotlib import pyplot as plt
-from aberrations import *
 from observer import *
 from copy import deepcopy
 

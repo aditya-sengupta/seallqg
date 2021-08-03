@@ -1,21 +1,26 @@
 import numpy as np
-from copy import deepcopy
+from copy import copy
 from scipy import linalg
 
 class KFilter:
-    def __init__(self, A, B, C, Q, R):
-        iters = 0
-        P = deepcopy(Q)
-        lastP = np.zeros_like(A)
-        K = zeros(A.shape[0], C.shape[0])
-        while not np.allclose(lastP == P):
-            lastP = deepcopy(P)
-            P = A @ P @ A.T + Q
-            K = P @ C.T @ np.linalg.inv(C @ P @ C.T + R)
-            P = P - K @ C @ P
-            iters += 1
-        print("Took %d iterations to reach steady-state covariance.")
-        self.A, self.B, self.C, self.Q, self.R, self.K = A, B, C, Q, R, K
+    def __init__(self, A, C, Q, R):
+        try:
+            self.P = linalg.solve_discrete_are(A.T, C.T, Q, R)
+            print("Solved discrete ARE.")
+        except (ValueError, np.linalg.LinAlgError):
+            print("Discrete ARE solve failed, falling back to iterative solution.")
+            P = copy(Q)
+            lastP = np.zeros_like(A)
+            iters = 0
+            while not np.allclose(lastP, P):
+                P = A @ P @ A.T + Q
+                K = P @ C.T @ np.linalg.inv(C @ P @ C.T + R)
+                P = P - K @ C @ P
+                iters += 1
+            self.P = P
+            print("Solved iteratively in {} iterations".format(iters))
+        self.A, self.C, self.Q, self.R = A, C, Q, R
+        self.K = self.P @ C.T @ np.linalg.inv(C @ self.P @ C.T + R)
 
     @property
     def s(self):
@@ -33,26 +38,22 @@ class KFilter:
             return other
         elif other.s == 0:
             return self
-        B = linalg.block_diag(self.B, other.B).T
         A = linalg.block_diag(self.A, other.A)
         C = linalg.block_diag(self.C, other.C)
         Q = linalg.block_diag(self.Q, other.Q)
         R = linalg.block_diag(self.R, other.R)
-        return KFilter(A, B, C, Q, R)
+        return KFilter(A, C, Q, R)
 
-    def predict(self, x, u):
-        return self.A @ x + self.B @ u
+    def predict(self, x):
+        return self.A @ x
 
     def update(self, x, y):
         return x + self.K @ (y - self.C @ x)
 
-    def dare(self):
-        return linalg.solve_discrete_are(self.A, self.C, self.Q, self.R)
-
     def run(self, measurements, inputs, x0):
         steps = len(measurements)
         states = np.empty((steps, self.s))
-        x = deepcopy(x0)
+        x = copy(x0)
         
         for (i, (u, m)) in enumerate(zip(inputs, measurements)):
             x = self.update(self.predict(x, u), m)
