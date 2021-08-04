@@ -2,55 +2,24 @@ import numpy as np
 import mpmath as mp
 from fractions import Fraction
 import matplotlib.pyplot as plt
+from utils import genpsd
 
 plt.ion()
 
-def te(N=1024,a=1.e-6,n=Fraction(-2,3),dt=1,eps=.25,trunc=None,oplot=False,color='k',match=None):
-    '''This is an experimental routine testing the hypothesis that a
-    time sequence of t^-2/3 will have a Fourier Transform ~ f^(-1/3),
-    or, in general t^p --> f^-(p+1) for p > -1 according to the table of Laplace transforms
+def design_from_psd(y, dt):
+    """
+    Designs a filter for a time-series of open loop values.
 
-    the parameter trunc allows you to truncate the time series to evaluate the effect of
-    fewer coefficients in the time series on the transform.
-    For example try:
-        te()
-        te(trunc=100,oplot=True)
-        te(trunc=10,oplot=True)
-    '''
-    i = 1j
-    t = np.arange(0,N).astype(float)*dt
-    t[0] = eps*t[1]
-    x = t**n * np.exp(-a*t)
-    #x[0] = 0
-    x[N//2:N] = 0
-    if trunc is not None:
-        x[trunc:N//2] = 0
-    if match is None:
-        match = N//100
-    if not oplot:
-        plt.figure(figsize=(6,7))
-    ax = plt.subplot(211)
-    plt.plot(t,x,'%s.'%color)
-    #plt.yscale('log')
-    #plt.xscale('log')
-    plt.xlabel('time')
-    plt.ylabel(r'$f(t) = t^{%s}$'%n)
-    plt.grid(True,which='both')
-    X = np.fft.fft(x)
-    df = 1./(N*dt)
-    f = np.arange(0,N)*df
-    s = i*2*np.pi*f
-    XL = mp.gamma(n+1) / ((s+a)**(n+1))
-    ax = plt.subplot(212)
-    fudge = np.abs(XL)[match]/np.abs(X)[match]
-    plt.plot(f[1:N//2],np.abs(X)[1:N//2],color)
-    plt.plot(f[1:N//2],(1/fudge)*np.abs(XL)[1:N//2],'%s:'%color)
-    plt.xscale('log')
-    plt.yscale('log')
-    plt.grid(True,which='both')
-    plt.xlabel('frequency')
-    plt.ylabel(r'$X(f) \sim f^{%s}$'%(-n-1,))
-    globals().update(locals())
+    Arguments
+    ---------
+    y : np.ndarray
+    The time-series.
+
+    dt : float
+    The time step in seconds.
+    """
+    f, p = genpsd()
+    fF = np.hstack((-np.flip(f[1:], f)))
 
 def design_filt(dt=1, N=1024, fc=0.1, a=1e-6, tf=None, plot=True, oplot=False):
     '''Design a filter that takes white noise as input
@@ -77,13 +46,15 @@ def design_filt(dt=1, N=1024, fc=0.1, a=1e-6, tf=None, plot=True, oplot=False):
     '''
     i = 1j
     if tf is not None and not callable(tf):
+        # the TF is just a power spectrum that's been passed in
         xF = tf
         m = len(tf) * 2
         f = (np.arange(m)-m//2)/(m * dt)
     else:
+        # we generate the TF from design parameters in the function args
         f = (np.arange(N)-N//2)/(N * dt)
         s = i*f
-        xF = ((s+a)**(1/3)*(s+fc)**(3/2))
+        xF = ((s+a)**(-1/3)*(s+fc)**(-3/2))
     # this is flipped, so that it tracks instead of controlling, and maybe 1/3 instead of 3/2 for an 1/f^2 powerlaw
     if callable(tf):
         xF = np.vectorize(tf)(f)
@@ -98,7 +69,7 @@ def design_filt(dt=1, N=1024, fc=0.1, a=1e-6, tf=None, plot=True, oplot=False):
         plt.subplot(211)
         t = t[0:N//2]
         x = x[0:N//2]
-        plt.plot(t,x)
+        plt.plot(t, np.real(x))
         plt.grid(True)
         plt.ylabel('Impulse Response')
         plt.xlabel('time, seconds')
@@ -142,8 +113,8 @@ def filt(a, dt=1, u=None, N=1024, plot=True, oplot=False):
         N = len(u)
     y = np.zeros(N)
     t = dt*np.arange(N)
-    df = 1./(N*dt)
-    f = df*np.arange(N)
+    df = 1./(2 * N*dt) # I put in the factor of 2 here to match Ben's genpsd method
+    f = df*np.arange(1, N+1) # I changed arange(N) here to arange(1, N+1) here to match Ben's genpsd method
     for k in range(N):
         L = min(n,k+1)
         y[k] = np.sum(u[range(k,k-L,-1)]*a[0:L])
