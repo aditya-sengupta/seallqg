@@ -1,3 +1,5 @@
+# authored by Aditya Sengupta
+
 # Simulator of an adaptive optics system observer.
 # Operates on a single mode at a time.
 

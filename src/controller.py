@@ -1,3 +1,5 @@
+# authored by Aditya Sengupta
+
 # Testing different control strategies and showing that Kalman-LQG is better.
 
 import numpy as np

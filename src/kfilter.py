@@ -1,3 +1,5 @@
+# authored by Aditya Sengupta
+
 import numpy as np
 from copy import copy
 from scipy import linalg
@@ -50,13 +52,13 @@ class KFilter:
     def update(self, x, y):
         return x + self.K @ (y - self.C @ x)
 
-    def run(self, measurements, inputs, x0):
+    def run(self, measurements, x0):
         steps = len(measurements)
         states = np.empty((steps, self.s))
         x = copy(x0)
         
-        for (i, (u, m)) in enumerate(zip(inputs, measurements)):
-            x = self.update(self.predict(x, u), m)
+        for (i, m) in enumerate(measurements):
+            x = self.update(self.predict(x), m)
             states[i] = x
         
         return states

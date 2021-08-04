@@ -1,12 +1,15 @@
+# authored by Donald Gavel
+# edited by Aditya Sengupta
+
 import numpy as np
 import mpmath as mp
 from fractions import Fraction
 import matplotlib.pyplot as plt
-from utils import genpsd
+from .utils import genpsd
 
 plt.ion()
 
-def design_from_psd(y, dt):
+def design_from_ol(y, dt, nseg=4):
     """
     Designs a filter for a time-series of open loop values.
 
@@ -17,9 +20,29 @@ def design_from_psd(y, dt):
 
     dt : float
     The time step in seconds.
+
+    nseg : int
+    The number of segments to use for the PSD.
+
+    Returns
+    -------
+    t : np.ndarray
+    The time axis for the impulse response.
+
+    x : np.ndarray
+    The impulse response.
     """
-    f, p = genpsd()
-    fF = np.hstack((-np.flip(f[1:], f)))
+    f, p = genpsd(y, dt=dt, nseg=nseg, remove_dc=False)
+    fF = np.hstack((-np.flip(f[1:]), f))
+    xF = np.hstack((-np.flip(y[1:]), y))
+    x = np.fft.ifft(np.fft.fftshift(xF))
+    N = len(x)
+    t = np.arange(N) * dt
+    t = t[:N//2]
+    x = np.abs(x)[:N//2]
+    x = x / np.sum(x)
+    return t, x
+
 
 def design_filt(dt=1, N=1024, fc=0.1, a=1e-6, tf=None, plot=True, oplot=False):
     '''Design a filter that takes white noise as input
