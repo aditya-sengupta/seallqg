@@ -1,6 +1,7 @@
 from tt import *
 from matplotlib import pyplot as plt
 
+expt_init = get_expt()
 expt(1e-4)
 
 bestflat = getdmc()
@@ -76,6 +77,8 @@ applytiptilt(amparr[indopttip],amparr[indopttilt])
 def viewmed():
     plt.imshow(medttoptarr)
     plt.show()
+
+expt(expt_init)
 
 bestflat = getdmc()
 np.save("../data/bestflats/bestflat.npy", bestflat)

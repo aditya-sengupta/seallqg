@@ -3,7 +3,7 @@ import numpy as np
 from tt import *
 from matplotlib import pyplot as plt
 
-
+expt_init = get_expt()
 expt(1e-4)
 
 #side lobe mask where there is no signal to measure SNR
@@ -82,5 +82,6 @@ indopttip1,indopttilt1=np.where(medttoptarr1==np.max(medttoptarr1))
 applytiptilt(tipamparr[indopttip1][0],tiltamparr[indopttilt1][0])
 
 im_bestflat = stack(100)
-expt(1e-3)
+expt(expt_init)
 np.save("../data/bestflats/bestflat.npy", bestflat)
+print("Saved best flat")

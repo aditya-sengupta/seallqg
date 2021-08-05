@@ -12,6 +12,11 @@ bestflat = np.load("../data/bestflats/bestflat.npy")
 applydmc(bestflat)
 imflat = stack(100)
 
+def record_openloop(t=10):
+    path = "../data/openloop/ol"
+    command_schedule = lambda: None
+    return record_experiment(command_schedule, path, t=t)
+
 def record_usteps(tip_amp=0.1, tilt_amp=0.0):
     path = "../data/usteps/ustep_amps_{0}_{1}".format(tip_amp, tilt_amp)
     def command_schedule(tip_amp, tilt_amp):
@@ -82,3 +87,50 @@ def record_integrator(t=1, delay=0.01, gain=0.1, leak=1.0):
 
     return record_experiment(command_schedule, path, t)
     
+def record_integrator_with_ustep(t=1, delay=0.01, gain=0.1, leak=1.0, tip_amp=0.0, tilt_amp=0.1):
+    path = "../data/closedloop/cl_gain_{0}_leak_{1}_disturb_tip_{2}_tilt_{3}".format(gain, leak, tip_amp, tilt_amp)
+
+    def command_schedule():
+        t1 = time.time()
+        while time.time() < t1 + t:
+            ti = time.time()
+            frame = getim()
+            tt = measure_tt(frame - imflat)
+            dmcn = tt_to_dmc(tt)
+            applydmc(leak * getdmc() + gain * dmcn) 
+            time.sleep(max(0, delay - (time.time() - ti)))
+
+    def disturbance_schedule():
+        time.sleep(t / 2)
+        applytip(tip_amp)
+        applytilt(tilt_amp)
+
+    return record_experiment([command_schedule, disturbance_schedule], path, t)
+
+def record_integrator_with_sinusoid(t=1, delay=0.01, gain=0.1, leak=1.0, amp=0.1, ang=0, f=1):
+    path = "../data/closedloop/cl_gain_{0}_leak_{1}_disturb_sin_amp_{2}_ang_{3}_f_{4}".format(gain, leak, amp, ang, f)
+    times = np.arange(0.0, t, delay)
+    sinusoid = np.diff(amp * np.sin(2 * np.pi * f * times))
+
+    def command_schedule():
+        t1 = time.time()
+        while time.time() < t1 + t:
+            ti = time.time()
+            frame = getim()
+            tt = measure_tt(frame - imflat)
+            dmcn = tt_to_dmc(tt)
+            applydmc(leak * getdmc() + gain * dmcn) 
+            time.sleep(max(0, delay - (time.time() - ti)))
+
+    def disturbance_schedule():
+        t1 = time.time()
+        cosang, sinang = np.cos(ang), np.sin(ang)
+        for s in sinusoid:
+            t2 = time.time()
+            applytip(cosang * s)
+            applytilt(sinang * s)
+            time.sleep(max(0, delay - (time.time() - t2)))
+
+    return record_experiment([command_schedule, disturbance_schedule], path, t)
+
+record_intsin = record_integrator_with_sinusoid

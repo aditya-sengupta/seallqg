@@ -43,23 +43,29 @@ def tt_from_im(fname):
     np.save(fname_tt, ttvals)
     return ttvals
 
-def record_experiment(command_schedule, path, t=1, verbose=True):
+def record_experiment(command_schedules, path, t=1, verbose=True):
+    if not isinstance(command_schedules, list):
+        command_schedules = [command_schedules]
     bestflat = np.load("../data/bestflats/bestflat.npy")
-    # applydmc(bestflat)
+    applydmc(bestflat)
     # imflat = stack(100)
     dt = datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
     path = path + "_time_dt_" + dt + ".npy"
 
     record_thread = Thread(target=lambda: record_im(t=t, dt=dt))
-    command_thread = Thread(target=command_schedule)
+    command_threads = [Thread(target=c) for c in command_schedules]
+    # idk if this is efficient but I don't think it matters when there won't be more than, like, 3 threads here
 
     if verbose:
         print("Starting recording and commands...")
 
     record_thread.start()
-    command_thread.start()
+    for c in command_threads:
+        c.start()
+
     record_thread.join()
-    command_thread.join()
+    for c in command_threads:
+        c.join()
 
     if verbose:
         print("Done with experiment.")
@@ -106,6 +112,7 @@ def clear_images():
     print("Files deleted.")
 
 def refresh_imflat():
+    # I don't think this works, something to do with global scoping over multiple files?
     dmc = getdmc()
     applydmc(bestflat)
     imflat = stack(100)
