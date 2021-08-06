@@ -120,4 +120,6 @@ def record_integrator_with_sinusoid(t=1, delay=0.01, gain=0.1, leak=1.0, amp=0.0
 
     return record_integrator(path, t=t, delay=delay, gain=gain, leak=leak, disturbance_schedule=disturbance_schedule)
 
+record_intnone = record_integrator_nodisturbance
+record_intustep = record_integrator_with_ustep
 record_intsin = record_integrator_with_sinusoid

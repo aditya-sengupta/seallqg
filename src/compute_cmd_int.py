@@ -16,9 +16,9 @@ from scipy.optimize import newton
 dmcini = getdmc()
 ydim, xdim = dmcini.shape
 grid = np.mgrid[0:ydim, 0:xdim].astype(float32)
-#bestflat=np.load('dmc_dh.npy') #dark hole
 bestflat = np.load('/home/lab/asengupta/data/bestflats/bestflat.npy') #load bestflat, which should be an aligned FPM
 applydmc(bestflat)
+imflat = stack(100)
 
 # expt(1e-3) #set exposure time
 imini = getim()

@@ -49,11 +49,13 @@ def tt_from_queued_image(in_q, dt=datetime.now().strftime("%d_%m_%Y_%H_%M_%S")):
 def record_experiment(command_schedules, path, t=1, verbose=True):
     if not isinstance(command_schedules, list):
         command_schedules = [command_schedules]
-    bestflat = np.load("../data/bestflats/bestflat.npy")
-    imflat = np.load("../data/bestflats/imflat.npy")
+    from refresh_imflat import bestflat, imflat
+    # bestflat = np.load("../data/bestflats/bestflat.npy")
+    # imflat = np.load("../data/bestflats/imflat.npy")
     applydmc(bestflat)
-    if np.any(np.abs(measure_tt(getim() - imflat)) > 0.03):
-        warnings.warn("The system may not be aligned.")
+    baseline_ttvals = measure_tt(getim() - imflat)
+    if np.any(np.abs(baseline_ttvals) > 0.03):
+        warnings.warn("The system may not be aligned: baseline TT is {}".format(baseline_ttvals.flatten()))
 
     dt = datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
     path = path + "_time_dt_" + dt + ".npy"
