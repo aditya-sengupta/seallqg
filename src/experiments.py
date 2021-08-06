@@ -5,7 +5,6 @@ import time
 
 from tt import *
 from compute_cmd_int import measure_tt
-from compute_cmd_int import imflat
 from exp_utils import record_experiment, tt_to_dmc
 
 bestflat = np.load("../data/bestflats/bestflat.npy")
@@ -72,58 +71,46 @@ def record_atm_vib(atm=0, vib=2, delay=1e-2, scaledown=10):
 
     return record_experiment(command_schedule, path)
 
-def record_integrator(t=1, delay=0.01, gain=0.1, leak=1.0):
-    path = "../data/closedloop/cl_gain_{0}_leak_{1}".format(gain, leak)
+def record_integrator(path, t=1, delay=0.01, gain=0.1, leak=1.0, disturbance_schedule=lambda: None):
+    """
+    General engine for integrator control (probably to be generalized to any kind of control soon).
+    Should never be directly called as the function signature is deeply weird.
+    """
+    from compute_cmd_int import make_im_cm
+    _, cmd_mtx = make_im_cm()
 
     def command_schedule():
+        imflat = np.load("../data/bestflats/imflat.npy")
         t1 = time.time()
         while time.time() < t1 + t:
             ti = time.time()
             frame = getim()
-            tt = measure_tt(frame - imflat)
+            tt = measure_tt(frame - imflat, cmd_mtx)
             dmcn = tt_to_dmc(tt)
             applydmc(leak * getdmc() + gain * dmcn) 
             time.sleep(max(0, delay - (time.time() - ti)))
 
-    return record_experiment(command_schedule, path, t)
+    return record_experiment([command_schedule, disturbance_schedule], path, t)
+
+def record_integrator_nodisturbance(t=1, delay=0.01, gain=0.1, leak=1.0):
+    path = "../data/closedloop/cl_gain_{0}_leak_{1}".format(gain, leak)
+    return record_integrator(path, t=t, delay=delay, gain=gain, leak=leak)
     
 def record_integrator_with_ustep(t=1, delay=0.01, gain=0.1, leak=1.0, tip_amp=0.0, tilt_amp=0.1):
     path = "../data/closedloop/cl_gain_{0}_leak_{1}_disturb_tip_{2}_tilt_{3}".format(gain, leak, tip_amp, tilt_amp)
-
-    def command_schedule():
-        t1 = time.time()
-        while time.time() < t1 + t:
-            ti = time.time()
-            frame = getim()
-            tt = measure_tt(frame - imflat)
-            dmcn = tt_to_dmc(tt)
-            applydmc(leak * getdmc() + gain * dmcn) 
-            time.sleep(max(0, delay - (time.time() - ti)))
-
     def disturbance_schedule():
         time.sleep(t / 2)
         applytip(tip_amp)
         applytilt(tilt_amp)
 
-    return record_experiment([command_schedule, disturbance_schedule], path, t)
+    return record_integrator(path, t=t, delay=delay, gain=gain, leak=leak, disturbance_schedule=disturbance_schedule)
 
-def record_integrator_with_sinusoid(t=1, delay=0.01, gain=0.1, leak=1.0, amp=0.1, ang=0, f=1):
+def record_integrator_with_sinusoid(t=1, delay=0.01, gain=0.1, leak=1.0, amp=0.05, ang=0, f=0.2):
     path = "../data/closedloop/cl_gain_{0}_leak_{1}_disturb_sin_amp_{2}_ang_{3}_f_{4}".format(gain, leak, amp, ang, f)
     times = np.arange(0.0, t, delay)
     sinusoid = np.diff(amp * np.sin(2 * np.pi * f * times))
 
-    def command_schedule():
-        t1 = time.time()
-        while time.time() < t1 + t:
-            ti = time.time()
-            frame = getim()
-            tt = measure_tt(frame - imflat)
-            dmcn = tt_to_dmc(tt)
-            applydmc(leak * getdmc() + gain * dmcn) 
-            time.sleep(max(0, delay - (time.time() - ti)))
-
     def disturbance_schedule():
-        t1 = time.time()
         cosang, sinang = np.cos(ang), np.sin(ang)
         for s in sinusoid:
             t2 = time.time()
@@ -131,6 +118,6 @@ def record_integrator_with_sinusoid(t=1, delay=0.01, gain=0.1, leak=1.0, amp=0.1
             applytilt(sinang * s)
             time.sleep(max(0, delay - (time.time() - t2)))
 
-    return record_experiment([command_schedule, disturbance_schedule], path, t)
+    return record_integrator(path, t=t, delay=delay, gain=gain, leak=leak, disturbance_schedule=disturbance_schedule)
 
 record_intsin = record_integrator_with_sinusoid

@@ -12,8 +12,6 @@ from matplotlib import pyplot as plt
 import tqdm
 from scipy.optimize import newton
 
-global imflat
-
 #initial setup: apply best flat, generate DM grid to apply future shapes
 dmcini = getdmc()
 ydim, xdim = dmcini.shape
@@ -77,34 +75,36 @@ def vz(n, m, IMamp): #determine the minimum IMamp (interaction matrix amplitude)
 
 IMamp = 0.1 #from above function
 
-#make interaction matrix
-refvec = np.zeros((len(nmarr), ttmask[indttmask].shape[0]*2))
-zernarr = np.zeros((len(nmarr), aperture[indap].shape[0]))
-for i in range(len(nmarr)):
-	n, m = nmarr[i]
-	zern = funz(n, m, IMamp)
-	time.sleep(tsleep)
-	imzern = stack(10)
-	applydmc(bestflat)
-	time.sleep(tsleep)
-	imflat = stack(10)
-	imdiff = imzern - imflat
-	Im_diff = processim(imdiff)
-	refvec[i] = np.array([np.real(Im_diff[indttmask]), np.imag(Im_diff[indttmask])]).flatten()
-	zernarr[i] = zern[indap]
+def make_im_cm():
+	#make interaction matrix
+	refvec = np.zeros((len(nmarr), ttmask[indttmask].shape[0]*2))
+	zernarr = np.zeros((len(nmarr), aperture[indap].shape[0]))
+	for i in range(len(nmarr)):
+		n, m = nmarr[i]
+		zern = funz(n, m, IMamp)
+		time.sleep(tsleep)
+		imzern = stack(10)
+		applydmc(bestflat)
+		time.sleep(tsleep)
+		imflat = stack(10)
+		imdiff = imzern - imflat
+		Im_diff = processim(imdiff)
+		refvec[i] = np.array([np.real(Im_diff[indttmask]), np.imag(Im_diff[indttmask])]).flatten()
+		zernarr[i] = zern[indap]
 
-IM = np.dot(refvec, refvec.T) #interaction matrix
-IMinv = np.linalg.pinv(IM, rcond=1e-3)
-cmd_mtx = np.dot(IMinv, refvec).astype(float32)
-print("Recomputed interaction matrix and command matrix")
-time_cmd_mtx = time.time()
-cmd_mtx_age = lambda: time.time() - time_cmd_mtx
+	IM = np.dot(refvec, refvec.T) #interaction matrix
+	IMinv = np.linalg.pinv(IM, rcond=1e-3)
+	cmd_mtx = np.dot(IMinv, refvec).astype(float32)
+	print("Recomputed interaction matrix and command matrix")
+	return IM, cmd_mtx
+
+IM, cmd_mtx = make_im_cm()
 
 applydmc(bestflat)
 # time.sleep(tsleep)
 # imflat = stack(100)
 
-def measure_tt(im):
+def measure_tt(im, cmd_mtx=cmd_mtx):
 	tar_ini = processim(im)
 	tar = np.array([np.real(tar_ini[indttmask]), np.imag(tar_ini[indttmask])])
 	tar = tar.reshape((tar.size, 1))	
