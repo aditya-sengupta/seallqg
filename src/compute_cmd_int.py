@@ -5,7 +5,6 @@ Compute command matrix and interaction matrix.
 from tt import *
 import numpy as np
 from numpy import float32
-from numba import njit, objmode
 import time
 import ao
 from matplotlib import pyplot as plt
@@ -99,10 +98,7 @@ def make_im_cm():
 	return IM, cmd_mtx
 
 IM, cmd_mtx = make_im_cm()
-
 applydmc(bestflat)
-# time.sleep(tsleep)
-# imflat = stack(100)
 
 def measure_tt(im, cmd_mtx=cmd_mtx):
 	tar_ini = processim(im)
@@ -110,32 +106,6 @@ def measure_tt(im, cmd_mtx=cmd_mtx):
 	tar = tar.reshape((tar.size, 1))	
 	coeffs = np.dot(cmd_mtx, tar)
 	return coeffs * IMamp
-
-def pc(rcond,i,sf):
-	'''
-	rcond: svd cutoff to be optimized
-	i: which Zernike mode to apply
-	sf: scale factor for amplitude to apply of given Zernike mode as a fraction of the input IM amplitude
-	'''
-	#rcond=1e-3
-	IMinv=np.linalg.pinv(IM,rcond=rcond)
-	cmd_mtx=np.dot(IMinv,refvec)
-
-	n,m = nmarr[i]
-	zern=funz(n,m,IMamp*sf)
-	time.sleep(tsleep)
-	imzern=stack(10)
-	applydmc(bestflat)
-	time.sleep(tsleep)
-	imflat=stack(10)
-	imdiff=(imzern-imflat)
-	Im_diff=processim(imdiff)
-	tar = np.array([np.real(Im_diff[indttmask]),np.imag(Im_diff[indttmask])]).flatten()
-	
-	coeffs=np.dot(cmd_mtx,tar)
-	plt.plot(coeffs*IMamp)
-	plt.axhline(IMamp*sf,0,len(coeffs),ls='--')
-
 
 def compute_linearity_curve(mode=0, nlin=20, amp=IMamp, plot=True):
 	def genzerncoeffs(i, zernamp):
