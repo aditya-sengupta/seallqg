@@ -1,0 +1,159 @@
+# authored by Aditya Sengupta
+
+# Simulator of an adaptive optics system observer.
+# Operates on a single mode at a time.
+
+import numpy as np
+from scipy import integrate, optimize, signal, stats, linalg
+from copy import deepcopy
+from matplotlib import pyplot as plt
+
+from .kfilter import KFilter
+from .utils import genpsd
+
+def log_likelihood(func, data):
+    def get_ll(pars):
+        pars_model, sd = pars[:-1], pars[-1]
+        data_predicted = func(pars_model)
+        LL = -np.sum(stats.norm.logpdf(data, loc=data_predicted, scale=sd))
+        return LL
+
+    return get_ll
+
+class Observer:
+    def __init__(self, f_sampling=1000, f_1=None, f_2=None, f_w=None, N_vib_max=10, energy_cutoff=1e-8, measurement_noise=0.06, time_id=1):
+        self.f_sampling = f_sampling # Hz
+        if f_1 is None:
+            self.f_1 = f_sampling / 60 # lowest possible frequency of a vibration mode
+        else:
+            self.f_1 = f_1
+
+        if f_2 is None:
+            self.f_2 = f_sampling / 3 # highest possible frequency of a vibration mode
+        else:
+            self.f_2 = f_2
+
+        if f_w is None:
+            self.f_w = f_sampling / 3 # frequency above which measurement noise dominates
+        else:
+            self.f_w = f_w
+
+        self.N_vib_max = N_vib_max # number of vibration modes to be detected
+        self.energy_cutoff = energy_cutoff # proportion of total energy after which PSD curve fit ends
+        self.measurement_noise = measurement_noise # milliarcseconds; pulled from previous notebook
+        self.time_id = time_id # timescale over which sysid runs. Pulled from Meimon 2010's suggested 1 Hz sysid frequency.
+        self.times = np.arange(0, time_id, 1 / f_sampling) # array of times to operate on
+
+    def damped_harmonic(self, pars_model):
+        A, f, k, p = pars_model
+        return A * np.exp(-k * 2 * np.pi * f * self.times) * np.cos(2 * np.pi * f * np.sqrt(1 - k**2) * self.times - p)
+
+    def make_psd(self, pars_model):
+        s = self.damped_harmonic(pars_model)
+        return genpsd(s, dt = 1 / self.f_sampling, nseg=1)[1]
+
+    def psd_f(self, f):
+        def get_psd_f(pars):
+            k = pars[0]
+            return self.make_psd([1, f, k, np.pi])
+
+        return get_psd_f
+
+    def vibe_fit_freq(self, psd):
+        # takes in the frequency axis for a PSD, and the PSD.
+        # returns a 4xN np array with fit parameters, and a 1xN np array with variances.
+        freqs = np.linspace(self.f_sampling / (2 * len(psd)), self.f_sampling / 2, len(psd))
+        par0 = [1e-4, 1]
+        PARAMS_SIZE = 2
+        width = max(1, int(np.ceil(1/(freqs[1] - freqs[0]))))
+
+        peaks = []
+        unsorted_peaks = signal.find_peaks(psd, height=self.energy_cutoff)[0]
+        freqs_energy = np.flip(np.argsort(psd)) # frequencies ordered by their energy
+        for f in freqs_energy:
+            if f in unsorted_peaks and self.f_1 <= freqs[f] <= self.f_2:
+                peaks.append(f)
+
+        params = np.zeros((self.N_vib_max, PARAMS_SIZE))
+        variances = np.zeros(self.N_vib_max)
+
+        i = 0
+        for peak_ind in peaks:
+            if i >= self.N_vib_max:
+                break
+            if not(np.any(np.abs(params[:,0] - freqs[peak_ind]) <= width)): 
+                l, r = peak_ind - width, peak_ind + width
+                windowed = psd[l:r]
+                psd_ll = log_likelihood(lambda pars: self.psd_f(freqs[peak_ind])(pars)[l:r], windowed)
+                k, sd = optimize.minimize(psd_ll, par0, method='Nelder-Mead').x
+                params[i] = [freqs[peak_ind], k]
+                variances[i] = sd ** 2
+                i += 1
+
+        return params[:i], variances[:i]
+
+    def make_state_transition_vibe(self, params):
+        STATE_SIZE = 2 * params.shape[0]
+        A = np.zeros((STATE_SIZE, STATE_SIZE))
+        for i in range(STATE_SIZE // 2):
+            f, k = params[i]
+            w0 = 2 * np.pi * f / np.sqrt(1 - k**2)
+            A[2 * i][2 * i] = 2 *  np.exp(-k * w0 / self.f_sampling) * np.cos(w0 * np.sqrt(1 - k**2) / self.f_sampling)
+            A[2 * i][2 * i + 1] = -np.exp(-2 * k * w0 / self.f_sampling)
+            A[2 * i + 1][2 * i] = 1
+        return A
+
+    def make_kfilter_vibe(self, params, variances):
+        # takes in parameters and variances from which to make a physics simulation
+        # and measurements to match it against.
+        # returns a KFilter object.
+        A = self.make_state_transition_vibe(params)
+        STATE_SIZE = 2 * params.shape[0]
+        state = np.zeros(STATE_SIZE)
+        C = np.array([[1, 0] * (STATE_SIZE // 2)])
+        Q = np.zeros((STATE_SIZE, STATE_SIZE))
+        for i in range(variances.size):
+            Q[2 * i][2 * i] = variances[i]
+        R = self.measurement_noise**2 * np.identity(1)
+        return KFilter(A, C, Q, R)
+
+    def make_kfilter_turb(impulse):
+        # takes in an impulse response as generated by make_impulse
+        # and returns a KFilter object.
+        n = impulse.size
+        state = np.zeros(n,)
+        A = np.zeros((n, n))
+        for i in range(1, n):
+            A[i][i-1] = 1
+        A[0] = (np.real(impulse)/sum(np.real(impulse)))
+        Q = np.zeros((n,n))
+        Q[0][0] = 1 # arbitrary: I have no idea how to set this yet.
+        C = np.zeros((1,n))
+        C[:,0] = 1
+        R = np.array([measurement_noise ** 2])
+        return KFilter(A, C, Q, R)
+
+    def make_kfilter_ar(self, ar_len, openloops, sigma=0.06):
+        n = len(openloops)
+        TTs_mat = np.empty((n - ar_len, ar_len))
+        for i in range(ar_len):
+            TTs_mat[:, i] = openloops[ar_len - i : n - i] 
+
+        ar_coef, _, _, _ = np.linalg.lstsq(TTs_mat, openloops[ar_len:], rcond=None)
+        ar_residual = openloops[ar_len:] - (TTs_mat @ ar_coef)
+        A = np.zeros((ar_len, ar_len))
+        A[0,:] = ar_coef
+        for i in range(1, ar_len):
+            A[i,i-1] += 1.0
+
+        B = np.zeros((ar_len, 1)) # need to change this for control delay
+        B[1] = 1.0 # input just hits the current x
+        C = np.zeros((1, ar_len))
+        C[0] += 1
+
+        Q = np.zeros((ar_len, ar_len))
+        Q[1,1] = np.mean(ar_residual ** 2)
+
+        R = np.array([[sigma ** 2]])
+
+        return KFilter(A, C, Q, R)
