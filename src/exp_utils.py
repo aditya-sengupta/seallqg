@@ -76,6 +76,9 @@ def integrator_schedule(q, t=1, delay=0.01, gain=0.1, leak=1.0):
         applydmc(leak * getdmc() + gain * dmcn) 
         time.sleep(max(0, delay - (time.time() - ti)))
 
+def kalman_schedule(q, kf, t=1, delay=0.01):
+    pass
+
 def record_experiment(path, control_schedule=lambda: None, dist_schedule=lambda: None, t=1, verbose=True):
     from refresh_imflat import bestflat, imflat
     from compute_cmd_int import make_im_cm
