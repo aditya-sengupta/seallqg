@@ -1,8 +1,7 @@
 # authored by Benjamin Gerard
 
-import itertools
 import numpy as np
-from scipy.ndimage.interpolation import rotate, shift
+from scipy.ndimage.interpolation import shift
 from scipy.special import gamma, hyp2f1
 
 p3i = lambda i: int(round(i)) #python2 to 3: change indicies that are floats to integers

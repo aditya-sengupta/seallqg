@@ -1,13 +1,13 @@
 import numpy as np
 from numpy import float32
 from scipy import fft
-from ao import polar_grid, zernike
-from image import getdmc, applydmc, set_expt, getim
+
+from .ao import polar_grid, zernike
+from .image import getdmc, applydmc, set_expt, getim
 
 dmcini = getdmc()
 ydim, xdim = dmcini.shape
 grid = np.mgrid[0:ydim, 0:xdim].astype(float32)
-global bestflat 
 bestflat = np.load('/home/lab/asengupta/data/bestflats/bestflat.npy')
 applydmc(bestflat)
 

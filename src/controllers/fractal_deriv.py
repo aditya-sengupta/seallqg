@@ -42,7 +42,8 @@ def design_from_ol(y, dt, nseg=4):
     return t, x
 
 def design_filt(dt=1, N=1024, fc=0.1, a=1e-6, tf=None, plot=True, oplot=False):
-    '''Design a filter that takes white noise as input
+    """
+    Design a filter that takes white noise as input
     and produces the f^-2/3 transitioning to f^-11/3 spectrum of atmospheric
     tip/tilt. The way to do this is to put a "1/3" pole
     near s=0 and a "3/2-pole" (11/3-2/3)/2 at the wind
@@ -63,7 +64,7 @@ def design_filt(dt=1, N=1024, fc=0.1, a=1e-6, tf=None, plot=True, oplot=False):
     Output:
         x - a time sequence representing the impulse response of the filter. The filter can be implemented
             as a moving-average (MA) model using the values in x as the coefficients.
-    '''
+    """
     i = 1j
     if tf is not None and not callable(tf):
         # the TF is just a power spectrum that's been passed in

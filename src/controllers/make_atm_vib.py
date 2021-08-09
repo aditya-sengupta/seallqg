@@ -3,6 +3,8 @@ import hcipy
 from copy import deepcopy
 import tqdm
 
+from ..utils import joindata
+
 N_vib_app = 10
 f_sampling = 1000  # Hz
 f_1 = f_sampling / 60  # lowest possible frequency of a vibration mode
@@ -100,4 +102,4 @@ if __name__ == "__main__":
         fname = "ol_atm_{0}_vib_{1}.npy".format(nlayers, nvib)
         atm_ol = make_atm_data(nsteps, layers=layers[:nlayers])
         vib_ol = make_2D_vibe_data(nsteps, nvib)
-        np.save("../data/sims/" + fname, atm_ol + vib_ol)
+        np.save(joindata("sims/" + fname), atm_ol + vib_ol)

@@ -8,12 +8,13 @@ Compute command matrix and interaction matrix.
 import numpy as np
 import time
 import tqdm
+import pysao
 from matplotlib import pyplot as plt
 from scipy.optimize import newton
 
-from optics.image import getdmc, applydmc, stack, getim
-from optics.tt import rhoap, phiap, ds9, processim
-from optics.ao import polar_grid, zernike
+from .image import getdmc, applydmc, stack, getim
+from .tt import rhoap, phiap, processim
+from .ao import polar_grid, zernike
 
 #initial setup: apply best flat, generate DM grid to apply future shapes
 dmcini = getdmc()
@@ -68,6 +69,7 @@ indttmask = np.where(rim/beam_ratio<6)
 ttmask[indttmask] = 1
 
 def vz(n, m, IMamp): #determine the minimum IMamp (interaction matrix amplitude) to be visible in differential images
+	ds9 = pysao.ds9()
 	zern = funz(n, m, IMamp)
 	time.sleep(tsleep)
 	imzern = stack(10)

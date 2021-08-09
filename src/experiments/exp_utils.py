@@ -1,6 +1,7 @@
 # authored by Aditya Sengupta
 
 import time
+import os
 import numpy as np
 import warnings
 from datetime import datetime
@@ -8,13 +9,14 @@ from threading import Thread
 from queue import Queue
 from functools import partial
 
-from optics.image import getim, getdmc, applydmc
-from optics.tt import tip, tilt, xdim, ydim
-from compute_cmd_int import measure_tt, make_im_cm
-from optics.refresh_imflat import refresh
+from ..utils import joindata
+from ..optics import getim, applydmc
+from ..optics import tip, tilt, xdim, ydim
+from ..optics import measure_tt, make_im_cm
+from ..optics import refresh
 
 tiptiltarr = np.array([tilt.flatten(), tip.flatten()]).T
-bestflat = np.load("../data/bestflats/bestflat.npy")
+bestflat = np.load(joindata("bestflats/bestflat.npy"))
 
 def record_im(out_q, t=1, dt=datetime.now().strftime("%d_%m_%Y_%H_%M_%S")):
     t1 = time.time()
@@ -31,13 +33,13 @@ def record_im(out_q, t=1, dt=datetime.now().strftime("%d_%m_%Y_%H_%M_%S")):
     # this is a placeholder to tell the queue that there's no more images coming
     
     times = np.array(times) - t1
-    fname = "/home/lab/asengupta/data/recordings/rectime_dt_{0}.npy".format(dt)
+    fname = joindata("recordings/rectime_dt_{0}.npy".format(dt))
     np.save(fname, times)
     return times
     
 def tt_from_queued_image(in_q, out_q, cmd_mtx, dt=datetime.now().strftime("%d_%m_%Y_%H_%M_%S")):
-    imflat = np.load("../data/bestflats/imflat.npy")
-    fname = "/home/lab/asengupta/data/recordings/rectt_dt_{0}.npy".format(dt)
+    imflat = np.load(joindata("bestflats/imflat.npy"))
+    fname = joindata("recordings/rectt_dt_{0}.npy".format(dt))
     ttvals = [] # I have become the victim of premature optimization
     while True:
         # if you don't have any work, take a nap!
@@ -71,18 +73,28 @@ def tt_to_dmc(tt):
     """
     return np.matmul(tiptiltarr, -tt).reshape((ydim,xdim))
 
-def integrator_schedule(q, t=1, delay=0.01, gain=0.1, leak=1.0):
+def control_schedule(q, controller, t=1, delay=0.01):
+    """
+    The SEAL schedule for a controller.
+
+    Arguments
+    ---------
+    q : Queue
+    The queue to poll for new tip-tilt values.
+
+    controller : Controller
+    The object that executes the control algorithm.
+    """
     t1 = time.time()
     while time.time() < t1 + t:
-        ti = time.time()
-        tt = q.get()
-        q.task_done()
-        dmcn = tt_to_dmc(tt)
-        applydmc(leak * getdmc() + gain * dmcn) 
-        time.sleep(max(0, delay - (time.time() - ti)))
-
-def kalman_schedule(q, kf, t=1, delay=0.01):
-    pass
+        # ti = time.time()
+        if q.empty():
+            time.sleep(delay/2)
+        else:
+            tt = q.get()
+            q.task_done()
+            applydmc(controller.control(tt))
+            # time.sleep(max(0, delay - (time.time() - ti)))
 
 def record_experiment(path, control_schedule, dist_schedule, t=1, verbose=True):
     bestflat, imflat = refresh()
@@ -93,7 +105,7 @@ def record_experiment(path, control_schedule, dist_schedule, t=1, verbose=True):
         warnings.warn("The system may not be aligned: baseline TT is {}".format(baseline_ttvals.flatten()))
 
     dt = datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
-    path = path + "_time_dt_" + dt + ".npy"
+    path = joindata(path) + "_time_dt_" + dt + ".npy"
 
     q_compute = Queue()
     q_control = Queue()
@@ -122,9 +134,13 @@ def record_experiment(path, control_schedule, dist_schedule, t=1, verbose=True):
 
     applydmc(bestflat)
 
-    times = np.load("/home/lab/asengupta/data/recordings/rectime_dt_{0}.npy".format(dt))
-    ttvals = np.load("/home/lab/asengupta/data/recordings/rectt_dt_{0}.npy".format(dt))
+    timepath = joindata("recordings/rectime_dt_{0}.npy".format(dt))
+    ttpath = joindata("recordings/rectt_dt_{0}.npy".format(dt))
+    times = np.load(timepath)
+    ttvals = np.load(ttpath)
     np.save(path, times)
     path = path.replace("time", "tt")
     np.save(path, ttvals)
+    os.remove(timepath)
+    os.remove(ttpath)
     return times, ttvals 

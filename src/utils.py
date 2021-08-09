@@ -4,6 +4,10 @@ import numpy as np
 from scipy import signal, io
 from scipy.signal import welch, windows
 from copy import deepcopy
+from os import path
+
+DATADIR = path.join(path.dirname(path.abspath("__file__")), "data")
+joindata = lambda f: path.join(DATADIR, f)
 
 def get_keck_tts(num=128):
 	# gets the right keck TTs that have the wrong powerlaw.

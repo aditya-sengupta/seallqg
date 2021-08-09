@@ -52,6 +52,9 @@ class KFilter:
     def update(self, x, y):
         return x + self.K @ (y - self.C @ x)
 
+    def measure(self, x):
+        return self.C @ x
+
     def run(self, measurements, x0):
         steps = len(measurements)
         states = np.empty((steps, self.s))

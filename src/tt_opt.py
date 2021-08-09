@@ -5,10 +5,11 @@ import time
 from matplotlib import pyplot as plt
 import pysao
 
-from optics.tt import get_expt, set_expt
-from optics.tt import mtfgrid, imini, sidemaskrad, sidemaskind, mtf, median_filter
-from optics.tt import applytiptilt, applydmc
-from optics.tt import stack, bestflat
+from ..utils import joindata
+from optics import get_expt, set_expt
+from optics import mtfgrid, imini, sidemaskrad, sidemaskind, mtf, median_filter
+from optics import applytiptilt, applydmc
+from optics import stack, bestflat
 
 expt_init = get_expt()
 set_expt(1e-4)
@@ -91,5 +92,5 @@ applytiptilt(tipamparr[indopttip1][0],tiltamparr[indopttilt1][0])
 
 im_bestflat = stack(100)
 set_expt(expt_init)
-np.save("../data/bestflats/bestflat.npy", bestflat)
+np.save(joindata("bestflats/bestflat.npy"), bestflat)
 print("Saved best flat")
