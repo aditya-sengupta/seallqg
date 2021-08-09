@@ -4,7 +4,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 import time
 
-from ..utils import joindata
+from .utils import joindata
 from optics.tt import get_expt, set_expt, stack
 from optics.tt import getdmc, applydmc, tip, tilt, remove_piston
 from optics.tt import imini, mtf, median_filter

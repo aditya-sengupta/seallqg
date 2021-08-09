@@ -3,8 +3,7 @@
 import numpy as np
 from abc import ABC, abstractmethod
 
-from ..experiments import tt_to_dmc
-from ..optics import getdmc
+from ..optics import tt_to_dmc, getdmc
 
 class Controller(ABC):
     @abstractmethod

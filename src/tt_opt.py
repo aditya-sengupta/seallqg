@@ -5,7 +5,7 @@ import time
 from matplotlib import pyplot as plt
 import pysao
 
-from ..utils import joindata
+from .utils import joindata
 from optics import get_expt, set_expt
 from optics import mtfgrid, imini, sidemaskrad, sidemaskind, mtf, median_filter
 from optics import applytiptilt, applydmc

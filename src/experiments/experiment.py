@@ -14,9 +14,8 @@ from ..optics import applytip, applytilt, applytiptilt, funz, aperture
 from ..optics import refresh
 from ..controllers import OpenLoop, Integrator
 
-bestflat, imflat = refresh()
-
 def uconvert_ratio(amp=1.0):
+    bestflat, imflat = refresh()
     expt_init = get_expt()
     set_expt(1e-5)
     uconvert_matrix = np.zeros((2,2))
@@ -74,7 +73,7 @@ def atmvib_schedule(atm, vib, scaledown, delay):
 
 def record_openloop(t=10):
     path = "openloop/ol"
-    return record_experiment(path, OpenLoop(), noise_schedule, t=t)
+    return record_experiment(path, OpenLoop().control, lambda: noise_schedule(t), t=t)
 
 def record_usteps(t, tip_amp=0.1, tilt_amp=0.0):
     path = "usteps/ustep_amps_{0}_{1}".format(tip_amp, tilt_amp)

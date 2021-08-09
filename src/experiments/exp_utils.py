@@ -15,7 +15,6 @@ from ..optics import tip, tilt, xdim, ydim
 from ..optics import measure_tt, make_im_cm
 from ..optics import refresh
 
-tiptiltarr = np.array([tilt.flatten(), tip.flatten()]).T
 bestflat = np.load(joindata("bestflats/bestflat.npy"))
 
 def record_im(out_q, t=1, dt=datetime.now().strftime("%d_%m_%Y_%H_%M_%S")):
@@ -56,22 +55,6 @@ def tt_from_queued_image(in_q, out_q, cmd_mtx, dt=datetime.now().strftime("%d_%m
                 ttvals = np.array(ttvals)
                 np.save(fname, ttvals)
                 return ttvals
-
-def tt_to_dmc(tt):
-    """
-    Converts a measured tip-tilt value to an ideal DM command.
-    
-    Arguments
-    ---------
-    tt : np.ndarray, (2, 1)
-    The tip and tilt values.
-
-    Returns
-    -------
-    dmc : np.ndarray, (dm_x, dm_y)
-    The corresponding DM command.
-    """
-    return np.matmul(tiptiltarr, -tt).reshape((ydim,xdim))
 
 def control_schedule(q, controller, t=1, delay=0.01):
     """
