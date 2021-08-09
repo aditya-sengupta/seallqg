@@ -1,3 +1,6 @@
+# authored by Benjamin Gerard
+# edited by Aditya Sengupta
+
 """
 Compute command matrix and interaction matrix.
 """

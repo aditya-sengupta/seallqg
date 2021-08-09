@@ -1,3 +1,5 @@
+# authored by Benjamin Gerard (and Sylvain Cetre?)
+
 from krtc import *
 import zmq
 import pysao

@@ -1,3 +1,5 @@
+# authored by Benjamin Gerard and Aditya Sengupta
+
 from tt import *
 from matplotlib import pyplot as plt
 

@@ -1,3 +1,5 @@
+# authored by Benjamin Gerard and Aditya Sengupta
+
 import numpy as np
 
 from tt import *

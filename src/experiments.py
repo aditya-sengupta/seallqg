@@ -1,10 +1,13 @@
+# authored by Aditya Sengupta
 # my tip-tilt experiments
+
 import numpy as np
 import tqdm
 import time
 
 from tt import *
 from exp_utils import record_experiment, integrator_schedule
+from refresh_imflat import refresh
 
 bestflat = np.load("../data/bestflats/bestflat.npy")
 applydmc(bestflat)
@@ -28,10 +31,6 @@ def step_train_schedule(t=1, n=5, tip_amp=0.1, tilt_amp=0.0):
 def record_usteps(t=1, tip_amp=0.1, tilt_amp=0.0):
     path = "../data/usteps/ustep_amps_{0}_{1}".format(tip_amp, tilt_amp)
     return record_experiment(path, dist_schedule=lambda: ustep_schedule(t, tip_amp, tilt_amp))
-
-def record_utrain(t=1, n=5, tip_amp=0.1, tilt_amp=0.0):
-    path = "../data/utrain/utrain_amps_{0}_{1})_nsteps_{2}".format(tip_amp, tilt_amp, n)
-    return record_experiment(path, dist_schedule=lambda: step_train_schedule(t=t, n=n, tip_amp=tip_amp, tilt_amp=tilt_amp))
 
 def record_usteps_in_circle(niters=10, amp=0.1, nangles=12):
     timearrs, ttvalarrs = [], []

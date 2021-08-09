@@ -34,7 +34,7 @@ def make_impulse_1(w, T=np.arange(0, 1, 0.001)):
 	"""
 	tf = signal.TransferFunction([w], [1, w])
 	y, t, _ = signal.impulse(tf, T=T)
-	return impulse[0], impulse[1] / sum(impulse[1])
+	return t, y[1] / sum(y[1])
 
 def genpsd(tseries, dt, nseg=4, remove_dc=True):
 	nperseg = 2**int(np.log2(tseries.shape[0]/nseg)) 

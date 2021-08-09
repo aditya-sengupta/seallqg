@@ -1,3 +1,5 @@
+# authored by Aditya Sengupta
+
 import time
 import numpy as np
 from datetime import datetime
@@ -80,10 +82,11 @@ def kalman_schedule(q, kf, t=1, delay=0.01):
     pass
 
 def record_experiment(path, control_schedule=lambda: None, dist_schedule=lambda: None, t=1, verbose=True):
-    from refresh_imflat import bestflat, imflat
+    from refresh_imflat import refresh
     from compute_cmd_int import make_im_cm
     # bestflat = np.load("../data/bestflats/bestflat.npy")
     # imflat = np.load("../data/bestflats/imflat.npy")
+    bestflat, imflat = refresh()
     applydmc(bestflat)
     _, cmd_mtx = make_im_cm()
     baseline_ttvals = measure_tt(getim() - imflat)

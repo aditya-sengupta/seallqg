@@ -1,3 +1,5 @@
+# authored by Benjamin Gerard
+
 import itertools
 import numpy as np
 from scipy.ndimage.interpolation import rotate, shift
