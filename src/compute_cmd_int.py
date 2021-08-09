@@ -95,7 +95,7 @@ def make_im_cm():
 		zernarr[i] = zern[indap]
 
 	IM = np.dot(refvec, refvec.T) #interaction matrix
-	IMinv = np.linalg.pinv(IM, rcond=1e-3)
+	IMinv = np.linalg.pinv(IM, rcond=1e-6)
 	cmd_mtx = np.dot(IMinv, refvec).astype(float32)
 	print("Recomputed interaction matrix and command matrix")
 	return IM, cmd_mtx
