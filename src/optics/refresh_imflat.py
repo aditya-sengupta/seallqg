@@ -1,6 +1,6 @@
 # authored by Aditya Sengupta
 
-from tt import getdmc, applydmc, stack, np, getim
+from tt import getdmc, applydmc, stack, np
 # from compute_cmd_int import measure_tt
 
 def refresh():

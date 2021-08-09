@@ -2,10 +2,8 @@
 # edited by Aditya Sengupta
 
 import numpy as np
-import mpmath as mp
-from fractions import Fraction
 import matplotlib.pyplot as plt
-from .utils import genpsd
+from ..utils import genpsd
 
 plt.ion()
 
@@ -33,8 +31,8 @@ def design_from_ol(y, dt, nseg=4):
     The impulse response.
     """
     f, p = genpsd(y, dt=dt, nseg=nseg, remove_dc=False)
-    fF = np.hstack((-np.flip(f[1:]), f))
-    xF = np.hstack((-np.flip(y[1:]), y))
+    # fF = np.hstack((-np.flip(f[1:]), f))
+    xF = np.hstack((-np.flip(p[1:]), p))
     x = np.fft.ifft(np.fft.fftshift(xF))
     N = len(x)
     t = np.arange(N) * dt
@@ -42,7 +40,6 @@ def design_from_ol(y, dt, nseg=4):
     x = np.abs(x)[:N//2]
     x = x / np.sum(x)
     return t, x
-
 
 def design_filt(dt=1, N=1024, fc=0.1, a=1e-6, tf=None, plot=True, oplot=False):
     '''Design a filter that takes white noise as input

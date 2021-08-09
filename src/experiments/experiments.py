@@ -5,30 +5,75 @@ import numpy as np
 import tqdm
 import time
 
-from tt import *
+from optics.image import get_expt, set_expt, applydmc, getdmc, stack, aperture
+from optics.tt import applytip, applytilt, applytiptilt, funz
 from exp_utils import record_experiment, integrator_schedule
-from refresh_imflat import refresh
+from optics.refresh_imflat import refresh
+from controllers.controller import openloop
 
-bestflat = np.load("../data/bestflats/bestflat.npy")
-applydmc(bestflat)
-imflat = stack(100)
+def uconvert_ratio(amp=1.0):
+    expt_init = get_expt()
+    set_expt(1e-5)
+    uconvert_matrix = np.zeros((2,2))
+    for (mode, dmcmd) in enumerate([applytip, applytilt]):
+        applydmc(bestflat)
+        dmcmd(amp)
+        dm2 = getdmc()
+        cm2x = []
+        while len(cm2x) != 1:
+            im2 = stack(100)
+            cm2x, cm2y = np.where(im2 == np.max(im2))
 
-def record_openloop(t=10):
-    path = "../data/openloop/ol"
-    return record_experiment(path, t=t)
+        applydmc(bestflat)
+        dmcmd(-amp)
+        dm1 = getdmc()
+        cm1x = []
+        while len(cm1x) != 1:
+            im1 = stack(100)
+            cm1x, cm1y = np.where(im1 == np.max(im1))
 
-def ustep_schedule(t=1, tip_amp=0.1, tilt_amp=0.0):
+        dmdiff = aperture * (dm2 - dm1)
+        
+        dmdrange = np.max(dmdiff) - np.min(dmdiff)
+        uconvert_matrix[mode] = [dmdrange /  (cm2y - cm1y), dmdrange / (cm2x - cm1x)]
+
+    set_expt(expt_init)
+    applydmc(bestflat)
+    return uconvert_matrix
+
+bestflat, imflat = refresh()
+
+# disturbance schedules go here
+
+def noise_schedule(t):
+    """
+    Do nothing (profile bench noise.)
+    """
+    time.sleep(t)
+
+def ustep_schedule(t, tip_amp=0.1, tilt_amp=0.0):
     time.sleep(t/2)
     applytip(tip_amp)
     applytilt(tilt_amp)
 
-def step_train_schedule(t=1, n=5, tip_amp=0.1, tilt_amp=0.0):
+def step_train_schedule(t, n=5, tip_amp=0.1, tilt_amp=0.0):
     for _ in range(n):
         time.sleep(t/(n+1))
         applytip(tip_amp)
         applytilt(tilt_amp)
 
-def record_usteps(t=1, tip_amp=0.1, tilt_amp=0.0):
+def atmvib_schedule(atm, vib, scaledown, delay):
+    fname = "../data/sims/ol_atm_{0}_vib_{1}.npy".format(atm, vib)
+    control_commands = np.diff(np.load(fname), axis=0) / scaledown
+    for cmd in control_commands:
+        applytiptilt(cmd[0], cmd[1], verbose=False)
+        time.sleep(delay)
+
+def record_openloop(t=10):
+    path = "../data/openloop/ol"
+    return record_experiment(path, openloop, noise_schedule, t=t)
+
+def record_usteps(t, tip_amp=0.1, tilt_amp=0.0):
     path = "../data/usteps/ustep_amps_{0}_{1}".format(tip_amp, tilt_amp)
     return record_experiment(path, dist_schedule=lambda: ustep_schedule(t, tip_amp, tilt_amp))
 
@@ -64,13 +109,6 @@ def record_sinusoids(delay=1e-2):
         ttvalarrs.append(ttvals)
 
     return timearrs, ttvalarrs
-
-def atmvib_schedule(atm, vib, scaledown, delay):
-    fname = "../data/sims/ol_atm_{0}_vib_{1}.npy".format(atm, vib)
-    control_commands = np.diff(np.load(fname), axis=0) / scaledown
-    for cmd in control_commands:
-        applytiptilt(cmd[0], cmd[1], verbose=False)
-        time.sleep(delay)
     
 def record_atm_vib(atm=0, vib=2, delay=1e-2, scaledown=10):
     """

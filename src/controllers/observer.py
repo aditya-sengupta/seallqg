@@ -5,10 +5,8 @@
 
 import numpy as np
 from scipy import optimize, signal, stats
-from matplotlib import pyplot as plt
-
 from .kfilter import KFilter
-from .utils import genpsd
+from ..utils import genpsd
 
 def log_likelihood(func, data):
     def get_ll(pars):

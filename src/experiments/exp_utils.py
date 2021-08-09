@@ -2,13 +2,16 @@
 
 import time
 import numpy as np
+import warnings
 from datetime import datetime
 from threading import Thread
 from queue import Queue
 from functools import partial
 
-from tt import *
-from compute_cmd_int import measure_tt
+from optics.image import getim, getdmc, applydmc
+from optics.tt import tip, tilt, xdim, ydim
+from compute_cmd_int import measure_tt, make_im_cm
+from optics.refresh_imflat import refresh
 
 tiptiltarr = np.array([tilt.flatten(), tip.flatten()]).T
 bestflat = np.load("../data/bestflats/bestflat.npy")
@@ -20,7 +23,7 @@ def record_im(out_q, t=1, dt=datetime.now().strftime("%d_%m_%Y_%H_%M_%S")):
     # this would be much easier to feel good about in a lower level language
 
     while time.time() < t1 + t:
-        imval = im.get_data(check=True) # False doesn't wait for a new frame
+        imval = getim()
         times.append(time.time())
         out_q.put(imval)
 
@@ -43,14 +46,14 @@ def tt_from_queued_image(in_q, out_q, cmd_mtx, dt=datetime.now().strftime("%d_%m
         else:
             v = in_q.get()
             in_q.task_done()
-            if v is None:
-                ttvals = np.array(ttvals)
-                np.save(fname, ttvals)
-                return ttvals
-            else:
+            if v is not None:
                 ttval = measure_tt(v - imflat, cmd_mtx=cmd_mtx).flatten()
                 out_q.put(ttval)
                 ttvals.append(ttval)
+            else:
+                ttvals = np.array(ttvals)
+                np.save(fname, ttvals)
+                return ttvals
 
 def tt_to_dmc(tt):
     """
@@ -81,9 +84,7 @@ def integrator_schedule(q, t=1, delay=0.01, gain=0.1, leak=1.0):
 def kalman_schedule(q, kf, t=1, delay=0.01):
     pass
 
-def record_experiment(path, control_schedule=lambda: None, dist_schedule=lambda: None, t=1, verbose=True):
-    from refresh_imflat import refresh
-    from compute_cmd_int import make_im_cm
+def record_experiment(path, control_schedule, dist_schedule, t=1, verbose=True):
     bestflat, imflat = refresh()
     applydmc(bestflat)
     _, cmd_mtx = make_im_cm()

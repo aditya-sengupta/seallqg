@@ -1,11 +1,8 @@
 import numpy as np
 from numpy import float32
-import time
-import itertools
-from scipy.ndimage.filters import median_filter
 from scipy import fft
-
-from image import *
+from ao import polar_grid, zernike
+from image import getdmc, applydmc, set_expt, getim
 
 dmcini = getdmc()
 ydim, xdim = dmcini.shape
@@ -14,7 +11,7 @@ global bestflat
 bestflat = np.load('/home/lab/asengupta/data/bestflats/bestflat.npy')
 applydmc(bestflat)
 
-expt(1e-3) #set exposure time; for 0.15 mW
+set_expt(1e-3) #set exposure time; for 0.15 mW
 imini = getim() #Andor image just for referencing dimensions
 imydim, imxdim = imini.shape
 
@@ -23,20 +20,20 @@ tsleep=0.01 #should be the same values from align_fpm.py and genDH.py
 
 #DM aperture:
 undersize=29/32 #29 of the 32 actuators are illuminated
-rho,phi = ao.polar_grid(xdim,xdim*undersize)
-aperture=np.zeros(rho.shape).astype(float32)
-indap=np.where(rho>0)
-indnap=np.where(rho==0)
-aperture[indap]=1
+rho,phi = polar_grid(xdim,xdim*undersize)
+aperture = np.zeros(rho.shape).astype(float32)
+indap = np.where(rho > 0)
+indnap = np.where(rho == 0)
+aperture[indap] = 1
 
 ydim,xdim=dmcini.shape
-grid=np.mgrid[0:ydim,0:xdim].astype(float32)
-ygrid, xgrid = grid[0]-ydim/2, grid[1]-xdim/2
-tip, tilt = (ygrid+ydim/2)/ydim, (xgrid+xdim/2)/xdim #min value is zero, max is one
+grid=np.mgrid[0:ydim, 0:xdim].astype(float32)
+ygrid, xgrid = grid[0] - ydim/2, grid[1] - xdim/2
+tip, tilt = (ygrid + ydim/2)/ydim, (xgrid + xdim/2)/xdim #min value is zero, max is one
 
 #DM aperture:
 undersize = 27/32 #assuming 27 of the 32 actuators are illuminated
-rho,phi = ao.polar_grid(xdim, xdim*undersize)
+rho,phi = polar_grid(xdim, xdim*undersize)
 cenaperture = np.zeros(rho.shape).astype(float32)
 indapcen = np.where(rho>0)
 cenaperture[indapcen] = 1
@@ -68,7 +65,7 @@ def applytilt(amp, verbose=True): #apply tilt; amp is the P2V in DM units
 	return applydmc(dmc, verbose)
 
 # add something to update best flat in here if needed
-bestflat=getdmc()
+bestflat = getdmc()
 
 def applytiptilt(amptip, amptilt, verbose=True): #amp is the P2V in DM units
 	dmctip = amptip*tip
@@ -84,7 +81,7 @@ for n in range(norder):
 		nmarr.append([n, m])
 
 def funz(n, m, amp, bestflat=bestflat): #apply zernike to the DM
-	z = ao.zernike(n,m,rhoap,phiap)/2
+	z = zernike(n,m,rhoap,phiap)/2
 	zdm = amp*(z.astype(float32))
 	dmc = remove_piston(remove_piston(bestflat)+remove_piston(zdm))
 	applydmc(dmc)

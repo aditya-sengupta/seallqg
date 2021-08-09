@@ -1,7 +1,5 @@
 import numpy as np
 import hcipy
-from matplotlib import pyplot as plt
-from scipy import signal, ndimage
 from copy import deepcopy
 import tqdm
 

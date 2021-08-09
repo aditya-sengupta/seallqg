@@ -25,8 +25,8 @@ def make_impulse_2(overshoot, rise_time, T=np.arange(0, 1, 0.001)):
 	num = [w**2]
 	den = [1, 2 * w * z, w**2]
 	tf = signal.TransferFunction(num, den)
-	impulse = signal.impulse(tf, T=T)
-	return impulse[0], impulse[1] / sum(impulse[1])
+	y, t, _ = signal.impulse(tf, T=T)
+	return t[0], y[1] / sum(y[1])
 
 def make_impulse_1(w, T=np.arange(0, 1, 0.001)):
 	"""

@@ -5,19 +5,20 @@
 Compute command matrix and interaction matrix.
 """
 
-from tt import *
 import numpy as np
-from numpy import float32
 import time
-import ao
-from matplotlib import pyplot as plt
 import tqdm
+from matplotlib import pyplot as plt
 from scipy.optimize import newton
+
+from optics.image import getdmc, applydmc, stack, getim
+from optics.tt import rhoap, phiap, ds9, processim
+from optics.ao import polar_grid, zernike
 
 #initial setup: apply best flat, generate DM grid to apply future shapes
 dmcini = getdmc()
 ydim, xdim = dmcini.shape
-grid = np.mgrid[0:ydim, 0:xdim].astype(float32)
+grid = np.mgrid[0:ydim, 0:xdim].astype(np.float32)
 bestflat = np.load('/home/lab/asengupta/data/bestflats/bestflat.npy') #load bestflat, which should be an aligned FPM
 applydmc(bestflat)
 imflat = stack(100)
@@ -30,8 +31,8 @@ tsleep = 0.01 #should be the same values from align_fpm.py and genDH.py
 
 #DM aperture:
 undersize = 29/32 #29 of the 32 actuators are illuminated
-rho,phi = ao.polar_grid(xdim,xdim*undersize)
-aperture = np.zeros(rho.shape).astype(float32)
+rho,phi = polar_grid(xdim,xdim*undersize)
+aperture = np.zeros(rho.shape).astype(np.float32)
 indap = np.where(rho > 0)
 indnap = np.where(rho == 0)
 aperture[indap] = 1
@@ -49,8 +50,8 @@ for n in range(1, norder):
 		nmarr.append([n,m])
 
 def funz(n, m, amp, bestflat=bestflat): #apply zernike to the DM
-	z = ao.zernike(n, m, rhoap, phiap)/2
-	zdm = amp*(z.astype(float32))
+	z = zernike(n, m, rhoap, phiap)/2
+	zdm = amp*(z.astype(np.float32))
 	dmc = remove_piston(remove_piston(bestflat)+remove_piston(zdm))
 	applydmc(dmc)
 	return dmc
@@ -96,7 +97,7 @@ def make_im_cm():
 
 	IM = np.dot(refvec, refvec.T) #interaction matrix
 	IMinv = np.linalg.pinv(IM, rcond=1e-6)
-	cmd_mtx = np.dot(IMinv, refvec).astype(float32)
+	cmd_mtx = np.dot(IMinv, refvec).astype(np.float32)
 	print("Recomputed interaction matrix and command matrix")
 	return IM, cmd_mtx
 

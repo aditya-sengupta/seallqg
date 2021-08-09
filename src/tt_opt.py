@@ -1,12 +1,17 @@
 # authored by Benjamin Gerard and Aditya Sengupta
 
 import numpy as np
-
-from tt import *
+import time
 from matplotlib import pyplot as plt
+import pysao
+
+from optics.tt import get_expt, set_expt
+from optics.tt import mtfgrid, imini, sidemaskrad, sidemaskind, mtf, median_filter
+from optics.tt import applytiptilt, applydmc
+from optics.tt import stack, bestflat
 
 expt_init = get_expt()
-expt(1e-4)
+set_expt(1e-4)
 
 #side lobe mask where there is no signal to measure SNR
 xnoise,ynoise=161.66,252.22
@@ -22,6 +27,7 @@ def processimabs(imin,mask): #process SCC image, isolating the sidelobe in the F
 	return np.abs(Iminus)
 
 def optt(tsleep): #function to optimize how long to wait in between applying DM command and recording image
+	ds9 = pysao.ds9()
 	applytiptilt(-0.1,-0.1)
 	time.sleep(tsleep)
 	im1=stack(10)
@@ -84,6 +90,6 @@ indopttip1,indopttilt1=np.where(medttoptarr1==np.max(medttoptarr1))
 applytiptilt(tipamparr[indopttip1][0],tiltamparr[indopttilt1][0])
 
 im_bestflat = stack(100)
-expt(expt_init)
+set_expt(expt_init)
 np.save("../data/bestflats/bestflat.npy", bestflat)
 print("Saved best flat")

@@ -3,10 +3,11 @@
 import numpy as np
 from datetime import datetime
 import tqdm
+import time
 
-from tt import *
-from compute_cmd_int import *
-from image import *
+from tt import applydmc, applytip, applytilt, applytiptilt, getdmc
+from image import getim, bestflat, imflat, get_expt, set_expt, aperture, stack
+from compute_cmd_int import measure_tt
 
 # find limits and poisson ll are in git somewhere
 
@@ -52,36 +53,6 @@ def tt_center_noise(nsteps=1000, delay=1e-2):
 
     np.save("/home/lab/asengupta/data/tt_center_noise/tt_center_noise_nsteps_{0}_delay_{1}_dt_{2}".format(str(nsteps), str(delay), datetime.now().strftime("%d_%m_%Y_%H")), ttvals)
     return ttvals
-
-def uconvert_ratio(amp=1.0):
-    expt_init = get_expt()
-    set_expt(1e-5)
-    uconvert_matrix = np.zeros((2,2))
-    for (mode, dmcmd) in enumerate([applytip, applytilt]):
-        applydmc(bestflat)
-        dmcmd(amp)
-        dm2 = getdmc()
-        cm2x = []
-        while len(cm2x) != 1:
-            im2 = stack(100)
-            cm2x, cm2y = np.where(im2 == np.max(im2))
-
-        applydmc(bestflat)
-        dmcmd(-amp)
-        dm1 = getdmc()
-        cm1x = []
-        while len(cm1x) != 1:
-            im1 = stack(100)
-            cm1x, cm1y = np.where(im1 == np.max(im1))
-
-        dmdiff = aperture * (dm2 - dm1)
-        
-        dmdrange = np.max(dmdiff) - np.min(dmdiff)
-        uconvert_matrix[mode] = [dmdrange /  (cm2y - cm1y), dmdrange / (cm2x - cm1x)]
-
-    set_expt(expt_init)
-    applydmc(bestflat)
-    return uconvert_matrix
 
 def noise_floor(niters=100):
     delays = np.array([5e-3, 1e-2, 5e-2, 1e-1, 5e-1, 1e-0])

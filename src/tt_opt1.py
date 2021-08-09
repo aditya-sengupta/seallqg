@@ -1,10 +1,15 @@
 # authored by Benjamin Gerard and Aditya Sengupta
 
-from tt import *
+import numpy as np
 from matplotlib import pyplot as plt
+import time
+
+from optics.tt import get_expt, set_expt, stack
+from optics.tt import getdmc, applydmc, tip, tilt, remove_piston
+from optics.tt import imini, mtf, median_filter
 
 expt_init = get_expt()
-expt(1e-4)
+set_expt(1e-4)
 
 bestflat = getdmc()
 
@@ -38,16 +43,8 @@ def processimabs(imin,mask): #process SCC image, isolating the sidelobe in the F
 	Iminus=np.fft.ifft2(otf_masked,norm='ortho') #(3) IFFT back to the image plane, now generating a complex-valued image
 	return np.abs(Iminus)
 
-def optt(tsleep): #function to optimize how long to wait in between applying DM command and recording image
-	applytiptilt(-0.1,-0.1)
-	time.sleep(tsleep)
-	im1=stack(10)
-	applydmc(bestflat)
-	time.sleep(tsleep)
-	imf=stack(10)
-	ds9.view(im1-imf)
 #tsleep=0.005 #on really good days
-tsleep=0.01 #optimized from above function
+tsleep=0.01 # optimized from tt_opt.optt
 #tsleep=0.4 #on bad days
 
 
@@ -80,7 +77,7 @@ def viewmed():
     plt.imshow(medttoptarr)
     plt.show()
 
-expt(expt_init)
+set_expt(expt_init)
 
 bestflat = getdmc()
 np.save("../data/bestflats/bestflat.npy", bestflat)

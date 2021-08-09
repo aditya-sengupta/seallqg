@@ -1,12 +1,8 @@
 # authored by Benjamin Gerard (and Sylvain Cetre?)
 
-from krtc import *
-import zmq
+from krtc import shmlib
 import pysao
 import numpy as np
-import sys
-import time
-import ao
 import warnings
 
 try:
