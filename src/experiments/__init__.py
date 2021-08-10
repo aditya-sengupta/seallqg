@@ -4,6 +4,11 @@ from .experiment import *
 __all__ = [
     "uconvert_ratio",
     "record_openloop",
+    "record_olnone",
+    "record_oltrain",
+    "record_olustep",
+    "record_olsin",
+    "record_olatmvib",
     "record_integrator",
     "record_intnone",
     "record_inttrain",

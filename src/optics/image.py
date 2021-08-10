@@ -5,11 +5,6 @@ import pysao
 import numpy as np
 import warnings
 
-try:
-    ds9 = pysao.ds9()
-except OSError:
-    pass
-
 #initialize; no need to load this more than once
 #for full frame:
 

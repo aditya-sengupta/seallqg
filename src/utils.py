@@ -9,6 +9,8 @@ from os import path
 DATADIR = path.join(path.dirname(path.abspath("__file__")), "data")
 joindata = lambda f: path.join(DATADIR, f)
 
+rms = lambda data: np.sqrt(np.mean((data - np.mean(data)) ** 2))
+
 def get_keck_tts(num=128):
 	# gets the right keck TTs that have the wrong powerlaw.
 	# put in a number 128 through 132
