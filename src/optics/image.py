@@ -1,4 +1,4 @@
-# authored by Benjamin Gerard (and Sylvain Cetre?)
+# authored by Benjamin Gerard and Aditya Sengupta (and Sylvain Cetre?)
 
 from abc import ABC, abstractmethod
 import numpy as np
