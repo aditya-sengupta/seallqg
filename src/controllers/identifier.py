@@ -1,8 +1,5 @@
 # authored by Aditya Sengupta
 
-# Simulator of an adaptive optics system observer.
-# Operates on a single mode at a time.
-
 import numpy as np
 from scipy import optimize, signal, stats
 from .kfilter import KFilter
@@ -17,8 +14,20 @@ def log_likelihood(func, data):
 
     return get_ll
 
-class Observer:
-    def __init__(self, f_sampling=1000, f_1=None, f_2=None, f_w=None, N_vib_max=10, energy_cutoff=1e-8, measurement_noise=0.06, time_id=1):
+class SystemIdentifier:
+    """
+    Driver class to build KFilter objects from open-loop data.
+    Largely built off the Meimon 2010 system identification, and similation/experimentation on top of that.
+    """
+    def __init__(
+        self, 
+        f_sampling=100, 
+        f_1=None, f_2=None, f_w=None, 
+        N_vib_max=10, energy_cutoff=1e-8, 
+        max_ar_coef=5, 
+        measurement_noise=0.06, 
+        time_id=1
+    ):
         self.f_sampling = f_sampling # Hz
         if f_1 is None:
             self.f_1 = f_sampling / 60 # lowest possible frequency of a vibration mode
@@ -35,6 +44,7 @@ class Observer:
         else:
             self.f_w = f_w
 
+        self.max_ar_coef = max_ar_coef
         self.N_vib_max = N_vib_max # number of vibration modes to be detected
         self.energy_cutoff = energy_cutoff # proportion of total energy after which PSD curve fit ends
         self.measurement_noise = measurement_noise # milliarcseconds; pulled from previous notebook
@@ -153,3 +163,11 @@ class Observer:
         R = np.array([[sigma ** 2]])
 
         return KFilter(A, C, Q, R)
+
+    def make_kfilter_from_openloop(self, ol, model_atm=True, model_vib=True):
+        """
+        Designs a KFilter object based on openloop data. (Essentially stitches together a bunch of KFilter objects.)
+        """
+        # so you start off with an open loop array
+        f, p = genpsd(ol, dt=1/self.f_sampling)
+        
