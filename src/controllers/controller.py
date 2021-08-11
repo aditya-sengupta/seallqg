@@ -67,7 +67,8 @@ def lqg_controller(state, **kwargs):
     pass
 
 # Control laws: combination of an observer and controller
-openloop = partial(observer=identity, controller=ol_controller)
-integrate = partial(observer=identity, controller=integrator)
-kalman_integrate = partial(observer=kfilter, controller=integrator)
-lqg = partial(observer=kfilter, controller=lqg_controller)
+openloop = partial(control, observer=identity, controller=ol_controller)
+integrate = partial(control, observer=identity, controller=integrator)
+kalman_integrate = partial(control, observer=kfilter, controller=integrator)
+unobs_lqg = partial(control, observer=identity, controller=lqg_controller)
+kalman_lqg = partial(control, observer=kfilter, controller=lqg_controller)
