@@ -15,11 +15,17 @@ def noise_schedule(t):
     time.sleep(t)
 
 def ustep_schedule(t, tip_amp=0.1, tilt_amp=0.0):
+    """
+    Put on a unit step.
+    """
     time.sleep(t/2)
     applytip(tip_amp)
     applytilt(tilt_amp)
 
 def step_train_schedule(t, n=5, tip_amp=0.1, tilt_amp=0.0):
+    """
+    Put on a train of unit steps.
+    """
     print("Putting on {0} impulses over {1} seconds".format(n, t))
     for _ in range(n):
         time.sleep(t/(n+1))
@@ -27,6 +33,9 @@ def step_train_schedule(t, n=5, tip_amp=0.1, tilt_amp=0.0):
         applytilt(tilt_amp)
 
 def sine_schedule(t, amp, ang, f):
+    """
+    Put on a sine wave.
+    """
     times = np.arange(0.0, t, tsleep)
     sinusoid = np.diff(amp * np.sin(2 * np.pi * f * times))
     cosang, sinang = np.cos(ang), np.sin(ang)
@@ -37,6 +46,10 @@ def sine_schedule(t, amp, ang, f):
         time.sleep(max(0, tsleep - (time.time() - t2)))
 
 def atmvib_schedule(t, atm=0, vib=2, scaledown=10):
+    """
+    Put on a custom disturbance signal with 'atm' HCIPy atmospheric layers and 'vib' vibrational modes.
+    (for now precomputed, but it's not hard to extend this just by using src.controllers.make_atm_vib)
+    """
     fname = joindata("sims/ol_atm_{0}_vib_{1}.npy".format(atm, vib))
     control_commands = np.diff(np.load(fname), axis=0) / scaledown
     nsteps = len(control_commands)

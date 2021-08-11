@@ -1,11 +1,13 @@
-from .controller import OpenLoop, Integrator
+from .controller import openloop, integrate, kalman_integrate, lqg
 from .fractal_deriv import design_filt, filt, design_from_ol
 from .kfilter import KFilter
 from .identifier import SystemIdentifier
 
 __all__ = [
-    "OpenLoop",
-    "Integrator",
+    "openloop",
+    "integrate",
+    "kalman_integrate",
+    "lqg",
     "design_filt",
     "filt",
     "design_from_ol",

@@ -55,7 +55,7 @@ def tt_from_queued_image(in_q, out_q, cmd_mtx, dt=datetime.now().strftime("%d_%m
                 np.save(fname, ttvals)
                 return ttvals
 
-def control_schedule(q, controller, t=1, delay=0.01):
+def control_schedule(q, control, t=1, delay=0.01):
     """
     The SEAL schedule for a controller.
 
@@ -64,8 +64,8 @@ def control_schedule(q, controller, t=1, delay=0.01):
     q : Queue
     The queue to poll for new tip-tilt values.
 
-    controller : Controller
-    The object that executes the control algorithm.
+    controller : callable
+    The function to execute control.
     """
     t1 = time.time()
     while time.time() < t1 + t:
@@ -75,14 +75,14 @@ def control_schedule(q, controller, t=1, delay=0.01):
         else:
             tt = q.get()
             q.task_done()
-            applydmc(controller.control(tt))
+            applydmc(control(tt))
             # time.sleep(max(0, delay - (time.time() - ti)))
 
 def record_experiment(path, control_schedule, dist_schedule, t=1, verbose=True):
     bestflat, imflat = refresh()
     applydmc(bestflat)
     _, cmd_mtx = make_im_cm()
-    baseline_ttvals = measure_tt(getim() - imflat)
+    baseline_ttvals = measure_tt(getim() - imflat, cmd_mtx=cmd_mtx)
     if np.any(np.abs(baseline_ttvals) > 0.03):
         warnings.warn("The system may not be aligned: baseline TT is {}".format(baseline_ttvals.flatten()))
 

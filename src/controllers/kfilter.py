@@ -25,20 +25,20 @@ class KFilter:
         self.K = self.P @ C.T @ np.linalg.inv(C @ self.P @ C.T + R)
 
     @property
-    def s(self):
+    def state_size(self):
         return self.A.shape[0]
 
     @property
-    def m(self):
+    def measure_size(self):
         return self.C.shape[0]
 
     def __str__(self):
         return "Kalman filter with state size " + str(self.A.shape[0]) + " and measurement size " + str(self.H.shape[0])
 
     def __add__(self, other):
-        if self.s == 0:
+        if self.state_size == 0:
             return other
-        elif other.s == 0:
+        elif other.state_size == 0:
             return self
         A = linalg.block_diag(self.A, other.A)
         C = linalg.block_diag(self.C, other.C)
@@ -57,7 +57,7 @@ class KFilter:
 
     def run(self, measurements, x0):
         steps = len(measurements)
-        states = np.empty((steps, self.s))
+        states = np.empty((steps, self.state_size))
         x = copy(x0)
         
         for (i, m) in enumerate(measurements):

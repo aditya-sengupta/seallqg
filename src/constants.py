@@ -5,5 +5,5 @@ These are constants for simulation mode; in hardware mode, these will be overrid
 """
 dmdims = (32, 32)
 imdims = (320, 320)
-f_sampling = 100.0 # Hz
-tsleep = 1 / f_sampling
+fs = 100.0 # Hz
+tsleep = 1 / fs

@@ -2,7 +2,7 @@ from .ao import zernike, polar_grid
 from .image import getim, getdmc, applydmc, stack, dmzero, get_expt, set_expt, hardware_mode
 from .tt import applytip, applytilt, applytiptilt, aperture, funz, tip, tilt, xdim, ydim, tt_to_dmc
 from .align import align_fast, align_fast2 
-from .compute_cmd_int import make_im_cm, measure_tt, compute_linearity_curve
+from .compute_cmd_int import make_im_cm, measure_tt, linearity
 from .refresh_imflat import refresh
 
 __all__ = [
@@ -30,6 +30,6 @@ __all__ = [
     "funz",
     "make_im_cm",
     "measure_tt",
-    "compute_linearity_curve",
+    "linearity",
     "refresh"
 ]

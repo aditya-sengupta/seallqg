@@ -20,10 +20,10 @@ except ModuleNotFoundError:
 
 if hardware_mode:
 	import pysao
-	try:
+	"""try:
 		ds9 = pysao.ds9()
 	except OSError:
-		pass
+		pass"""
 
 	a = shmlib.shm('/tmp/ca03dit.im.shm') 
 	im = shmlib.shm('/tmp/ca03im.im.shm')

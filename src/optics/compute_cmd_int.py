@@ -113,7 +113,7 @@ def measure_tt(im, cmd_mtx=cmd_mtx):
 	coeffs = np.dot(cmd_mtx, tar)
 	return coeffs * IMamp
 
-def compute_linearity_curve(mode=0, nlin=20, amp=IMamp, plot=True):
+def linearity(mode=0, nlin=20, amp=IMamp, plot=True):
 	def genzerncoeffs(i, zernamp):
 		'''
 		i: zernike mode
@@ -167,7 +167,7 @@ def fit_polynomial(x, y, maxdeg=10, abstol=1e-4):
 def fit_linearity_curves():
 	ps = []
 	for mode in range(2):
-		zin, zout = compute_linearity_curve(mode=mode, plot=False)
+		zin, zout = linearity(mode=mode, plot=False)
 		ps.append(fit_polynomial(zin, zout[mode])[0])
 	return ps
 
@@ -182,4 +182,4 @@ def command_for_actual(act, p):
 	return newton(obj, act, fprime=dobj)
 
 if __name__ == "__main__":
-	compute_linearity_curve()
+	linearity()

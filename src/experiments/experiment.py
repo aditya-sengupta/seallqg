@@ -9,7 +9,7 @@ from .exp_utils import record_experiment, control_schedule
 from ..optics import get_expt, set_expt, applydmc, getdmc, stack
 from ..optics import applytip, applytilt, aperture
 from ..optics import refresh
-from ..controllers import OpenLoop, Integrator
+from ..controllers import openloop, integrate
 
 def uconvert_ratio(amp=1.0):
     bestflat, imflat = refresh()
@@ -52,8 +52,8 @@ def record_openloop(dist_schedule, t=10, **kwargs):
     
     return record_experiment(
         path, 
-        partial(control_schedule, controller=OpenLoop()), 
-        lambda: dist_schedule(t, **kwargs),
+        partial(control_schedule, control=openloop), 
+        partial(dist_schedule, t, **kwargs),
         t=t
     )
 
@@ -69,11 +69,11 @@ def record_integrator(dist_schedule, t=1, gain=0.1, leak=1.0, **kwargs):
     path = "closedloop/cl_gain_{0}_leak_{1}".format(gain, leak)
     for k in kwargs:
         path = path + k + "_" + str(kwargs.get(k))
-    integ = Integrator(gain, leak)
+
     return record_experiment(
         path, 
-        control_schedule=partial(control_schedule, controller=integ),
-        dist_schedule=lambda: dist_schedule(t, **kwargs),
+        control_schedule=partial(control_schedule, control=partial(integrate, gain=gain, leak=leak)),
+        dist_schedule=partial(dist_schedule, t, **kwargs),
         t=t
     )
 
