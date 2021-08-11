@@ -2,10 +2,9 @@ import numpy as np
 import time
 import warnings
 
+from ..constants import tsleep
 from ..utils import joindata
 from ..optics import applytip, applytilt, applytiptilt
-
-tsleep = 0.01
 
 # disturbance schedules go here
 

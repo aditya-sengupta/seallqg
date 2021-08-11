@@ -11,7 +11,6 @@ from functools import partial
 
 from ..utils import joindata
 from ..optics import getim, applydmc
-from ..optics import tip, tilt, xdim, ydim
 from ..optics import measure_tt, make_im_cm
 from ..optics import refresh
 

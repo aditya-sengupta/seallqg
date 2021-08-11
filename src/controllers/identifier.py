@@ -4,6 +4,7 @@ import numpy as np
 from scipy import optimize, signal, stats
 from .kfilter import KFilter
 from ..utils import genpsd
+from ..constants import f_sampling
 
 def log_likelihood(func, data):
     def get_ll(pars):
@@ -21,7 +22,7 @@ class SystemIdentifier:
     """
     def __init__(
         self, 
-        f_sampling=100, 
+        f_sampling=f_sampling, 
         f_1=None, f_2=None, f_w=None, 
         N_vib_max=10, energy_cutoff=1e-8, 
         max_ar_coef=5, 

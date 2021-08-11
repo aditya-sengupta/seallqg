@@ -2,16 +2,11 @@
 # my tip-tilt experiments
 
 import numpy as np
-import tqdm
-import time
 from functools import partial
-import warnings
-
-from ..utils import joindata
 
 from .schedules import noise_schedule, ustep_schedule, step_train_schedule, sine_schedule, atmvib_schedule
 from .exp_utils import record_experiment, control_schedule
-from ..optics import get_expt, set_expt, applydmc, getdmc, stack, dmzero
+from ..optics import get_expt, set_expt, applydmc, getdmc, stack
 from ..optics import applytip, applytilt, aperture
 from ..optics import refresh
 from ..controllers import OpenLoop, Integrator
@@ -71,7 +66,7 @@ record_olatmvib = partial(record_openloop, atmvib_schedule)
 # can add it back in to schedules.py later if desired
 
 def record_integrator(dist_schedule, t=1, gain=0.1, leak=1.0, **kwargs):
-    path = "closedloop/cl_gain_{0}_leak_{1}_".format(gain, leak)
+    path = "closedloop/cl_gain_{0}_leak_{1}".format(gain, leak)
     for k in kwargs:
         path = path + k + "_" + str(kwargs.get(k))
     integ = Integrator(gain, leak)

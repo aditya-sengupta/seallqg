@@ -5,7 +5,6 @@ from scipy import signal, io
 from scipy.signal import welch, windows
 from copy import deepcopy
 from os import path
-from sys import modules
 
 DATADIR = "/home/lab/asengupta/data" # update with one of the solutions at https://stackoverflow.com/questions/25389095/python-get-path-of-root-project-structure later
 joindata = lambda f: path.join(DATADIR, f)
