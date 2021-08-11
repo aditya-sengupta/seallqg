@@ -94,12 +94,9 @@ def make_atm_data(steps, wf=None, layers=layers, zerotime=0):
     tt_cms *= conversion # pixels to mas
     return tt_cms
 
-if __name__ == "__main__":
-    nlayers = 6
-    nvib = 1
-    nsteps = 10000
-    for (nlayers, nvib) in zip([0, 0, 0, 1, 1, 1, 2, 6], [2, 3, 10, 0, 2, 3, 0, 0]):
-        fname = "ol_atm_{0}_vib_{1}.npy".format(nlayers, nvib)
-        atm_ol = make_atm_data(nsteps, layers=layers[:nlayers])
-        vib_ol = make_2D_vibe_data(nsteps, nvib)
-        np.save(joindata("sims/" + fname), atm_ol + vib_ol)
+def make_atm_vib_data(atm=1, vib=0, nsteps=10000):
+    fname = "ol_atm_{0}_vib_{1}.npy".format(atm, vib)
+    ol = make_atm_data(nsteps, layers=layers[:atm])
+    if vib > 0:
+        ol += make_2D_vibe_data(nsteps, vib)
+    np.save(joindata("sims/" + fname), ol)

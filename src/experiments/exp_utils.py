@@ -16,7 +16,7 @@ from ..optics import refresh
 
 bestflat = np.load(joindata("bestflats/bestflat.npy"))
 
-def record_im(out_q, t=1, dt=datetime.now().strftime("%d_%m_%Y_%H_%M_%S")):
+def record_im(out_q, t=1, timestamp=datetime.now().strftime("%d_%m_%Y_%H_%M_%S")):
     t1 = time.time()
     times = [] 
     # there is no way this over the preallocation will be the bottleneck, it takes nanoseconds to append
@@ -31,13 +31,13 @@ def record_im(out_q, t=1, dt=datetime.now().strftime("%d_%m_%Y_%H_%M_%S")):
     # this is a placeholder to tell the queue that there's no more images coming
     
     times = np.array(times) - t1
-    fname = joindata("recordings/rectime_dt_{0}.npy".format(dt))
+    fname = joindata("recordings/rectime_stamp_{0}.npy".format(timestamp))
     np.save(fname, times)
     return times
     
-def tt_from_queued_image(in_q, out_q, cmd_mtx, dt=datetime.now().strftime("%d_%m_%Y_%H_%M_%S")):
+def tt_from_queued_image(in_q, out_q, cmd_mtx, timestamp=datetime.now().strftime("%d_%m_%Y_%H_%M_%S")):
     imflat = np.load(joindata("bestflats/imflat.npy"))
-    fname = joindata("recordings/rectt_dt_{0}.npy".format(dt))
+    fname = joindata("recordings/rectt_stamp_{0}.npy".format(timestamp))
     ttvals = [] # I have become the victim of premature optimization
     while True:
         # if you don't have any work, take a nap!
@@ -86,13 +86,13 @@ def record_experiment(path, control_schedule, dist_schedule, t=1, verbose=True):
     if np.any(np.abs(baseline_ttvals) > 0.03):
         warnings.warn("The system may not be aligned: baseline TT is {}".format(baseline_ttvals.flatten()))
 
-    dt = datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
-    path = joindata(path) + "_time_dt_" + dt + ".npy"
+    timestamp = datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
+    path = joindata(path) + "_time_stamp_" + timestamp + ".npy"
 
     q_compute = Queue()
     q_control = Queue()
-    record_thread = Thread(target=partial(record_im, t=t, dt=dt), args=(q_compute,))
-    compute_thread = Thread(target=partial(tt_from_queued_image, dt=dt), args=(q_compute, q_control, cmd_mtx,))
+    record_thread = Thread(target=partial(record_im, t=t, timestamp=timestamp), args=(q_compute,))
+    compute_thread = Thread(target=partial(tt_from_queued_image, timestamp=timestamp), args=(q_compute, q_control, cmd_mtx,))
     control_thread = Thread(target=control_schedule, args=(q_control,))
     command_thread = Thread(target=dist_schedule)
 
@@ -116,8 +116,8 @@ def record_experiment(path, control_schedule, dist_schedule, t=1, verbose=True):
 
     applydmc(bestflat)
 
-    timepath = joindata("recordings/rectime_dt_{0}.npy".format(dt))
-    ttpath = joindata("recordings/rectt_dt_{0}.npy".format(dt))
+    timepath = joindata("recordings/rectime_stamp_{0}.npy".format(timestamp))
+    ttpath = joindata("recordings/rectt_stamp_{0}.npy".format(timestamp))
     times = np.load(timepath)
     ttvals = np.load(ttpath)
     np.save(path, times)

@@ -47,25 +47,12 @@ def set_expt(t):
 def getim():
 	return im.get_data(check=True)
 
-def vim(): #view image
-	ds9.view(getim())
-
-def vmtf(): #view image MTF
-	imm = getim()
-	mtf = np.abs(np.fft.fftshift(np.fft.fft2(imm)))
-	ds9.view(mtf)
-
 def stack(n):
 	ims = getim()
 	for _ in range(n-1):
 		ims = ims+getim()
 	ims = ims/n
 	return ims
-
-def cm(im):
-	r, c = im.shape
-	xv, yv = np.sum(im, axis=0), np.sum(im, axis=1)
-	return (xv @ np.arange(r)) / np.sum(im), (yv @ np.arange(r)) / np.sum(im)
 
 mtf = lambda image: np.abs(np.fft.fftshift(np.fft.fft2(image)))
 

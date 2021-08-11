@@ -2,7 +2,7 @@ import numpy as np
 import time
 import warnings
 
-from ..constants import tsleep
+from ..constants import dt
 from ..utils import joindata
 from ..optics import applytip, applytilt, applytiptilt
 
@@ -36,14 +36,14 @@ def sine_schedule(t, amp, ang, f):
     """
     Put on a sine wave.
     """
-    times = np.arange(0.0, t, tsleep)
+    times = np.arange(0.0, t, dt)
     sinusoid = np.diff(amp * np.sin(2 * np.pi * f * times))
     cosang, sinang = np.cos(ang), np.sin(ang)
     for s in sinusoid:
         t2 = time.time()
         applytip(cosang * s)
         applytilt(sinang * s)
-        time.sleep(max(0, tsleep - (time.time() - t2)))
+        time.sleep(max(0, dt - (time.time() - t2)))
 
 def atmvib_schedule(t, atm=0, vib=2, scaledown=10):
     """
@@ -57,5 +57,5 @@ def atmvib_schedule(t, atm=0, vib=2, scaledown=10):
         warnings.warn("atmvib_schedule may be sending DM commands faster than the camera readout, truncating")
     control_commands = control_commands[:int(100*t)]
     for cmd in control_commands:
-        time.sleep(tsleep)
+        time.sleep(dt)
         applytiptilt(cmd[0], cmd[1], verbose=False)
