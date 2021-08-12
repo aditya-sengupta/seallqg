@@ -6,27 +6,9 @@ from scipy import linalg
 
 class KFilter:
     def __init__(self, A, C, Q, R, verbose=True):
-        try:
-            self.P = linalg.solve_discrete_are(A.T, C.T, Q, R)
-            if verbose:
-                print("Solved discrete ARE.")
-        except (ValueError, np.linalg.LinAlgError):
-            if verbose:
-                print("Discrete ARE solve failed, falling back to iterative solution.")
-            P = copy(Q)
-            lastP = np.zeros_like(A)
-            iters = 0
-            while not np.allclose(lastP, P):
-                P = A @ P @ A.T + Q
-                K = P @ C.T @ np.linalg.inv(C @ P @ C.T + R)
-                P = P - K @ C @ P
-                iters += 1
-            self.P = P
-            if verbose:
-                print("Solved iteratively in {} iterations".format(iters))
         self.A, self.C, self.Q, self.R = A, C, Q, R
-        self.K = self.P @ C.T @ np.linalg.inv(C @ self.P @ C.T + R)
-        self.state = np.zeros((self.state_size,))
+        self.x = np.zeros((self.state_size,))
+        self.compute_gain(verbose)
 
     @property
     def state_size(self):
@@ -68,6 +50,27 @@ class KFilter:
         R = linalg.block_diag(self.R, other.R)
         return KFilter(A, C, Q, R)
 
+    def compute_gain(self, verbose=True):
+        try:
+            self.P = linalg.solve_discrete_are(self.A.T, self.C.T, self.Q, self.R)
+            if verbose:
+                print("Solved discrete ARE.")
+        except (ValueError, np.linalg.LinAlgError):
+            if verbose:
+                print("Discrete ARE solve failed, falling back to iterative solution.")
+            P = copy(self.Q)
+            lastP = np.zeros_like(self.A)
+            iters = 0
+            while not np.allclose(lastP, P):
+                P = self.A @ P @ self.A.T + self.Q
+                K = P @ self.C.T @ np.linalg.inv(self.C @ P @ self.C.T + self.R)
+                P = P - K @ self.C @ P
+                iters += 1
+            self.P = P
+            if verbose:
+                print("Solved iteratively in {} iterations".format(iters))
+        self.K = self.P @ self.C.T @ np.linalg.inv(self.C @ self.P @ self.C.T + self.R)
+
     def predict(self):
         self.x = self.A @ self.x
 
@@ -79,6 +82,7 @@ class KFilter:
 
     def run(self, measurements, x0):
         steps = len(measurements)
+        assert len(measurements.shape) == 2 and measurements.shape[1] == self.measure_size, "incorrect size for measurements in Kalman filter."
         states = np.empty((steps, self.state_size))
         self.x = x0
 

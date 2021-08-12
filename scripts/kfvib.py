@@ -17,24 +17,41 @@ from functools import partial
 ol = np.load(joindata("openloop/ol_tt_stamp_12_08_2021_10_14_46.npy"))
 ident = SystemIdentifier()
 kf = ident.make_kfilter_from_openloop(ol)
+kf.Q *= 1e12
+kf.compute_gain()
 kalman_integrate, _ = make_kalman_controllers(kf)
 
-def record_kf_integ(dist_schedule, t=1, gain=0.1, leak=1.0, **kwargs):
-    path = "kfilter/kf"
-    for k in kwargs:
-        path = path + "_" + k + "_" + str(kwargs.get(k))
+simulate = True
 
-    return record_experiment(
-        path,
-        control_schedule=partial(control_schedule, control=partial(kalman_integrate, gain=gain, leak=leak)),
-        dist_schedule=partial(dist_schedule, t, **kwargs),
-        t=t
-    )
+if simulate:
+    ttvals = ol - kf.run(ol, kf.x) @ kf.C.T
 
-record_kinttrain = partial(record_kf_integ, step_train_schedule)
-record_kintnone = partial(record_kf_integ, noise_schedule)
-record_kintustep = partial(record_kf_integ, ustep_schedule)
-record_kintsin = partial(record_kf_integ, sine_schedule)
-record_kintatmvib = partial(record_kf_integ, atmvib_schedule)
+else:
+    def record_kf_integ(dist_schedule, t=1, gain=0.1, leak=1.0, **kwargs):
+        path = "kfilter/kf"
+        for k in kwargs:
+            path = path + "_" + k + "_" + str(kwargs.get(k))
 
-times, ttvals = record_kinttrain()
+        return record_experiment(
+            path,
+            control_schedule=partial(control_schedule, control=partial(kalman_integrate, gain=gain, leak=leak)),
+            dist_schedule=partial(dist_schedule, t, **kwargs),
+            t=t
+        )
+
+    record_kinttrain = partial(record_kf_integ, step_train_schedule)
+    record_kintnone = partial(record_kf_integ, noise_schedule)
+    record_kintustep = partial(record_kf_integ, ustep_schedule)
+    record_kintsin = partial(record_kf_integ, sine_schedule)
+    record_kintatmvib = partial(record_kf_integ, atmvib_schedule)
+
+    times, ttvals = record_kintnone(t=10)
+
+f, p = genpsd(ttvals[:,0])
+plt.loglog(f, p)
+plt.xlabel("Frequency (Hz)")
+plt.ylabel("Power (DM units^2/Hz)")
+plt.title("Closed loop results from Kalman integrator control")
+if not simulate:
+    plt.savefig("/home/lab/asengupta/plots/cl_kf_int.pdf")
+plt.show()
