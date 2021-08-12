@@ -14,7 +14,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from functools import partial
 
-ol = np.load(joindata("openloop/ol_tt_stamp_12_08_2021_10_14_46.npy"))
+ol = np.load(joindata("openloop/ol_tt_stamp_12_08_2021_12_38_24.npy"))
 ident = SystemIdentifier()
 kf = ident.make_kfilter_from_openloop(ol)
 kf.Q *= 1e12
@@ -25,7 +25,7 @@ Q[0,0] = 1e4
 Q[2,2] = Q[0,0]
 R = 100 * np.identity(2) # LQG input penalty matrix
 
-kalman_integrate, kalman_lqg = make_kalman_controllers(kf)
+kalman_integrate, kalman_lqg = make_kalman_controllers(kf, Q, R)
 
 def record_kf_integ(dist_schedule, t=1, gain=0.1, leak=1.0, **kwargs):
     path = "kfilter/kf"
@@ -57,11 +57,11 @@ def record_lqg(dist_schedule, t=1, **kwargs):
         t=t
     )
 
-record_kinttrain = partial(record_kf_integ, step_train_schedule)
-record_kintnone = partial(record_kf_integ, noise_schedule)
-record_kintustep = partial(record_kf_integ, ustep_schedule)
-record_kintsin = partial(record_kf_integ, sine_schedule)
-record_kintatmvib = partial(record_kf_integ, atmvib_schedule)
+record_lqgtrain = partial(record_lqg, step_train_schedule)
+record_lqgnone = partial(record_lqg, noise_schedule)
+record_lqgustep = partial(record_lqg, ustep_schedule)
+record_lqgsin = partial(record_lqg, sine_schedule)
+record_lqgatmvib = partial(record_lqg, atmvib_schedule)
 
 simulate = False
 
@@ -69,13 +69,13 @@ if simulate:
     ttvals = ol - kf.run(ol, kf.x) @ kf.C.T
 
 else:
-    times, ttvals = record_kintnone(t=10, gain=0.2)
+    times, ttvals = record_lqgnone(t=10)
 
 f, p = genpsd(ttvals[:,0])
 plt.loglog(f, p)
 plt.xlabel("Frequency (Hz)")
 plt.ylabel("Power (DM units^2/Hz)")
-plt.title("Closed loop results from Kalman integrator control")
+plt.title("Closed loop results from Kalman-LQG control")
 if not simulate:
-    plt.savefig("/home/lab/asengupta/plots/cl_kf_int.pdf")
+    plt.savefig("/home/lab/asengupta/plots/cl_kf_lqg.pdf")
 plt.show()

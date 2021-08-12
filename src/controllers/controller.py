@@ -67,9 +67,9 @@ def make_lqg_controller(kf, Q, R):
         """
         Linear-quadratic-Gaussian control.
         """
-        B = np.array([[1, 0, 0, 0], [0, 0, 1, 0]]) # disgustingly hardcoded, put me in programming jail
+        B = np.array([[1, 0, 0, 0], [0, 0, 1, 0]]).T # disgustingly hardcoded, put me in programming jail
         K = compute_lqg_gain(kf.A, B, Q, R)
-        return tt_to_dmc(K @ state)
+        return getdmc() + tt_to_dmc(K @ state)
 
     return lqg_controller
 
