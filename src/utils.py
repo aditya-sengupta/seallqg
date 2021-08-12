@@ -6,6 +6,8 @@ from scipy.signal import welch, windows
 from copy import deepcopy
 from os import path
 
+from .constants import dt
+
 DATADIR = "/home/lab/asengupta/data" # update with one of the solutions at https://stackoverflow.com/questions/25389095/python-get-path-of-root-project-structure later
 joindata = lambda f: path.join(DATADIR, f)
 
@@ -42,7 +44,7 @@ def make_impulse_1(w, T=np.arange(0, 1, 0.001)):
 	y, t, _ = signal.impulse(tf, T=T)
 	return t, y[1] / sum(y[1])
 
-def genpsd(tseries, dt, nseg=4, remove_dc=True):
+def genpsd(tseries, dt=dt, nseg=4, remove_dc=True):
 	nperseg = 2**int(np.log2(tseries.shape[0]/nseg)) 
 	# firstly ensures that nperseg is a power of 2 
 	# secondly ensures that there are at least nseg segments per total time series length for noise averaging

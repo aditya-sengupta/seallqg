@@ -1,4 +1,4 @@
-from .controller import openloop, integrate, kalman_integrate, lqg
+from .controller import openloop, integrate, kalman_integrate, unobs_lqg, kalman_lqg
 from .fractal_deriv import design_filt, filt, design_from_ol
 from .kfilter import KFilter
 from .identifier import SystemIdentifier
@@ -8,7 +8,8 @@ __all__ = [
     "openloop",
     "integrate",
     "kalman_integrate",
-    "lqg",
+    "unobs_lqg",
+    "kalman_lqg",
     "design_filt",
     "filt",
     "design_from_ol",

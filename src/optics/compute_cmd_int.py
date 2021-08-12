@@ -107,10 +107,10 @@ def make_im_cm():
 IM, cmd_mtx = make_im_cm()
 applydmc(bestflat)
 
-def measure_tt(im, cmd_mtx=cmd_mtx):
-	tar_ini = processim(im)
+def measure_tt(image, cmd_mtx=cmd_mtx):
+	tar_ini = processim(image)
 	tar = np.array([np.real(tar_ini[indttmask]), np.imag(tar_ini[indttmask])])
-	tar = tar.reshape((tar.size, 1))	
+	tar = tar.reshape((tar.size, 1))
 	coeffs = np.dot(cmd_mtx, tar)
 	return coeffs * IMamp
 

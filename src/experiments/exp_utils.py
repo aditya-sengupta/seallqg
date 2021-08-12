@@ -80,8 +80,8 @@ def control_schedule(q, control, t=1, delay=0.01):
 
 def record_experiment(path, control_schedule, dist_schedule, t=1, verbose=True):
     bestflat, imflat = refresh()
-    applydmc(bestflat)
     _, cmd_mtx = make_im_cm()
+    applydmc(bestflat)
     baseline_ttvals = measure_tt(getim() - imflat, cmd_mtx=cmd_mtx)
     if np.any(np.abs(baseline_ttvals) > 0.03):
         warnings.warn("The system may not be aligned: baseline TT is {}".format(baseline_ttvals.flatten()))

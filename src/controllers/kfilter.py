@@ -5,12 +5,14 @@ from copy import copy
 from scipy import linalg
 
 class KFilter:
-    def __init__(self, A, C, Q, R):
+    def __init__(self, A, C, Q, R, verbose=True):
         try:
             self.P = linalg.solve_discrete_are(A.T, C.T, Q, R)
-            print("Solved discrete ARE.")
+            if verbose:
+                print("Solved discrete ARE.")
         except (ValueError, np.linalg.LinAlgError):
-            print("Discrete ARE solve failed, falling back to iterative solution.")
+            if verbose:
+                print("Discrete ARE solve failed, falling back to iterative solution.")
             P = copy(Q)
             lastP = np.zeros_like(A)
             iters = 0
@@ -20,7 +22,8 @@ class KFilter:
                 P = P - K @ C @ P
                 iters += 1
             self.P = P
-            print("Solved iteratively in {} iterations".format(iters))
+            if verbose:
+                print("Solved iteratively in {} iterations".format(iters))
         self.A, self.C, self.Q, self.R = A, C, Q, R
         self.K = self.P @ C.T @ np.linalg.inv(C @ self.P @ C.T + R)
 
@@ -33,9 +36,27 @@ class KFilter:
         return self.C.shape[0]
 
     def __str__(self):
-        return "Kalman filter with state size " + str(self.A.shape[0]) + " and measurement size " + str(self.H.shape[0])
+        return "Kalman filter with state size " + str(self.state_size) + " and measurement size " + str(self.measure_size)
 
     def __add__(self, other):
+        if self.state_size == 0:
+            return other
+        elif other.state_size == 0:
+            return self
+        A = linalg.block_diag(self.A, other.A)
+        C = np.hstack((self.C, other.C))
+        Q = linalg.block_diag(self.Q, other.Q)
+        R = self.R # this is a hacky workaround
+        # really there's no read noise that is *uniquely* associated with one process or the other
+        # so we just pick one, assuming that if we are adding KFilters
+        # either one's R matrix would be representative of the read noise properties of the whole
+        return KFilter(A, C, Q, R)
+
+    def concat(self, other):
+        """
+        This differs from addition in that we don't combine the observed state variables.
+        In this package, we'll use this only for combining a tip filter with a tilt filter.
+        """
         if self.state_size == 0:
             return other
         elif other.state_size == 0:

@@ -2,6 +2,7 @@
 
 # could refactor to not be a class, but it's fine for now
 
+from operator import xor
 import numpy as np
 from scipy import optimize, signal, stats
 from .kfilter import KFilter
@@ -28,7 +29,7 @@ class SystemIdentifier:
         f1=None, f2=None, fw=None, 
         N_vib_max=10, energy_cutoff=1e-8, 
         max_ar_coef=5, 
-        time_id=1
+        time_id=10
     ):
 
         self.fs = fs # Hz
@@ -51,7 +52,10 @@ class SystemIdentifier:
         self.N_vib_max = N_vib_max # number of vibration modes to be detected
         self.energy_cutoff = energy_cutoff # proportion of total energy after which PSD curve fit ends
         self.time_id = time_id # timescale over which sysid runs. Pulled from Meimon 2010's suggested 1 Hz sysid frequency.
-        self.times = np.arange(0, time_id, 1 / fs) # array of times to operate on
+
+    @property
+    def times(self):
+        return np.arange(0, self.time_id, 1 / self.fs)
 
     def damped_harmonic(self, pars_model):
         A, f, k, p = pars_model
@@ -59,7 +63,7 @@ class SystemIdentifier:
 
     def make_psd(self, pars_model):
         s = self.damped_harmonic(pars_model)
-        return genpsd(s, dt = 1 / self.fs, nseg=1)
+        return genpsd(s, dt = 1 / self.fs)
 
     def psd_f(self, f):
         def get_psd_f(pars):
@@ -80,7 +84,8 @@ class SystemIdentifier:
         # returns a 4xN np array with fit parameters, and a 1xN np array with variances.
         par0 = [1e-4, 1]
         PARAMS_SIZE = 2
-        width = max(1, int(np.ceil(1/(freqs[1] - freqs[0]))))
+        df = freqs[1] - freqs[0]
+        width = max(1, int(np.ceil(1/df)))
 
         peaks = []
         unsorted_peaks = signal.find_peaks(psd, height=self.energy_cutoff)[0]
@@ -96,12 +101,12 @@ class SystemIdentifier:
         for peak_ind in peaks:
             if i >= self.N_vib_max:
                 break
-            if not(np.any(np.abs(params[:,0] - freqs[peak_ind]) <= width)): 
+            if not(np.any(np.abs(params[:,0] - freqs[peak_ind]) <= width * df)): 
+                # this is to prevent peak overlapping/fitting to the same thing twice
                 l, r = peak_ind - width, peak_ind + width
                 windowed = psd[l:r]
                 objective = lambda pars: self.psd_f(freqs[peak_ind])(pars)[l:r]
-                psd_ll = log_likelihood(lambda pars: self.psd_f(freqs[peak_ind])(pars)[l:r], windowed)
-                print(objective(par0))
+                psd_ll = log_likelihood(objective, windowed)
                 k, sd = optimize.minimize(psd_ll, par0, method='Nelder-Mead').x
                 params[i] = [freqs[peak_ind], k]
                 variances[i] = sd ** 2
@@ -171,14 +176,14 @@ class SystemIdentifier:
 
         return KFilter(A, C, Q, R)
 
-    def make_kfilter_from_openloop(self, ol, model_atm=True, model_vib=True):
+    def make_kfilter_from_openloop(self, ol, model_atm=False, model_vib=True):
         """
         Designs a KFilter object based on open-loop data. 
         (Essentially stitches together a bunch of KFilter objects.)
 
         Arguments
         ---------
-        ol : np.ndarray, (N,)
+        ol : np.ndarray, (N,2)
         The open-loop data to use to build the filter.
 
         model_atm : bool
@@ -192,15 +197,21 @@ class SystemIdentifier:
         kf : KFilter
         A Kalman filter object that controls either tip or tilt.
         """
-        kf = KFilter(np.zeros((0,0)), np.zeros((0,0)), np.zeros((0,0)), np.zeros((0,0)))
-        
-        f, p = genpsd(ol, dt=1 / self.fs)
-        sigma = self.est_measurenoise(f, p)
+        kfs = []
+        self.time_id = ol.shape[0] / self.fs
+        self.N_vib_max = 1 # just for now
+        for i in range(2): # tip, tilt
+            kf = KFilter(np.zeros((0,0)), np.zeros((0,0)), np.zeros((0,0)), np.zeros((0,0)), verbose=False)
+            f, p = genpsd(ol[:,i], dt=1 / self.fs)
+            self.energy_cutoff = np.mean(p[f > self.fw])
+            sigma = self.est_measurenoise(f, p)
 
-        if model_vib:
-            params, variances, p = self.vibe_fit_freq(f, p)
-            kf += self.make_kfilter_vibe(params, variances, sigma)
-        if model_atm:
-            kf += self.make_kfilter_turb(np.fft.ifft(np.fft.fftshift(p))) # ?? is this it? 
-            # dinosaur double check fractal_deriv
-        return kf
+            if model_vib:
+                params, variances, p = self.vibe_fit_freq(f, p)
+                kf += self.make_kfilter_vibe(params, variances, sigma)
+            if model_atm:
+                kf += self.make_kfilter_turb(np.fft.ifft(np.fft.fftshift(p))) # ?? is this it? 
+                # dinosaur double check fractal_deriv
+            kfs.append(kf)
+
+        return kfs[0].concat(kfs[1])
