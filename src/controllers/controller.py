@@ -1,7 +1,9 @@
 # authored by Aditya Sengupta
 
+import numpy as np
 from functools import partial
 
+from src.controllers.lqg import compute_lqg_gain
 from .observer import identity, make_kf_observer
 from ..optics import tt_to_dmc, getdmc
 
@@ -60,19 +62,26 @@ def integrator(state, gain=0.1, leak=1.0, **kwargs):
     dmcn = tt_to_dmc(state)
     return gain * dmcn + leak * getdmc()
 
-def lqg_controller(state, **kwargs):
-    """
-    Linear-quadratic-Gaussian control.
-    """
-    pass
+def make_lqg_controller(kf, Q, R):
+    def lqg_controller(state, **kwargs):
+        """
+        Linear-quadratic-Gaussian control.
+        """
+        B = np.array([[1, 0, 0, 0], [0, 0, 1, 0]]) # disgustingly hardcoded, put me in programming jail
+        K = compute_lqg_gain(kf.A, B, Q, R)
+        return tt_to_dmc(K @ state)
+
+    return lqg_controller
 
 # Control laws: combination of an observer and controller
 openloop = partial(control, observer=identity, controller=ol_controller)
 integrate = partial(control, observer=identity, controller=integrator)
-unobs_lqg = partial(control, observer=identity, controller=lqg_controller)
 
-def make_kalman_controllers(kf):
+def make_kalman_controllers(kf, Q, R):
     kfilter = make_kf_observer(kf)
+    lqg_controller = make_lqg_controller(kf, Q, R)
+    # unobs_lqg = partial(control, observer=identity, controller=lqg_controller)
+    # unobs lqg is lowkey pointless because of the state-measurement mismatch
     kalman_integrate = partial(control, observer=kfilter, controller=integrator)
     kalman_lqg = partial(control, observer=kfilter, controller=lqg_controller)
     return kalman_integrate, kalman_lqg
