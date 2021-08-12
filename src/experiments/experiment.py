@@ -9,7 +9,7 @@ from .exp_utils import record_experiment, control_schedule
 from ..optics import get_expt, set_expt, applydmc, getdmc, stack
 from ..optics import applytip, applytilt, aperture
 from ..optics import refresh
-from ..controllers import openloop, integrate
+from ..controllers import openloop, integrate, kalman_integrate
 
 def uconvert_ratio(amp=1.0):
     bestflat, imflat = refresh()
@@ -68,7 +68,7 @@ record_olatmvib = partial(record_openloop, atmvib_schedule)
 def record_integrator(dist_schedule, t=1, gain=0.1, leak=1.0, **kwargs):
     path = "closedloop/cl_gain_{0}_leak_{1}".format(gain, leak)
     for k in kwargs:
-        path = path + k + "_" + str(kwargs.get(k))
+        path = path + "_" + k + "_" + str(kwargs.get(k))
 
     return record_experiment(
         path, 
@@ -82,3 +82,16 @@ record_intnone = partial(record_integrator, noise_schedule)
 record_intustep = partial(record_integrator, ustep_schedule)
 record_intsin = partial(record_integrator, sine_schedule)
 record_intatmvib = partial(record_integrator, atmvib_schedule)
+
+def record_kf_integ(dist_schedule, t=1, gain=0.1, leak=1.0, **kwargs):
+    # everything is hardcoded!
+    path = "kfilter/kf"
+    for k in kwargs:
+        path = path + "_" + k + "_" + str(kwargs.get(k))
+
+    return record_experiment(
+        path,
+        control_schedule=partial(control_schedule, control=partial(kalman_integrate, gain=gain, leak=leak)),
+        dist_schedule=partial(dist_schedule, t, **kwargs),
+        t=t
+    )

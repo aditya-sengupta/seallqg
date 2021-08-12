@@ -2,7 +2,7 @@
 
 from functools import partial
 
-from .observer import identity, kfilter
+from .observer import identity, make_kf_observer
 from ..optics import tt_to_dmc, getdmc
 
 def control(measurement, observer, controller, **kwargs):
@@ -69,6 +69,10 @@ def lqg_controller(state, **kwargs):
 # Control laws: combination of an observer and controller
 openloop = partial(control, observer=identity, controller=ol_controller)
 integrate = partial(control, observer=identity, controller=integrator)
-kalman_integrate = partial(control, observer=kfilter, controller=integrator)
 unobs_lqg = partial(control, observer=identity, controller=lqg_controller)
-kalman_lqg = partial(control, observer=kfilter, controller=lqg_controller)
+
+def make_kalman_controllers(kf):
+    kfilter = make_kf_observer(kf)
+    kalman_integrate = partial(control, observer=kfilter, controller=integrator)
+    kalman_lqg = partial(control, observer=kfilter, controller=lqg_controller)
+    return kalman_integrate, kalman_lqg

@@ -9,6 +9,7 @@ from threading import Thread
 from queue import Queue
 from functools import partial
 
+from ..constants import dt
 from ..utils import joindata
 from ..optics import getim, applydmc
 from ..optics import measure_tt, make_im_cm
@@ -55,7 +56,7 @@ def tt_from_queued_image(in_q, out_q, cmd_mtx, timestamp=datetime.now().strftime
                 np.save(fname, ttvals)
                 return ttvals
 
-def control_schedule(q, control, t=1, delay=0.01):
+def control_schedule(q, control, t=1):
     """
     The SEAL schedule for a controller.
 
@@ -64,19 +65,17 @@ def control_schedule(q, control, t=1, delay=0.01):
     q : Queue
     The queue to poll for new tip-tilt values.
 
-    controller : callable
+    control : callable
     The function to execute control.
     """
     t1 = time.time()
     while time.time() < t1 + t:
-        # ti = time.time()
         if q.empty():
-            time.sleep(delay/2)
+            time.sleep(dt/2)
         else:
             tt = q.get()
             q.task_done()
             applydmc(control(tt))
-            # time.sleep(max(0, delay - (time.time() - ti)))
 
 def record_experiment(path, control_schedule, dist_schedule, t=1, verbose=True):
     bestflat, imflat = refresh()

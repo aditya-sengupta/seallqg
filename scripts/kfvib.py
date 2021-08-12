@@ -1,36 +1,40 @@
 """
 Integrator control with a vibration Kalman filter.
-Starting this off as just the same as notebooks/notch_filter.ipynb.
+More of this is in this script than I'd like, but I'll fix it later, I promise
 """
-
 import sys
 sys.path.append("..")
 
 from src import *
-from src.constants import dt
+from src.controllers import make_kalman_controllers
+from src.experiments.schedules import *
+from src.experiments.exp_utils import record_experiment, control_schedule
 
 import numpy as np
-from scipy.signal import windows
-from scipy.stats import normaltest, chi2
 from matplotlib import pyplot as plt
+from functools import partial
 
-ol = np.load(joindata("openloop/ol_tt_dt_11_08_2021_10_22_17.npy"))[:,0]
-f, p = genpsd(ol, dt=dt)
+ol = np.load(joindata("openloop/ol_tt_stamp_12_08_2021_10_14_46.npy"))
+ident = SystemIdentifier()
+kf = ident.make_kfilter_from_openloop(ol)
+kalman_integrate, _ = make_kalman_controllers(kf)
 
-n_sigfig = 5
+def record_kf_integ(dist_schedule, t=1, gain=0.1, leak=1.0, **kwargs):
+    path = "kfilter/kf"
+    for k in kwargs:
+        path = path + "_" + k + "_" + str(kwargs.get(k))
 
-def truncate_impulse(impulse, N=3):
-    return impulse[:N] / np.sum(impulse[:N])
+    return record_experiment(
+        path,
+        control_schedule=partial(control_schedule, control=partial(kalman_integrate, gain=gain, leak=leak)),
+        dist_schedule=partial(dist_schedule, t, **kwargs),
+        t=t
+    )
 
-baseline_err = round(rms(ol[1000:]), n_sigfig)
-print("Baseline RMS error: {}".format(baseline_err))
-x_start = design_filt(N=32, dt=dt, plot=False)
-print("fractal_deriv RMS error with {0} impulse response elements: {1}".format(
-    len(x_start), 
-    round(rms(filt(x_start, dt=dt, u=ol[1000:], plot=False))), n_sigfig)
-)
+record_kinttrain = partial(record_kf_integ, step_train_schedule)
+record_kintnone = partial(record_kf_integ, noise_schedule)
+record_kintustep = partial(record_kf_integ, ustep_schedule)
+record_kintsin = partial(record_kf_integ, sine_schedule)
+record_kintatmvib = partial(record_kf_integ, atmvib_schedule)
 
-_, x = design_from_ol(ol[:1000], dt=dt)
-x = truncate_impulse(x, N=10)
-res = filt(x, dt=dt, u=ol[1000:], plot=False)
-print("Designed filter RMS error with {0} impulse response elements: {1}".format(len(x), round(rms(res), n_sigfig)))
+times, ttvals = record_kinttrain()

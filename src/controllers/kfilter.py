@@ -26,6 +26,7 @@ class KFilter:
                 print("Solved iteratively in {} iterations".format(iters))
         self.A, self.C, self.Q, self.R = A, C, Q, R
         self.K = self.P @ C.T @ np.linalg.inv(C @ self.P @ C.T + R)
+        self.state = np.zeros((self.state_size,))
 
     @property
     def state_size(self):
@@ -67,22 +68,23 @@ class KFilter:
         R = linalg.block_diag(self.R, other.R)
         return KFilter(A, C, Q, R)
 
-    def predict(self, x):
-        return self.A @ x
+    def predict(self):
+        self.x = self.A @ self.x
 
-    def update(self, x, y):
-        return x + self.K @ (y - self.C @ x)
+    def update(self, y):
+        self.x = self.x + self.K @ (y - self.C @ self.x)
 
-    def measure(self, x):
-        return self.C @ x
+    def measure(self):
+        return self.C @ self.x
 
     def run(self, measurements, x0):
         steps = len(measurements)
         states = np.empty((steps, self.state_size))
-        x = copy(x0)
-        
+        self.x = x0
+
         for (i, m) in enumerate(measurements):
-            x = self.update(self.predict(x), m)
-            states[i] = x
+            self.predict()
+            self.update(m)
+            states[i] = self.x
         
         return states
