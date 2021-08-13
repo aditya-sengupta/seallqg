@@ -4,11 +4,14 @@ import numpy as np
 from copy import copy
 from scipy import linalg
 
+from .dare import solve_dare
+
 class KFilter:
     def __init__(self, A, C, Q, R, verbose=True):
         self.A, self.C, self.Q, self.R = A, C, Q, R
         self.x = np.zeros((self.state_size,))
-        self.compute_gain(verbose)
+        self.P = solve_dare(self.A.T, self.C.T, self.Q, self.R, verbose=verbose)
+        self.K = self.P @ self.C.T @ np.linalg.inv(self.C @ self.P @ self.C.T + self.R)
 
     @property
     def state_size(self):
@@ -49,27 +52,6 @@ class KFilter:
         Q = linalg.block_diag(self.Q, other.Q)
         R = linalg.block_diag(self.R, other.R)
         return KFilter(A, C, Q, R)
-
-    def compute_gain(self, verbose=True):
-        try:
-            self.P = linalg.solve_discrete_are(self.A.T, self.C.T, self.Q, self.R)
-            if verbose:
-                print("Solved discrete ARE.")
-        except (ValueError, np.linalg.LinAlgError):
-            if verbose:
-                print("Discrete ARE solve failed, falling back to iterative solution.")
-            P = copy(self.Q)
-            lastP = np.zeros_like(self.A)
-            iters = 0
-            while not np.allclose(lastP, P):
-                P = self.A @ P @ self.A.T + self.Q
-                K = P @ self.C.T @ np.linalg.inv(self.C @ P @ self.C.T + self.R)
-                P = P - K @ self.C @ P
-                iters += 1
-            self.P = P
-            if verbose:
-                print("Solved iteratively in {} iterations".format(iters))
-        self.K = self.P @ self.C.T @ np.linalg.inv(self.C @ self.P @ self.C.T + self.R)
 
     def predict(self):
         self.x = self.A @ self.x
