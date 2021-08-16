@@ -8,13 +8,13 @@ from ..optics import applytip, applytilt, applytiptilt
 
 # disturbance schedules go here
 
-def noise_schedule(t):
+def noise_schedule(t, **kwargs):
     """
     Do nothing (profile bench noise.)
     """
     time.sleep(t)
 
-def ustep_schedule(t, tip_amp=0.1, tilt_amp=0.0):
+def ustep_schedule(t, tip_amp=0.1, tilt_amp=0.0, **kwargs):
     """
     Put on a unit step.
     """
@@ -22,7 +22,7 @@ def ustep_schedule(t, tip_amp=0.1, tilt_amp=0.0):
     applytip(tip_amp)
     applytilt(tilt_amp)
 
-def step_train_schedule(t, n=5, tip_amp=0.1, tilt_amp=0.0):
+def step_train_schedule(t, n=5, tip_amp=0.1, tilt_amp=0.0, **kwargs):
     """
     Put on a train of unit steps.
     """
@@ -32,7 +32,7 @@ def step_train_schedule(t, n=5, tip_amp=0.1, tilt_amp=0.0):
         applytip(tip_amp)
         applytilt(tilt_amp)
 
-def sine_schedule(t, amp, ang, f):
+def sine_schedule(t, amp=0.1, ang=np.pi, f=0.2, **kwargs):
     """
     Put on a sine wave.
     """
@@ -45,7 +45,7 @@ def sine_schedule(t, amp, ang, f):
         applytilt(sinang * s)
         time.sleep(max(0, dt - (time.time() - t2)))
 
-def atmvib_schedule(t, atm=0, vib=2, scaledown=10):
+def atmvib_schedule(t, atm=0, vib=2, scaledown=10, **kwargs):
     """
     Put on a custom disturbance signal with 'atm' HCIPy atmospheric layers and 'vib' vibrational modes.
     (for now precomputed, but it's not hard to extend this just by using src.controllers.make_atm_vib)
