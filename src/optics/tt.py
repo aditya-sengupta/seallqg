@@ -38,32 +38,32 @@ cenaperture[indapcen] = 1
 #from comparing cenaperture and aperture, the actual aperture is shifted down and to the right (in ds9) each by 1 pixel from the center
 yapcen,xapcen = ydim/2.-0.5-1, xdim/2.-0.5-1
 rap = np.sqrt((grid[0]-yapcen)**2.+(grid[1]-xapcen)**2.)
-rap[np.where(rap>xdim/2.*undersize)] = 0.
+rap[np.where(rap > xdim/2. * undersize)] = 0.
 rhoap = rap / np.max(rap)
 phiap = np.arctan2(grid[1]-yapcen, grid[0]-xapcen)
 indap = np.where(rhoap > 0)
 
 #applying tip/tilt recursively (use if steering back onto the FPM after running zern_opt)
-def applytip(amp, verbose=True): #apply tip; amp is the P2V in DM units
+def applytip(amp): #apply tip; amp is the P2V in DM units
 	dmc = getdmc()
 	dmctip = amp*tip
-	dmc = remove_piston(dmc)+remove_piston(dmctip)+0.5
-	return applydmc(dmc, verbose)
+	dmc = remove_piston(dmc) + remove_piston(dmctip) + 0.5
+	return applydmc(dmc)
 
-def applytilt(amp, verbose=True): #apply tilt; amp is the P2V in DM units
+def applytilt(amp): #apply tilt; amp is the P2V in DM units
 	dmc = getdmc()
 	dmctilt = amp*tilt
-	dmc = remove_piston(dmc)+remove_piston(dmctilt)+0.5
-	return applydmc(dmc, verbose)
+	dmc = remove_piston(dmc) + remove_piston(dmctilt) + 0.5
+	return applydmc(dmc)
 
 # add something to update best flat in here if needed
 bestflat = optics.getdmc()
 
-def applytiptilt(amptip, amptilt, verbose=True): #amp is the P2V in DM units
+def applytiptilt(amptip, amptilt): #amp is the P2V in DM units
 	dmctip = amptip*tip
 	dmctilt = amptilt*tilt
-	dmctiptilt = remove_piston(dmctip)+remove_piston(dmctilt)+remove_piston(bestflat)+0.5 #combining tip, tilt, and best flat, setting mean piston to 0.5
-	return applydmc(dmctiptilt, verbose)
+	dmctiptilt = remove_piston(dmctip) + remove_piston(dmctilt) + remove_piston(bestflat) + 0.5 #combining tip, tilt, and best flat, setting mean piston to 0.5
+	return applydmc(dmctiptilt)
 
 #setup Zernike polynomials
 nmarr = []
@@ -86,8 +86,8 @@ gridim = np.mgrid[0:imydim, 0:imxdim]
 rim = np.sqrt((gridim[0]-imycen)**2+(gridim[1]-imxcen)**2)
 
 #algorithmic LOWFS mask (centered around the core, for light less than 6 lambda/D)
-ttmask = np.zeros(imini.shape)
-indttmask = np.where(rim/beam_ratio<6)
+ttmask = np.zeros(optics.imdims)
+indttmask = np.where(rim / beam_ratio<6)
 ttmask[indttmask] = 1
 
 IMamp = 0.1
@@ -95,9 +95,9 @@ IMamp = 0.1
 #make MTF side lobe mask
 xsidemaskcen,ysidemaskcen = 252.01, 159.4 #x and y location of the side lobe mask in the cropped image
 sidemaskrad = 26.8 #radius of the side lobe mask
-mtfgrid = np.mgrid[0:imini.shape[0], 0:imini.shape[1]].astype(float32)
+mtfgrid = np.mgrid[0:optics.imdims[0], 0:optics.imdims[1]].astype(float32)
 sidemaskrho = np.sqrt((mtfgrid[0]-ysidemaskcen)**2+(mtfgrid[1]-xsidemaskcen)**2)
-sidemask = np.zeros(imini.shape, dtype=float32)
+sidemask = np.zeros(optics.imdims, dtype=float32)
 sidemaskind = np.where(sidemaskrho < sidemaskrad)
 sidemask[sidemaskind] = 1
 

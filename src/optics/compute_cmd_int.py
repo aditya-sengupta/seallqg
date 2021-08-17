@@ -8,7 +8,7 @@ Compute command matrix and interaction matrix.
 import numpy as np
 import time
 import tqdm
-import pysao
+# import pysao
 from matplotlib import pyplot as plt
 from scipy.optimize import newton
 
@@ -55,12 +55,12 @@ def funz(n, m, amp, bestflat=bestflat): #apply zernike to the DM
 	z = zernike(n, m, rhoap, phiap)/2
 	zdm = amp*(z.astype(np.float32))
 	dmc = remove_piston(remove_piston(bestflat)+remove_piston(zdm))
-	applydmc(dmc)
+	optics.applydmc(dmc)
 	return dmc
 
 #calibrated image center and beam ratio from genDH.py
-imxcen, imycen = np.load('/home/lab/blgerard/imcen.npy')
-beam_ratio = np.load('/home/lab/blgerard/beam_ratio.npy')
+imxcen, imycen = np.load(joindata("bestflats/imcen.npy"))
+beam_ratio = np.load(joindata("bestflats/beam_ratio.npy"))
 gridim = np.mgrid[0:imydim,0:imxdim]
 rim = np.sqrt((gridim[0]-imycen)**2+(gridim[1]-imxcen)**2)
 
@@ -70,14 +70,15 @@ indttmask = np.where(rim/beam_ratio<6)
 ttmask[indttmask] = 1
 
 def vz(n, m, IMamp): #determine the minimum IMamp (interaction matrix amplitude) to be visible in differential images
-	ds9 = pysao.ds9()
+	# ds9 = pysao.ds9()
 	zern = funz(n, m, IMamp)
 	time.sleep(tsleep)
 	imzern = optics.stack(10)
 	applydmc(bestflat)
 	time.sleep(tsleep)
 	imflat = optics.stack(10)
-	ds9.view((imzern-imflat)*ttmask)
+	return imflat
+	# ds9.view((imzern-imflat)*ttmask)
 
 IMamp = 0.1 #from above function
 
@@ -90,7 +91,7 @@ def make_im_cm(verbose=True):
 		zern = funz(n, m, IMamp)
 		time.sleep(tsleep)
 		imzern = optics.stack(10)
-		applydmc(bestflat)
+		optics.applydmc(bestflat)
 		time.sleep(tsleep)
 		imflat = optics.stack(10)
 		imdiff = imzern - imflat
@@ -106,7 +107,7 @@ def make_im_cm(verbose=True):
 	return IM, cmd_mtx
 
 IM, cmd_mtx = make_im_cm()
-applydmc(bestflat)
+optics.applydmc(bestflat)
 
 def measure_tt(image, cmd_mtx=cmd_mtx):
 	tar_ini = processim(image)

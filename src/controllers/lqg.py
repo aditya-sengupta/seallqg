@@ -27,4 +27,3 @@ def compute_lqg_gain(A, B, Q, R, verbose=True):
             print("Solved iteratively in {} iterations".format(iters))
             
     return -np.linalg.inv(R + B.T @ P @ B) @ B.T @ P @ A
-
