@@ -12,21 +12,21 @@ import pysao
 from matplotlib import pyplot as plt
 from scipy.optimize import newton
 
-from .image import getdmc, applydmc, stack, getim
+from .image import optics
 from .tt import rhoap, phiap, processim
 from .ao import polar_grid, zernike
 from ..utils import joindata
 
 #initial setup: apply best flat, generate DM grid to apply future shapes
-dmcini = getdmc()
+dmcini = optics.getdmc()
 ydim, xdim = dmcini.shape
 grid = np.mgrid[0:ydim, 0:xdim].astype(np.float32)
 bestflat = np.load(joindata("bestflats/bestflat.npy")) #load bestflat, which should be an aligned FPM
-applydmc(bestflat)
-imflat = stack(100)
+optics.applydmc(bestflat)
+imflat = optics.stack(100)
 
 # expt(1e-3) #set exposure time
-imini = getim()
+imini = optics.getim()
 imydim, imxdim = imini.shape
 
 tsleep = 0.01 #should be the same values from align_fpm.py and genDH.py
@@ -73,10 +73,10 @@ def vz(n, m, IMamp): #determine the minimum IMamp (interaction matrix amplitude)
 	ds9 = pysao.ds9()
 	zern = funz(n, m, IMamp)
 	time.sleep(tsleep)
-	imzern = stack(10)
+	imzern = optics.stack(10)
 	applydmc(bestflat)
 	time.sleep(tsleep)
-	imflat = stack(10)
+	imflat = optics.stack(10)
 	ds9.view((imzern-imflat)*ttmask)
 
 IMamp = 0.1 #from above function
@@ -89,10 +89,10 @@ def make_im_cm(verbose=True):
 		n, m = nmarr[i]
 		zern = funz(n, m, IMamp)
 		time.sleep(tsleep)
-		imzern = stack(10)
+		imzern = optics.stack(10)
 		applydmc(bestflat)
 		time.sleep(tsleep)
-		imflat = stack(10)
+		imflat = optics.stack(10)
 		imdiff = imzern - imflat
 		Im_diff = processim(imdiff)
 		refvec[i] = np.array([np.real(Im_diff[indttmask]), np.imag(Im_diff[indttmask])]).flatten()
@@ -124,7 +124,7 @@ def linearity(mode=0, nlin=20, amp=IMamp, plot=True):
 		n, m = nmarr[i]
 		zern = funz(n,m,zernamp)
 		time.sleep(tsleep)
-		imzern = stack(10)
+		imzern = optics.stack(10)
 		imdiff = (imzern-imflat)
 		tar_ini = processim(imdiff)
 		tar = np.array([np.real(tar_ini[indttmask]), np.imag(tar_ini[indttmask])]).flatten()	

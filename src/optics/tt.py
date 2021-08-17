@@ -3,9 +3,9 @@ from numpy import float32
 from scipy import fft
 
 from .ao import polar_grid, zernike
-from .image import getdmc, applydmc, set_expt, getim
+from .image import optics
 
-dmcini = getdmc()
+dmcini = optics.getdmc()
 ydim, xdim = dmcini.shape
 grid = np.mgrid[0:ydim, 0:xdim].astype(float32)
 bestflat = np.load('/home/lab/asengupta/data/bestflats/bestflat.npy')

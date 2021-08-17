@@ -2,94 +2,129 @@
 
 from abc import ABC, abstractmethod
 import numpy as np
+from copy import copy
 import warnings
 
-class Optics(ABC): # todo
-	pass
+from ..utils import joindata
+
+class Optics(ABC): 
+	@property
+	def dmzero(self):
+		return np.zeros(self.dmdims, dtype=np.float32)
+
+	def applyzero(self):
+		self.applydmc(self.dmzero, False)
+
+	def refresh(self, verbose=True):
+		bestflat = np.load(joindata("bestflats/bestflat.npy"))
+		dmc = self.getdmc()
+		self.applydmc(bestflat)
+		imflat = self.stack(100)
+		np.save(joindata("bestflats/imflat.npy"), imflat)
+		if verbose:
+			print("Updated the flat image.")
+		self.applydmc(dmc)
+		return bestflat, imflat
+
+	def stack(self, n):
+		ims = self.getim()
+		for _ in range(n-1):
+			ims = ims + self.getim()
+		ims = ims/n
+		return ims
+
+	@abstractmethod
+	def getim(self):
+		pass
+
+	@abstractmethod
+	def getdmc(self):
+		pass
+
+	@abstractmethod
+	def applydmc(self, cmd):
+		pass
+
+	@abstractmethod
+	def set_expt(self, t):
+		pass
+
+	@abstractmethod
+	def get_expt(self):
+		pass
+
+class FAST(Optics):
+	def __init__(self):
+		self.a = shmlib.shm('/tmp/ca03dit.im.shm') 
+		self.im = shmlib.shm('/tmp/ca03im.im.shm')
+		self.b = shmlib.shm('/tmp/dm02itfStatus.im.shm')
+		status = b.get_data()
+		status[0,0] = 1
+		self.b.set_data(status)
+		self.dmChannel = shmlib.shm('/tmp/dm02disp01.im.shm')
+		self.dmdims = getdmc().shape
+
+	def set_expt(self, t):
+		'''
+		change the exposure time
+
+		for the large array the smallest exposure time is around 1e-5
+		'''
+		dit = self.a.get_data()
+		dit[0][0] = t; self.a.set_data(dit)
 	
-hardware_mode = True
+	def get_expt(self):
+		return self.a.get_data()[0][0]
 
-try:
-	from krtc import shmlib
-except ModuleNotFoundError:
-	print("Running in simulation mode.")
-	hardware_mode = False
+	def getim(self):
+		return self.im.get_data(check=True)
 
-#initialize; no need to load this more than once
-	#for full frame:
+	def getdmc(self): # read current command applied to the DM
+		return self.dmChannel.get_data()
 
-if hardware_mode:
-	import pysao
-	"""try:
-		ds9 = pysao.ds9()
-	except OSError:
-		pass"""
-
-	a = shmlib.shm('/tmp/ca03dit.im.shm') 
-	im = shmlib.shm('/tmp/ca03im.im.shm')
-
-def expt(t):
-	'''
-	change the exposure time
-
-	for the large array the smallest exposure time is around 1e-5
-	'''
-	dit = a.get_data()
-	dit[0][0] = t; a.set_data(dit)
-
-def get_expt():
-	return a.get_data()[0][0]
-
-def set_expt(t):
-	expt(t)
-
-#To view images in pysao ds9:
-def getim():
-	return im.get_data(check=True)
-
-def stack(n):
-	ims = getim()
-	for _ in range(n-1):
-		ims = ims+getim()
-	ims = ims/n
-	return ims
-
-mtf = lambda image: np.abs(np.fft.fftshift(np.fft.fft2(image)))
-
-#kilo DM commands
-if hardware_mode:
-	b = shmlib.shm('/tmp/dm02itfStatus.im.shm')
-	status = b.get_data()
-	status[0,0] = 1
-	b.set_data(status)
-	dmChannel = shmlib.shm('/tmp/dm02disp01.im.shm')
-
-	def getdmc(): # read current command applied to the DM
-		return dmChannel.get_data()
-
-	def applydmc(cmd, verbose=True): #apply command to the DM
+	def applydmc(self, dmc): #apply command to the DM
 		"""
-		Applies the DM command `cmd`.
+		Applies the DM command `dmc`.
 		Returns two booleans: whether the command is in range below (everything is >=0), and above (everything is <=1),
 		unless verbose=False, in which case nothing is returned.
 		"""
-		indneg = np.where(cmd<0)
-		if len(indneg[0])>0:
-			cmd[indneg] = 0 #minimum value is zero
-			warnings.warn('saturating DM zeros!')
-		indpos = np.where(cmd>1)
-		if len(indpos[0])>0:
-			cmd[indpos] = 1 #maximum value is 1
-			warnings.warn('saturating DM ones!')
-		dmChannel.set_data(cmd)
-		if verbose:
-			return (len(indneg[0]) <= 0, len(indpos[0]) <= 0)
+		if np.any(dmc < 0):
+			warnings.warn("saturating DM zeros!")
+		if np.any(dmc > 1):
+			warnings.warn("saturating DM ones!")
+		dmc = np.maximum(0, np.minimum(1, dmc))
+		self.dmChannel.set_data(dmc)
 
-dmzero = None
-if hardware_mode:
-	dmcini = getdmc()
-	dmzero = np.zeros(dmcini.shape, dtype=np.float32)
-	applyzero  =  lambda : applydmc(dmzero, False)
-else:
-	from ..constants import dmdims
-	dmzero = np.zeros(dmdims, dtype=np.float32)
+class Sim(Optics):
+	def __init__(self):
+		from ..constants import dmdims, imdims
+		self.dmdims = dmdims
+		self.imdims = imdims
+		self.t = 1e-3
+		self.dmc = copy(self.dmzero)
+
+	def expt(self, t):
+		warnings.warn("Exposure time in sim optics is not used yet.")
+		self.t = t
+
+	def get_expt(self):
+		warnings.warn("Exposure time in sim optics is not used yet.")
+		return self.t
+
+	def getim(self):
+		warnings.warn("Image propagation from the DM has not been implemented.")
+		return np.zeros(self.imdims, dtype=np.float32)
+
+	def getdmc(self):
+		return self.dmc
+
+	def applydmc(self, dmc):
+		self.dmc = np.maximum(0, np.minimum(1, dmc))
+	
+	
+try:
+	from krtc import shmlib
+	optics = FAST()
+except (ModuleNotFoundError, OSError):
+	print("Running in simulation mode.")
+	optics = Sim()

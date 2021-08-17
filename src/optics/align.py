@@ -7,7 +7,7 @@ import pysao
 from scipy.ndimage.filters import median_filter
 
 from ..utils import joindata
-from .image import get_expt, set_expt, getdmc, stack
+from .image import optics
 from .tt import mtfgrid, imini, sidemaskrad, sidemaskind
 from .ao import mtf
 from .tt import applytiptilt, applydmc, tip, tilt, remove_piston
