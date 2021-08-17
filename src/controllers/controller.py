@@ -5,7 +5,7 @@ from functools import partial
 
 from src.controllers.lqg import compute_lqg_gain
 from .observer import identity, make_kf_observer
-from ..optics import tt_to_dmc, getdmc
+from ..optics import optics
 
 def control(measurement, observer, controller, **kwargs):
     """
@@ -37,7 +37,7 @@ def ol_controller(state, **kwargs):
     """
     Do nothing.
     """
-    return getdmc()
+    return optics.getdmc()
 
 def integrator(state, gain=0.1, leak=1.0, **kwargs):
     """
@@ -60,7 +60,7 @@ def integrator(state, gain=0.1, leak=1.0, **kwargs):
     The command to be put on the DM.
     """
     dmcn = tt_to_dmc(state)
-    return gain * dmcn + leak * getdmc()
+    return gain * dmcn + leak * optics.getdmc()
 
 def make_lqg_controller(kf, Q, R):
     def lqg_controller(state, **kwargs):
@@ -69,7 +69,7 @@ def make_lqg_controller(kf, Q, R):
         """
         B = np.array([[1, 0, 0, 0], [0, 0, 1, 0]]).T # disgustingly hardcoded, put me in programming jail
         K = compute_lqg_gain(kf.A, B, Q, R)
-        return getdmc() + tt_to_dmc(K @ state)
+        return optics.getdmc() + tt_to_dmc(K @ state)
 
     return lqg_controller
 

@@ -123,5 +123,5 @@ def tt_to_dmc(tt):
     dmc : np.ndarray, (dm_x, dm_y)
     The corresponding DM command.
     """
-    return np.matmul(tiptiltarr, -tt).reshape((ydim,xdim))
+    return np.matmul(tiptiltarr, -tt).reshape((ydim, xdim))
 	

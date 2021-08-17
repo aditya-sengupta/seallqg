@@ -11,9 +11,7 @@ from functools import partial
 
 from ..constants import dt
 from ..utils import joindata
-from ..optics import getim, applydmc
 from ..optics import measure_tt, make_im_cm
-from ..optics import refresh
 from ..optics import align_fast2
 
 bestflat = np.load(joindata("bestflats/bestflat.npy"))
@@ -92,7 +90,7 @@ def record_experiment(path, control_schedule, dist_schedule, t=1, verbose=True):
         _, cmd_mtx = make_im_cm()
         bestflat, imflat = refresh()
         applydmc(bestflat)
-        baseline_ttvals = measure_tt(getim() - imflat, cmd_mtx=cmd_mtx)
+        baseline_ttvals = measure_tt(optics.getim() - imflat, cmd_mtx=cmd_mtx)
         i += 1
         if i > imax:
             print("Cannot align system: realign manually and try experiment again.")
