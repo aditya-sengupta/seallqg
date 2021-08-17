@@ -1,6 +1,6 @@
 from .controller import openloop, integrate, make_kalman_controllers 
 from .fractal_deriv import design_filt, filt, design_from_ol
-from .kfilter import KFilter
+from .kalmanlqg import KalmanLQG
 from .identifier import SystemIdentifier
 from .make_atm_vib import make_atm_vib_data
 
@@ -11,7 +11,7 @@ __all__ = [
     "design_filt",
     "filt",
     "design_from_ol",
-    "KFilter",
+    "KalmanLQG",
     "SystemIdentifier",
     "make_atm_vib_data"
 ]
