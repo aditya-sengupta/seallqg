@@ -1,9 +1,5 @@
 from src import *
 
-# align
-align_fast(view=False)
-align_fast2(view=False)
-
 print("FAST System Identification Data Collection Mega-Schedule")
 print("--------------------------------------------------------")
 

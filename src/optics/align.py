@@ -13,15 +13,15 @@ from .ao import mtf, remove_piston
 from .tt import applytiptilt, tip, tilt
 
 def align_fast(view=True):
-	expt_init = get_expt()
-	set_expt(1e-4)
+	expt_init = optics.get_expt()
+	optics.set_expt(1e-4)
 
 	bestflat = np.load(joindata("bestflats/bestflat.npy"))
 
 	#side lobe mask where there is no signal to measure SNR
 	xnoise,ynoise=161.66,252.22
 	sidemaskrhon=np.sqrt((mtfgrid[0]-ynoise)**2+(mtfgrid[1]-xnoise)**2)
-	sidemaskn=np.zeros(imini.shape)
+	sidemaskn=np.zeros(optics.imdims)
 	sidemaskindn=np.where(sidemaskrhon<sidemaskrad)
 	sidemaskn[sidemaskindn]=1
 
@@ -35,8 +35,8 @@ def align_fast(view=True):
 		# ds9 = pysao.ds9()
 		applytiptilt(-0.1,-0.1)
 		time.sleep(tsleep)
-		im1 = stack(10)
-		applydmc(bestflat)
+		im1 = optics.stack(10)
+		optics.applydmc(bestflat)
 		time.sleep(tsleep)
 		imf = optics.stack(10)
 		return imf
@@ -47,7 +47,7 @@ def align_fast(view=True):
 
 
 	cenmaskrho=np.sqrt((mtfgrid[0]-mtfgrid[0].shape[0]/2)**2+(mtfgrid[1]-mtfgrid[0].shape[0]/2)**2) #radial grid for central MTF lobe
-	cenmask=np.zeros(imini.shape)
+	cenmask = np.zeros(optics.imdims)
 	cenmaskradmax,cenmaskradmin=49,10 #mask radii for central lobe, ignoring central part where the pinhole PSF is (if not ignored, this would bias the alignment algorithm)   
 	cenmaskind=np.where(np.logical_and(cenmaskrho<cenmaskradmax,cenmaskrho>cenmaskradmin))
 	cenmask[cenmaskind]=1
@@ -60,7 +60,7 @@ def align_fast(view=True):
 		for j in range(namp):
 			applytiptilt(amparr[i],amparr[j])
 			time.sleep(tsleep)
-			imopt=stack(10)
+			imopt = optics.stack(10)
 			mtfopt=mtf(imopt)
 			sidefraction=np.sum(mtfopt[sidemaskind])/np.sum(mtfopt)
 			cenfraction=np.sum(mtfopt[cenmaskind])/np.sum(mtfopt)
@@ -85,25 +85,25 @@ def align_fast(view=True):
 		for j in range(namp):
 			applytiptilt(tipamparr[i],tiltamparr[j])
 			time.sleep(tsleep)
-			imopt=stack(10)
+			imopt = optics.stack(10)
 			mtfopt=mtf(imopt)
 			sidefraction=np.sum(mtfopt[sidemaskind])/np.sum(mtfopt)
 			cenfraction=np.sum(mtfopt[cenmaskind])/np.sum(mtfopt)
 			ttoptarr1[i,j]=sidefraction+0.1/cenfraction 
 
-	medttoptarr1=median_filter(ttoptarr1,3) #smooth out hot pixels, attenuating noise issues
+	medttoptarr1 = median_filter(ttoptarr1,3) #smooth out hot pixels, attenuating noise issues
 	indopttip1,indopttilt1=np.where(medttoptarr1==np.max(medttoptarr1))
 	applytiptilt(tipamparr[indopttip1][0],tiltamparr[indopttilt1][0])
 
-	set_expt(expt_init)
+	optics.set_expt(expt_init)
 	np.save(joindata("bestflats/bestflat.npy"), bestflat)
 	print("Saved best flat")
 
 def align_fast2(view=True):
-	expt_init = get_expt()
-	set_expt(1e-4)
+	expt_init = optics.get_expt()
+	optics.set_expt(1e-4)
 
-	bestflat = getdmc()
+	bestflat = optics.getdmc()
 
 	#apply tip/tilt starting only from the bestflat point (start here if realigning the non-coronagraphic PSF) 
 	def applytiptilt(amptip,amptilt,bestflat=bestflat): #amp is the P2V in DM units
@@ -111,21 +111,21 @@ def align_fast2(view=True):
 		dmctilt=amptilt*tilt
 		dmctiptilt=remove_piston(dmctip)+remove_piston(dmctilt)+remove_piston(bestflat)+0.5 #combining tip, tilt, and best flat, setting mean piston to 0.5
 		#applydmc(aperture*dmctiptilt)
-		applydmc(dmctiptilt)
+		optics.applydmc(dmctiptilt)
 
 	#make MTF side lobe mask
 	xsidemaskcen,ysidemaskcen=240.7,161.0 #x and y location of the side lobe mask in the cropped image
 	sidemaskrad=26.8 #radius of the side lobe mask
-	mtfgrid=np.mgrid[0:imini.shape[0],0:imini.shape[1]]
+	mtfgrid=np.mgrid[0:optics.imdims[0],0:optics.imdims[1]]
 	sidemaskrho=np.sqrt((mtfgrid[0]-ysidemaskcen)**2+(mtfgrid[1]-xsidemaskcen)**2)
-	sidemask=np.zeros(imini.shape)
+	sidemask=np.zeros(optics.imdims)
 	sidemaskind=np.where(sidemaskrho<sidemaskrad)
 	sidemask[sidemaskind]=1
 
 	#side lobe mask where there is no signal to measure SNR
 	xnoise,ynoise=161.66,252.22
 	sidemaskrhon=np.sqrt((mtfgrid[0]-ynoise)**2+(mtfgrid[1]-xnoise)**2)
-	sidemaskn=np.zeros(imini.shape)
+	sidemaskn=np.zeros(optics.imdims)
 	sidemaskindn=np.where(sidemaskrhon<sidemaskrad)
 	sidemaskn[sidemaskindn]=1
 
@@ -141,7 +141,7 @@ def align_fast2(view=True):
 
 
 	cenmaskrho=np.sqrt((mtfgrid[0]-mtfgrid[0].shape[0]/2)**2+(mtfgrid[1]-mtfgrid[0].shape[0]/2)**2) #radial grid for central MTF lobe
-	cenmask=np.zeros(imini.shape)
+	cenmask = np.zeros(optics.imdims)
 	cenmaskradmax,cenmaskradmin=49,10 #mask radii for central lobe, ignoring central part where the pinhole PSF is (if not ignored, this would bias the alignment algorithm)   
 	cenmaskind=np.where(np.logical_and(cenmaskrho<cenmaskradmax,cenmaskrho>cenmaskradmin))
 	cenmask[cenmaskind]=1
@@ -154,7 +154,7 @@ def align_fast2(view=True):
 		for j in range(namp):
 			applytiptilt(amparr[i],amparr[j])
 			time.sleep(tsleep)
-			imopt=stack(10)
+			imopt = optics.stack(10)
 			mtfopt=mtf(imopt)
 			sidefraction=np.sum(mtfopt[sidemaskind])/np.sum(mtfopt)
 			cenfraction=np.sum(mtfopt[cenmaskind])/np.sum(mtfopt)
@@ -169,8 +169,8 @@ def align_fast2(view=True):
 		plt.imshow(medttoptarr)
 		plt.show()
 
-	set_expt(expt_init)
+	optics.set_expt(expt_init)
 
-	bestflat = getdmc()
+	bestflat = optics.getdmc()
 	np.save(joindata("bestflats/bestflat.npy"), bestflat)
 	print("Saved best flat")

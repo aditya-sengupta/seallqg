@@ -5,7 +5,7 @@ from functools import partial
 
 from src.controllers.lqg import compute_lqg_gain
 from .observer import identity, make_kf_observer
-from ..optics import optics
+from ..optics import optics, tt_to_dmc
 
 def control(measurement, observer, controller, **kwargs):
     """

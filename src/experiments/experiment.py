@@ -11,25 +11,25 @@ from ..optics import applytip, applytilt, aperture
 from ..controllers import openloop, integrate
 
 def uconvert_ratio(amp=1.0):
-    bestflat, imflat = refresh()
-    expt_init = get_expt()
-    set_expt(1e-5)
+    bestflat, imflat = optics.refresh()
+    expt_init = optics.get_expt()
+    optics.set_expt(1e-5)
     uconvert_matrix = np.zeros((2,2))
     for (mode, dmcmd) in enumerate([applytip, applytilt]):
-        applydmc(bestflat)
+        optics.applydmc(bestflat)
         dmcmd(amp)
-        dm2 = getdmc()
+        dm2 = optics.getdmc()
         cm2x = []
         while len(cm2x) != 1:
-            im2 = stack(100)
+            im2 = optics.stack(100)
             cm2x, cm2y = np.where(im2 == np.max(im2))
 
-        applydmc(bestflat)
+        optics.applydmc(bestflat)
         dmcmd(-amp)
-        dm1 = getdmc()
+        dm1 = optics.getdmc()
         cm1x = []
         while len(cm1x) != 1:
-            im1 = stack(100)
+            im1 = optics.stack(100)
             cm1x, cm1y = np.where(im1 == np.max(im1))
 
         dmdiff = aperture * (dm2 - dm1)
@@ -37,8 +37,8 @@ def uconvert_ratio(amp=1.0):
         dmdrange = np.max(dmdiff) - np.min(dmdiff)
         uconvert_matrix[mode] = [dmdrange /  (cm2y - cm1y), dmdrange / (cm2x - cm1x)]
 
-    set_expt(expt_init)
-    applydmc(bestflat)
+    optics.set_expt(expt_init)
+    optics.applydmc(bestflat)
     return uconvert_matrix
 
 # "record" functions: a bunch of combinations of a control_schedule and dist_schedule 

@@ -61,11 +61,12 @@ class FAST(Optics):
 		self.a = shmlib.shm('/tmp/ca03dit.im.shm') 
 		self.im = shmlib.shm('/tmp/ca03im.im.shm')
 		self.b = shmlib.shm('/tmp/dm02itfStatus.im.shm')
-		status = b.get_data()
+		status = self.b.get_data()
 		status[0,0] = 1
 		self.b.set_data(status)
 		self.dmChannel = shmlib.shm('/tmp/dm02disp01.im.shm')
-		self.dmdims = getdmc().shape
+		self.dmdims = self.getdmc().shape
+		self.imdims = self.getim().shape
 
 	def set_expt(self, t):
 		'''

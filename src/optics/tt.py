@@ -6,6 +6,8 @@ from .ao import polar_grid, zernike, remove_piston
 from .image import optics
 from ..utils import joindata
 
+# all of this should be part of an Optics instance
+
 ydim, xdim = optics.dmdims
 grid = np.mgrid[0:ydim, 0:xdim].astype(float32)
 bestflat = np.load(joindata("bestflats/bestflat.npy"))
@@ -45,16 +47,16 @@ indap = np.where(rhoap > 0)
 
 #applying tip/tilt recursively (use if steering back onto the FPM after running zern_opt)
 def applytip(amp): #apply tip; amp is the P2V in DM units
-	dmc = getdmc()
+	dmc = optics.getdmc()
 	dmctip = amp*tip
 	dmc = remove_piston(dmc) + remove_piston(dmctip) + 0.5
-	return applydmc(dmc)
+	return optics.applydmc(dmc)
 
 def applytilt(amp): #apply tilt; amp is the P2V in DM units
-	dmc = getdmc()
+	dmc = optics.getdmc()
 	dmctilt = amp*tilt
 	dmc = remove_piston(dmc) + remove_piston(dmctilt) + 0.5
-	return applydmc(dmc)
+	return optics.applydmc(dmc)
 
 # add something to update best flat in here if needed
 bestflat = optics.getdmc()
@@ -63,7 +65,7 @@ def applytiptilt(amptip, amptilt): #amp is the P2V in DM units
 	dmctip = amptip*tip
 	dmctilt = amptilt*tilt
 	dmctiptilt = remove_piston(dmctip) + remove_piston(dmctilt) + remove_piston(bestflat) + 0.5 #combining tip, tilt, and best flat, setting mean piston to 0.5
-	return applydmc(dmctiptilt)
+	return optics.applydmc(dmctiptilt)
 
 #setup Zernike polynomials
 nmarr = []
@@ -76,7 +78,7 @@ def funz(n, m, amp, bestflat=bestflat): #apply zernike to the DM
 	z = zernike(n,m,rhoap,phiap)/2
 	zdm = amp*(z.astype(float32))
 	dmc = remove_piston(remove_piston(bestflat)+remove_piston(zdm))
-	applydmc(dmc)
+	optics.applydmc(dmc)
 	return dmc
 
 #calibrated image center and beam ratio from genDH.py
