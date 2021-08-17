@@ -47,14 +47,19 @@ def uconvert_ratio(amp=1.0):
 
 def record_openloop(dist_schedule, t=10, **kwargs):
     path = "openloop/ol"
+    v = True
     for k in kwargs:
-        path = path + k + "_" + str(kwargs.get(k))
+        if k == "verbose":
+            v = v and kwargs.get(k)
+        else:
+            path = path + k + "_" + str(kwargs.get(k))
     
     return record_experiment(
         path, 
         partial(control_schedule, control=openloop), 
         partial(dist_schedule, t, **kwargs),
-        t=t
+        t=t,
+        verbose=v
     )
 
 record_oltrain = partial(record_openloop, step_train_schedule)
@@ -67,14 +72,19 @@ record_olatmvib = partial(record_openloop, atmvib_schedule)
 
 def record_integrator(dist_schedule, t=1, gain=0.1, leak=1.0, **kwargs):
     path = "closedloop/cl_gain_{0}_leak_{1}".format(gain, leak)
+    v = True
     for k in kwargs:
-        path = path + "_" + k + "_" + str(kwargs.get(k))
+        if k == "verbose":
+            v = v and kwargs.get(k)
+        else:
+            path = path + "_" + k + "_" + str(kwargs.get(k))
 
     return record_experiment(
         path, 
         control_schedule=partial(control_schedule, control=partial(integrate, gain=gain, leak=leak)),
         dist_schedule=partial(dist_schedule, t, **kwargs),
-        t=t
+        t=t,
+        verbose=v
     )
 
 record_inttrain = partial(record_integrator, step_train_schedule)

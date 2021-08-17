@@ -81,7 +81,7 @@ def vz(n, m, IMamp): #determine the minimum IMamp (interaction matrix amplitude)
 
 IMamp = 0.1 #from above function
 
-def make_im_cm():
+def make_im_cm(verbose=True):
 	#make interaction matrix
 	refvec = np.zeros((len(nmarr), ttmask[indttmask].shape[0]*2))
 	zernarr = np.zeros((len(nmarr), aperture[indap].shape[0]))
@@ -101,7 +101,8 @@ def make_im_cm():
 	IM = np.dot(refvec, refvec.T) #interaction matrix
 	IMinv = np.linalg.pinv(IM, rcond=1e-6)
 	cmd_mtx = np.dot(IMinv, refvec).astype(np.float32)
-	print("Recomputed interaction matrix and command matrix")
+	if verbose:
+		print("Recomputed interaction matrix and command matrix")
 	return IM, cmd_mtx
 
 IM, cmd_mtx = make_im_cm()
