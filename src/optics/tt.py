@@ -2,76 +2,68 @@ import numpy as np
 from numpy import float32
 from scipy import fft
 
-from .ao import polar_grid, zernike
-from .image import getdmc, applydmc, set_expt, getim
+from .ao import polar_grid, zernike, remove_piston
+from .image import optics
+from ..utils import joindata
 
-dmcini = getdmc()
-ydim, xdim = dmcini.shape
+ydim, xdim = optics.dmdims
 grid = np.mgrid[0:ydim, 0:xdim].astype(float32)
-bestflat = np.load('/home/lab/asengupta/data/bestflats/bestflat.npy')
-applydmc(bestflat)
+bestflat = np.load(joindata("bestflats/bestflat.npy"))
+optics.applydmc(bestflat)
 
-set_expt(1e-3) #set exposure time; for 0.15 mW
-imini = getim() #Andor image just for referencing dimensions
-imydim, imxdim = imini.shape
-
-#DM aperture:
-tsleep=0.01 #should be the same values from align_fpm.py and genDH.py
+optics.set_expt(1e-3) #set exposure time; for 0.15 mW
+imydim, imxdim = optics.imdims
 
 #DM aperture:
-undersize=29/32 #29 of the 32 actuators are illuminated
+tsleep = 0.01 #should be the same values from align_fpm.py and genDH.py
+
+#DM aperture:
+undersize = 29/32 #29 of the 32 actuators are illuminated
 rho,phi = polar_grid(xdim,xdim*undersize)
 aperture = np.zeros(rho.shape).astype(float32)
 indap = np.where(rho > 0)
 indnap = np.where(rho == 0)
 aperture[indap] = 1
 
-ydim,xdim=dmcini.shape
-grid=np.mgrid[0:ydim, 0:xdim].astype(float32)
 ygrid, xgrid = grid[0] - ydim/2, grid[1] - xdim/2
 tip, tilt = (ygrid + ydim/2)/ydim, (xgrid + xdim/2)/xdim #min value is zero, max is one
 
 #DM aperture:
 undersize = 27/32 #assuming 27 of the 32 actuators are illuminated
-rho,phi = polar_grid(xdim, xdim*undersize)
+rho, phi = polar_grid(xdim, xdim*undersize)
 cenaperture = np.zeros(rho.shape).astype(float32)
-indapcen = np.where(rho>0)
+indapcen = np.where(rho > 0)
 cenaperture[indapcen] = 1
-
-#aperture=np.load('DMmap.npy').astype(float32) #actual aperture, from close_SHWFS_loop.py
 
 #from comparing cenaperture and aperture, the actual aperture is shifted down and to the right (in ds9) each by 1 pixel from the center
 yapcen,xapcen = ydim/2.-0.5-1, xdim/2.-0.5-1
 rap = np.sqrt((grid[0]-yapcen)**2.+(grid[1]-xapcen)**2.)
-rap[np.where(rap>xdim/2.*undersize)] = 0.
+rap[np.where(rap > xdim/2. * undersize)] = 0.
 rhoap = rap / np.max(rap)
 phiap = np.arctan2(grid[1]-yapcen, grid[0]-xapcen)
 indap = np.where(rhoap > 0)
 
-#remove_piston = lambda dmc: dmc-np.mean(dmc[indap]) #function to remove piston from dm command to have zero mean (must be intermediate)
-remove_piston = lambda dmc: dmc-np.median(dmc)
-
 #applying tip/tilt recursively (use if steering back onto the FPM after running zern_opt)
-def applytip(amp, verbose=True): #apply tip; amp is the P2V in DM units
+def applytip(amp): #apply tip; amp is the P2V in DM units
 	dmc = getdmc()
 	dmctip = amp*tip
-	dmc = remove_piston(dmc)+remove_piston(dmctip)+0.5
-	return applydmc(dmc, verbose)
+	dmc = remove_piston(dmc) + remove_piston(dmctip) + 0.5
+	return applydmc(dmc)
 
-def applytilt(amp, verbose=True): #apply tilt; amp is the P2V in DM units
+def applytilt(amp): #apply tilt; amp is the P2V in DM units
 	dmc = getdmc()
 	dmctilt = amp*tilt
-	dmc = remove_piston(dmc)+remove_piston(dmctilt)+0.5
-	return applydmc(dmc, verbose)
+	dmc = remove_piston(dmc) + remove_piston(dmctilt) + 0.5
+	return applydmc(dmc)
 
 # add something to update best flat in here if needed
-bestflat = getdmc()
+bestflat = optics.getdmc()
 
-def applytiptilt(amptip, amptilt, verbose=True): #amp is the P2V in DM units
+def applytiptilt(amptip, amptilt): #amp is the P2V in DM units
 	dmctip = amptip*tip
 	dmctilt = amptilt*tilt
-	dmctiptilt = remove_piston(dmctip)+remove_piston(dmctilt)+remove_piston(bestflat)+0.5 #combining tip, tilt, and best flat, setting mean piston to 0.5
-	return applydmc(dmctiptilt, verbose)
+	dmctiptilt = remove_piston(dmctip) + remove_piston(dmctilt) + remove_piston(bestflat) + 0.5 #combining tip, tilt, and best flat, setting mean piston to 0.5
+	return applydmc(dmctiptilt)
 
 #setup Zernike polynomials
 nmarr = []
@@ -88,14 +80,14 @@ def funz(n, m, amp, bestflat=bestflat): #apply zernike to the DM
 	return dmc
 
 #calibrated image center and beam ratio from genDH.py
-imxcen, imycen = np.load('/home/lab/blgerard/imcen.npy')
-beam_ratio = np.load('/home/lab/blgerard/beam_ratio.npy')
+imxcen, imycen = np.load(joindata("bestflats/imcen.npy"))
+beam_ratio = np.load(joindata("bestflats/beam_ratio.npy"))
 gridim = np.mgrid[0:imydim, 0:imxdim]
 rim = np.sqrt((gridim[0]-imycen)**2+(gridim[1]-imxcen)**2)
 
 #algorithmic LOWFS mask (centered around the core, for light less than 6 lambda/D)
-ttmask = np.zeros(imini.shape)
-indttmask = np.where(rim/beam_ratio<6)
+ttmask = np.zeros(optics.imdims)
+indttmask = np.where(rim / beam_ratio<6)
 ttmask[indttmask] = 1
 
 IMamp = 0.1
@@ -103,9 +95,9 @@ IMamp = 0.1
 #make MTF side lobe mask
 xsidemaskcen,ysidemaskcen = 252.01, 159.4 #x and y location of the side lobe mask in the cropped image
 sidemaskrad = 26.8 #radius of the side lobe mask
-mtfgrid = np.mgrid[0:imini.shape[0], 0:imini.shape[1]].astype(float32)
+mtfgrid = np.mgrid[0:optics.imdims[0], 0:optics.imdims[1]].astype(float32)
 sidemaskrho = np.sqrt((mtfgrid[0]-ysidemaskcen)**2+(mtfgrid[1]-xsidemaskcen)**2)
-sidemask = np.zeros(imini.shape, dtype=float32)
+sidemask = np.zeros(optics.imdims, dtype=float32)
 sidemaskind = np.where(sidemaskrho < sidemaskrad)
 sidemask[sidemaskind] = 1
 
@@ -131,5 +123,5 @@ def tt_to_dmc(tt):
     dmc : np.ndarray, (dm_x, dm_y)
     The corresponding DM command.
     """
-    return np.matmul(tiptiltarr, -tt).reshape((ydim,xdim))
+    return np.matmul(tiptiltarr, -tt).reshape((ydim, xdim))
 	

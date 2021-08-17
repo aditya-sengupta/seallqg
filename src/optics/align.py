@@ -3,14 +3,14 @@
 import numpy as np
 import time
 from matplotlib import pyplot as plt
-import pysao
+# import pysao
 from scipy.ndimage.filters import median_filter
 
 from ..utils import joindata
-from .image import get_expt, set_expt, getdmc, stack
-from .tt import mtfgrid, imini, sidemaskrad, sidemaskind
-from .ao import mtf
-from .tt import applytiptilt, applydmc, tip, tilt, remove_piston
+from .image import optics
+from .tt import mtfgrid, sidemaskrad, sidemaskind
+from .ao import mtf, remove_piston
+from .tt import applytiptilt, tip, tilt
 
 def align_fast(view=True):
 	expt_init = get_expt()
@@ -32,14 +32,15 @@ def align_fast(view=True):
 		return np.abs(Iminus)
 
 	def optt(tsleep): #function to optimize how long to wait in between applying DM command and recording image
-		ds9 = pysao.ds9()
+		# ds9 = pysao.ds9()
 		applytiptilt(-0.1,-0.1)
 		time.sleep(tsleep)
-		im1=stack(10)
+		im1 = stack(10)
 		applydmc(bestflat)
 		time.sleep(tsleep)
-		imf=stack(10)
-		ds9.view(im1-imf)
+		imf = optics.stack(10)
+		return imf
+		# ds9.view(im1-imf)
 	#tsleep=0.005 #on really good days
 	tsleep=0.01 #optimized from above function
 	#tsleep=0.4 #on bad days

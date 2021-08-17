@@ -11,9 +11,8 @@ from functools import partial
 
 from ..constants import dt
 from ..utils import joindata
-from ..optics import getim, applydmc
+from ..optics import optics
 from ..optics import measure_tt, make_im_cm
-from ..optics import refresh
 from ..optics import align_fast2
 
 bestflat = np.load(joindata("bestflats/bestflat.npy"))
@@ -25,7 +24,7 @@ def record_im(out_q, t=1, timestamp=datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
     # this would be much easier to feel good about in a lower level language
 
     while time.time() < t1 + t:
-        imval = getim()
+        imval = optics.getim()
         times.append(time.time())
         out_q.put(imval)
 
@@ -76,13 +75,13 @@ def control_schedule(q, control, t=1):
         else:
             tt = q.get()
             q.task_done()
-            applydmc(control(tt))
+            optics.applydmc(control(tt))
 
 def record_experiment(path, control_schedule, dist_schedule, t=1, verbose=True):
     _, cmd_mtx = make_im_cm(verbose)
-    bestflat, imflat = refresh(verbose)
-    applydmc(bestflat)
-    baseline_ttvals = measure_tt(getim() - imflat, cmd_mtx=cmd_mtx)
+    bestflat, imflat = optics.refresh(verbose)
+    optics.applydmc(bestflat)
+    baseline_ttvals = measure_tt(optics.getim() - imflat, cmd_mtx=cmd_mtx)
 
     i = 0
     imax = 10
@@ -90,9 +89,9 @@ def record_experiment(path, control_schedule, dist_schedule, t=1, verbose=True):
         warnings.warn("The system may not be aligned: baseline TT is {}".format(baseline_ttvals.flatten()))
         align_fast2(view=False)
         _, cmd_mtx = make_im_cm()
-        bestflat, imflat = refresh()
-        applydmc(bestflat)
-        baseline_ttvals = measure_tt(getim() - imflat, cmd_mtx=cmd_mtx)
+        bestflat, imflat = optics.refresh()
+        optics.applydmc(bestflat)
+        baseline_ttvals = measure_tt(optics.getim() - imflat, cmd_mtx=cmd_mtx)
         i += 1
         if i > imax:
             print("Cannot align system: realign manually and try experiment again.")
@@ -127,7 +126,7 @@ def record_experiment(path, control_schedule, dist_schedule, t=1, verbose=True):
     if verbose:
         print("Done with experiment.")
 
-    applydmc(bestflat)
+    optics.applydmc(bestflat)
 
     timepath = joindata("recordings/rectime_stamp_{0}.npy".format(timestamp))
     ttpath = joindata("recordings/rectt_stamp_{0}.npy".format(timestamp))

@@ -8,7 +8,7 @@ from os import path
 
 from .constants import dt
 
-DATADIR = "/home/lab/asengupta/data" # update with one of the solutions at https://stackoverflow.com/questions/25389095/python-get-path-of-root-project-structure later
+DATADIR = path.join(path.dirname(path.abspath("__file__")), "data")
 joindata = lambda f: path.join(DATADIR, f)
 
 rms = lambda data: np.sqrt(np.mean((data - np.mean(data)) ** 2))

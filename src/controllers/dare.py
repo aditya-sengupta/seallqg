@@ -32,3 +32,4 @@ def solve_dare(A, B, Q, R, verbose=True, max_iters=1000):
             else:
                 print("Iterative solve failed in {} iterations.".format(iters))
     return P
+    

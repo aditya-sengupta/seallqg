@@ -6,9 +6,8 @@ from functools import partial
 
 from .schedules import noise_schedule, ustep_schedule, step_train_schedule, sine_schedule, atmvib_schedule
 from .exp_utils import record_experiment, control_schedule
-from ..optics import get_expt, set_expt, applydmc, getdmc, stack
+from ..optics import optics
 from ..optics import applytip, applytilt, aperture
-from ..optics import refresh
 from ..controllers import openloop, integrate
 
 def uconvert_ratio(amp=1.0):

@@ -4,27 +4,23 @@ import numpy as np
 from copy import copy
 from scipy import linalg
 
+from .dare import solve_dare
+
+class LQGController:
+    """
+    Sufficient information to build an LQG controller:
+
+    x - the state
+    A - the time-evolution matrix
+    B - the input-to-state matrix
+    Q - the state penalty (cost x'Qx)
+    R - the input penalty (cost u'Ru)
+
+    This could be integrated with the KFilter 
+    into one big "LQG state space description" class
+    but for now it's separate to test observer-controller separation
+    """
+
 def compute_lqg_gain(A, B, Q, R, verbose=True):
-    try:
-        P = linalg.solve_discrete_are(A, B, Q, R)
-        if verbose:
-            print("Solved discrete ARE.")
-    except (ValueError, np.linalg.LinAlgError):
-        if verbose:
-            print("Discrete ARE solve failed, falling back to iterative solution.")
-        P = copy(Q)
-        lastP = np.zeros_like(A)
-        iters = 0
-        while not np.allclose(lastP, P):
-            # I have entirely made this up and I have not tested it
-            # I really hope the discrete ARE just works
-            P = A.T @ P @ A + Q
-            K = -np.linalg.inv(B @ P @ B.T + R) @ B.T @ P @ A
-            P = P - K @ B @ P
-            iters += 1
-
-        if verbose:
-            print("Solved iteratively in {} iterations".format(iters))
-            
+    P = solve_dare(A, B, Q, R, verbose)
     return -np.linalg.inv(R + B.T @ P @ B) @ B.T @ P @ A
-
