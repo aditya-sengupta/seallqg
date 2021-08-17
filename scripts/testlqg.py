@@ -1,9 +1,9 @@
 import numpy as np
 import scipy.linalg as la
 
-from src.controllers.dare import solve_dare
+from src.controllers.dare import solve_dare, check_dare
 
-np.random.seed(5)
+# np.random.seed(5)
 
 s, m = 4, 2
 
@@ -15,5 +15,5 @@ B = np.random.randn(s, m)
 Q = np.eye(s)
 R = np.eye(m)
 
-P = la.solve_discrete_are(A, B, Q, R)
-assert np.allclose(P, solve_dare(A, B, Q, R))
+P = solve_dare(A, B, Q, R)
+assert check_dare(A, B, Q, R, P)
