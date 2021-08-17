@@ -6,6 +6,8 @@ from scipy.special import gamma, hyp2f1
 
 p3i = lambda i: int(round(i)) #python2 to 3: change indicies that are floats to integers
 
+remove_piston = lambda dmc: dmc - np.median(dmc)
+
 def pupil_to_image(im):
 	return np.fft.fft2(im,norm = 'ortho')
 
@@ -163,7 +165,6 @@ def remove_zernike(im_tar_phase,imagepix,pupilpix):
 	cor = np.zeros((n,1))
 	for i in range(n):
 		cor[i] = np.sum(refarr[i]*tar)
-		#print i, n-1
 
 	coeffs = np.dot(covinv,cor)
 

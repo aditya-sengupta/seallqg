@@ -7,6 +7,8 @@ import warnings
 
 from ..utils import joindata
 
+optics = None
+
 class Optics(ABC): 
 	@property
 	def dmzero(self):
@@ -28,9 +30,9 @@ class Optics(ABC):
 
 	def stack(self, n):
 		ims = self.getim()
-		for _ in range(n-1):
+		for _ in range(n - 1):
 			ims = ims + self.getim()
-		ims = ims/n
+		ims = ims / n
 		return ims
 
 	@abstractmethod
@@ -55,6 +57,7 @@ class Optics(ABC):
 
 class FAST(Optics):
 	def __init__(self):
+		from krtc import shmlib
 		self.a = shmlib.shm('/tmp/ca03dit.im.shm') 
 		self.im = shmlib.shm('/tmp/ca03im.im.shm')
 		self.b = shmlib.shm('/tmp/dm02itfStatus.im.shm')
@@ -85,8 +88,6 @@ class FAST(Optics):
 	def applydmc(self, dmc): #apply command to the DM
 		"""
 		Applies the DM command `dmc`.
-		Returns two booleans: whether the command is in range below (everything is >=0), and above (everything is <=1),
-		unless verbose=False, in which case nothing is returned.
 		"""
 		if np.any(dmc < 0):
 			warnings.warn("saturating DM zeros!")
@@ -103,7 +104,7 @@ class Sim(Optics):
 		self.t = 1e-3
 		self.dmc = copy(self.dmzero)
 
-	def expt(self, t):
+	def set_expt(self, t):
 		warnings.warn("Exposure time in sim optics is not used yet.")
 		self.t = t
 
@@ -120,7 +121,6 @@ class Sim(Optics):
 
 	def applydmc(self, dmc):
 		self.dmc = np.maximum(0, np.minimum(1, dmc))
-	
 	
 try:
 	from krtc import shmlib
