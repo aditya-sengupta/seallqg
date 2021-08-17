@@ -8,7 +8,7 @@ from .dare import solve_dare
 
 class KFilter:
     """
-    Sufficient information to build a Kalman filter:
+    Kalman filter information
 
     x - the state
     A - the time-evolution matrix
@@ -19,7 +19,7 @@ class KFilter:
     def __init__(self, A, C, W, V, verbose=True):
         self.A, self.C, self.W, self.V = A, C, W, V
         self.x = np.zeros((self.state_size,))
-        self.P = solve_dare(self.A.T, self.C.T, self.W, self.V, verbose=verbose)
+        self.P = solve_dare(A.T, C.T, W, V, verbose=verbose)
         self.K = self.P @ self.C.T @ np.linalg.inv(self.C @ self.P @ self.C.T + self.V)
 
     @property
