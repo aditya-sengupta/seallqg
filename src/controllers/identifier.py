@@ -2,10 +2,11 @@
 
 # could refactor to not be a class, but it's fine for now
 
-from operator import xor
 import numpy as np
 from scipy import optimize, signal, stats
-from .kfilter import KFilter
+from copy import copy
+
+from .kalmanlqg import KalmanLQG
 from ..utils import genpsd
 from ..constants import fs
 
@@ -20,18 +21,19 @@ def log_likelihood(func, data):
 
 class SystemIdentifier:
     """
-    Driver class to build KFilter objects from open-loop data.
+    Driver class to build KalmanLQG objects from open-loop data.
     Largely built off the Meimon 2010 system identification, and simulation/experimentation on top of that.
     """
     def __init__(
-        self, 
+        self,
+        ol,
         fs=fs, 
         f1=None, f2=None, fw=None, 
         N_vib_max=10, energy_cutoff=1e-8, 
         max_ar_coef=5, 
-        time_id=10
     ):
 
+        self.ol = ol
         self.fs = fs # Hz
         if f1 is None:
             self.f1 = fs / 60 # lowest possible frequency of a vibration mode
@@ -51,14 +53,17 @@ class SystemIdentifier:
         self.max_ar_coef = max_ar_coef
         self.N_vib_max = N_vib_max # number of vibration modes to be detected
         self.energy_cutoff = energy_cutoff # proportion of total energy after which PSD curve fit ends
-        self.time_id = time_id # timescale over which sysid runs. Pulled from Meimon 2010's suggested 1 Hz sysid frequency.
+        self.freqs, p1 = genpsd(self.ol[:,0], dt=1/self.fs)
+        _, p2 = genpsd(self.ol[:,1], dt=1/self.fs)
+        self.psds = [p1, p2]
 
     @property
     def times(self):
-        return np.arange(0, self.time_id, 1 / self.fs)
+        return np.arange(0, len(self.ol) / self.fs, 1 / self.fs)
 
     def damped_harmonic(self, pars_model):
         A, f, k, p = pars_model
+        times = np.arange(0, )
         return A * np.exp(-k * 2 * np.pi * f * self.times) * np.cos(2 * np.pi * f * np.sqrt(1 - k**2) * self.times - p)
 
     def make_psd(self, pars_model):
@@ -72,26 +77,26 @@ class SystemIdentifier:
 
         return get_psd_f
 
-    def est_measurenoise(self, freqs, psd):
-        return np.sqrt(np.mean(self.fs * psd[freqs > self.fw]))
+    def est_measurenoise(self, mode=0):
+        return np.sqrt(np.mean(self.fs * self.psds[mode][self.freqs > self.fw]))
 
     def interpolate_psd(self, freqs, psd):
         mask = np.logical_and(self.f1 < freqs, freqs < self.f2)
         return stats.linregress(np.log(freqs[mask], np.log(psd[mask])))
 
-    def vibe_fit_freq(self, freqs, psd):
-        # takes in the frequency axis for a PSD, and the PSD.
+    def vibe_fit_freq(self, mode=0):
         # returns a 4xN np array with fit parameters, and a 1xN np array with variances.
         par0 = [1e-4, 1]
         PARAMS_SIZE = 2
-        df = freqs[1] - freqs[0]
+        df = self.freqs[1] - self.freqs[0]
         width = max(1, int(np.ceil(1/df)))
 
         peaks = []
+        psd = copy(self.psds[mode])
         unsorted_peaks = signal.find_peaks(psd, height=self.energy_cutoff)[0]
         freqs_energy = np.flip(np.argsort(psd)) # frequencies ordered by their energy
         for f in freqs_energy:
-            if f in unsorted_peaks and self.f1 <= freqs[f] <= self.f2:
+            if f in unsorted_peaks and self.f1 <= self.freqs[f] <= self.f2:
                 peaks.append(f)
 
         params = np.zeros((self.N_vib_max, PARAMS_SIZE))
@@ -101,14 +106,14 @@ class SystemIdentifier:
         for peak_ind in peaks:
             if i >= self.N_vib_max:
                 break
-            if not(np.any(np.abs(params[:,0] - freqs[peak_ind]) <= width * df)): 
+            if not(np.any(np.abs(params[:,0] - self.freqs[peak_ind]) <= width * df)): 
                 # this is to prevent peak overlapping/fitting to the same thing twice
                 l, r = peak_ind - width, peak_ind + width
                 windowed = psd[l:r]
-                objective = lambda pars: self.psd_f(freqs[peak_ind])(pars)[l:r]
+                objective = lambda pars: self.psd_f(self.freqs[peak_ind])(pars)[l:r]
                 psd_ll = log_likelihood(objective, windowed)
                 k, sd = optimize.minimize(psd_ll, par0, method='Nelder-Mead').x
-                params[i] = [freqs[peak_ind], k]
+                params[i] = [self.freqs[peak_ind], k]
                 variances[i] = sd ** 2
                 i += 1
 
@@ -120,72 +125,84 @@ class SystemIdentifier:
         for i in range(STATE_SIZE // 2):
             f, k = params[i]
             w0 = 2 * np.pi * f / np.sqrt(1 - k**2)
-            A[2 * i][2 * i] = 2 *  np.exp(-k * w0 / self.fs) * np.cos(w0 * np.sqrt(1 - k**2) / self.fs)
+            A[2 * i][2 * i] = 2 * np.exp(-k * w0 / self.fs) * np.cos(w0 * np.sqrt(1 - k**2) / self.fs)
             A[2 * i][2 * i + 1] = -np.exp(-2 * k * w0 / self.fs)
             A[2 * i + 1][2 * i] = 1
         return A
 
-    def make_kfilter_vibe(self, params, variances, sigma):
-        # takes in parameters and variances from which to make a physics simulation
-        # and measurements to match it against.
-        # returns a KFilter object.
+    def make_klqg_vibe(self, params, variances, mode=0):
+        # Make a Kalman-LQG object with which to control vibrations.
         A = self.make_state_transition_vibe(params)
         STATE_SIZE = 2 * params.shape[0]
+        B = np.zeros((A.shape[0], 1))
+        B[0,0] = 1
         C = np.array([[1, 0] * (STATE_SIZE // 2)])
         W = np.zeros((STATE_SIZE, STATE_SIZE))
-        for i in range(variances.size):
-            Q[2 * i][2 * i] = variances[i]
-        V = sigma**2 * np.identity(1)
-        return KFilter(A, C, W, V)
+        for i in range(variances. size):
+            W[2 * i][2 * i] = variances[i]
+        V = self.est_measurenoise(mode)**2 * np.identity(1)
+        Q = np.eye(STATE_SIZE)
+        R = 0.25 * np.eye(1)
+        return KalmanLQG(A, B, C, W, V, Q, R)
 
-    def make_kfilter_turb(self, impulse, sigma):
+    def make_klqg_turb(self, impulse, mode=0):
         # takes in an impulse response as generated by make_impulse
-        # and returns a KFilter object.
+        # and returns a KalmanLQG object.
         n = impulse.size
         A = np.zeros((n, n))
         for i in range(1, n):
             A[i][i-1] = 1
         A[0] = (np.real(impulse)/sum(np.real(impulse)))
-        W = np.zeros((n,n))
-        W[0][0] = 1 # arbitrary: I have no idea how to set this yet.
+
+        B = np.zeros((n, 1))
+        B[0,0] = 1
         C = np.zeros((1,n))
         C[:,0] = 1
-        V = np.array([sigma ** 2])
-        return KFilter(A, C, W, V)
+        W = np.zeros((n,n))
+        W[0][0] = 1 # arbitrary: I have no idea how to set this yet.
+        V = np.array([self.est_measurenoise(mode) ** 2])
+        Q = np.eye(n)
+        R = 0.25 * np.eye(1)
+        return KalmanLQG(A, B, C, W, V, Q, R)
 
-    def make_kfilter_ar(self, openloops, ar_len, sigma=0.06):
-        n = len(openloops)
-        TTs_mat = np.empty((n - ar_len, ar_len))
-        for i in range(ar_len):
-            TTs_mat[:, i] = openloops[ar_len - i : n - i] 
+    def make_klqg_ar(self, ar_len=5):
+        kls = []
+        for mode in range(2):
+            n = len(self.ol[:,j])
+            TTs_mat = np.empty((n - ar_len, ar_len))
+            for i in range(ar_len):
+                TTs_mat[:, i] = self.ol[ar_len - i : n - i, j] 
 
-        ar_coef, _, _, _ = np.linalg.lstsq(TTs_mat, openloops[ar_len:], rcond=None)
-        ar_residual = openloops[ar_len:] - (TTs_mat @ ar_coef)
-        A = np.zeros((ar_len, ar_len))
-        A[0,:] = ar_coef
-        for i in range(1, ar_len):
-            A[i,i-1] += 1.0
+            ar_coef, _, _, _ = np.linalg.lstsq(TTs_mat, self.ol[ar_len:, j], rcond=None)
+            ar_residual = self.ol[ar_len:, j] - (TTs_mat @ ar_coef)
+            A = np.zeros((ar_len, ar_len))
+            A[0,:] = ar_coef
+            for i in range(1, ar_len):
+                A[i,i-1] += 1.0
 
-        C = np.zeros((1, ar_len))
-        C[0] += 1
+            B = np.zeros((ar_len, 1))
+            B[0,0] = 1
+            C = np.zeros((1, ar_len))
+            C[0,0] += 1
 
-        W = np.zeros((ar_len, ar_len))
-        W[1,1] = np.mean(ar_residual ** 2)
+            W = np.zeros((ar_len, ar_len))
+            W[1,1] = np.mean(ar_residual ** 2)
 
-        V = np.array([[sigma ** 2]])
+            V = np.array([[self.est_measurenoise(mode) ** 2]])
 
-        return KFilter(A, C, W, V)
+            Q = np.eye(ar_len)
+            R = 0.25 * np.eye(1)
+            kls.append(KalmanLQG(A, B, C, W, V, Q, R))
 
-    def make_kfilter_from_openloop(self, ol, model_atm=False, model_vib=True):
+        return kls[0].concat(kls[1])
+
+    def make_klqg_from_openloop(self, model_atm=False, model_vib=True):
         """
-        Designs a KFilter object based on open-loop data. 
-        (Essentially stitches together a bunch of KFilter objects.)
+        Designs a KalmanLQG object based on open-loop data. 
+        (Essentially stitches together a bunch of KalmanLQG objects.)
 
         Arguments
         ---------
-        ol : np.ndarray, (N,2)
-        The open-loop data to use to build the filter.
-
         model_atm : bool
         Makes a filter that models atmospheric aberrations.
 
@@ -194,24 +211,23 @@ class SystemIdentifier:
 
         Returns
         -------
-        kf : KFilter
-        A Kalman filter object that controls either tip or tilt.
+        klqg : KalmanLQG
+        A Kalman-LQG object that controls either tip or tilt.
         """
-        kfs = []
-        self.time_id = ol.shape[0] / self.fs
+        kls = []
         self.N_vib_max = 1 # just for now
         for i in range(2): # tip, tilt
-            kf = KFilter(np.zeros((0,0)), np.zeros((0,0)), np.zeros((0,0)), np.zeros((0,0)), verbose=False)
+            kl = KalmanLQG([np.zeros(0,0) for _ in range(7)], verbose=False)
             f, p = genpsd(ol[:,i], dt=1 / self.fs)
             self.energy_cutoff = np.mean(p[f > self.fw])
-            sigma = self.est_measurenoise(f, p)
+            sigma = self.est_measurenoise(i)
 
             if model_vib:
-                params, variances, p = self.vibe_fit_freq(f, p)
-                kf += self.make_kfilter_vibe(params, variances, sigma)
+                params, variances, p = self.vibe_fit_freq(i)
+                kl += self.make_klqg_vibe(params, variances)
             if model_atm:
-                kf += self.make_kfilter_turb(np.fft.ifft(np.fft.fftshift(p))) # ?? is this it? 
+                kl += self.make_klqg_turb(np.fft.ifft(np.fft.fftshift(p))) # ?? is this it? 
                 # dinosaur double check fractal_deriv
-            kfs.append(kf)
+            kls.append(kl)
 
-        return kfs[0].concat(kfs[1])
+        return kls[0].concat(kls[1])

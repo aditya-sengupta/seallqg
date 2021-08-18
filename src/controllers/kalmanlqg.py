@@ -28,7 +28,7 @@ class KalmanLQG:
         self.Pobs = solve_dare(A.T, C.T, W, V, verbose=verbose)
         self.Pcon = solve_dare(A, B, Q, R, verbose=verbose)
         self.K = self.Pobs @ C.T @ np.linalg.inv(C @ self.Pobs @ C.T + self.V)
-        self.L = -np.linalg.inv(R + B.T @ P @ B) @ B.T @ P @ A
+        self.L = -np.linalg.inv(R + B.T @ self.Pcon @ B) @ B.T @ self.Pcon @ A
 
     @property
     def state_size(self):
@@ -78,7 +78,7 @@ class KalmanLQG:
         V = linalg.block_diag(self.V, other.V)
         Q = linalg.block_diag(self.Q, other.Q)
         R = linalg.block_diag(self.R, other.R)
-        return KalmanLQG(A, B, C, W, V, Q, R)(A, B, C, W, V, Q, R)
+        return KalmanLQG(A, B, C, W, V, Q, R)
 
     def predict(self):
         self.x = self.A @ self.x

@@ -15,7 +15,7 @@ class Optics(ABC):
 		return np.zeros(self.dmdims, dtype=np.float32)
 
 	def applyzero(self):
-		self.applydmc(self.dmzero, False)
+		self.applydmc(self.dmzero)
 
 	def refresh(self, verbose=True):
 		bestflat = np.load(joindata("bestflats/bestflat.npy"))

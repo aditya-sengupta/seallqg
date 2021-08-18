@@ -5,10 +5,19 @@ from scipy import signal, io
 from scipy.signal import welch, windows
 from copy import deepcopy
 from os import path
+from socket import gethostname
 
 from .constants import dt
 
-DATADIR = path.join(path.dirname(path.abspath("__file__")), "data")
+host = gethostname()
+
+if host == "Adityas-MacBook-Air.local":
+	DATADIR = "/Users/adityasengupta/research/ao/set-tt-control/data/"
+elif host == "SEAL":
+	DATADIR = "/home/lab/asengupta/data/"
+else:
+	DATADIR = path.join(path.dirname(path.abspath("__file__")), "data")
+	
 joindata = lambda f: path.join(DATADIR, f)
 
 rms = lambda data: np.sqrt(np.mean((data - np.mean(data)) ** 2))
