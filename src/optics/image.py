@@ -87,15 +87,15 @@ class FAST(Optics):
 	def getdmc(self): # read current command applied to the DM
 		return self.dmChannel.get_data()
 
-	def applydmc(self, dmc): #apply command to the DM
+	def applydmc(self, dmc, min_cmd=0.05, max_cmd=0.95): #apply command to the DM
 		"""
 		Applies the DM command `dmc`.
 		"""
-		if np.any(dmc < 0):
+		if np.any(dmc < min_cmd):
 			warnings.warn("saturating DM zeros!")
-		if np.any(dmc > 1):
+		if np.any(dmc > max_cmd):
 			warnings.warn("saturating DM ones!")
-		dmc = np.maximum(0, np.minimum(1, dmc))
+		dmc = np.maximum(min_cmd, np.minimum(max_cmd, dmc))
 		self.dmChannel.set_data(dmc.astype(np.float32))
 
 class Sim(Optics):
