@@ -20,7 +20,7 @@ else:
 	
 joindata = lambda f: path.join(DATADIR, f)
 
-rms = lambda data: np.sqrt(np.mean((data - np.mean(data)) ** 2))
+rms = lambda data: round(np.sqrt(np.mean((data - np.mean(data)) ** 2)), 4)
 
 def get_keck_tts(num=128):
 	# gets the right keck TTs that have the wrong powerlaw.

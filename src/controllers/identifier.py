@@ -7,7 +7,7 @@ from scipy import optimize, signal, stats
 from copy import copy
 
 from .kalmanlqg import KalmanLQG
-from ..utils import genpsd
+from ..utils import genpsd, rms
 from ..constants import fs
 
 def log_likelihood(func, data):
@@ -168,13 +168,14 @@ class SystemIdentifier:
     def make_klqg_ar(self, ar_len=5):
         kls = []
         for mode in range(2):
-            n = len(self.ol[:,j])
+            n = len(self.ol[:,mode])
             TTs_mat = np.empty((n - ar_len, ar_len))
             for i in range(ar_len):
-                TTs_mat[:, i] = self.ol[ar_len - i : n - i, j] 
+                TTs_mat[:, i] = self.ol[ar_len - i : n - i, mode] 
 
-            ar_coef, _, _, _ = np.linalg.lstsq(TTs_mat, self.ol[ar_len:, j], rcond=None)
-            ar_residual = self.ol[ar_len:, j] - (TTs_mat @ ar_coef)
+            ar_coef, _, _, _ = np.linalg.lstsq(TTs_mat, self.ol[ar_len:, mode], rcond=None)
+            ar_residual = self.ol[ar_len:, mode] - (TTs_mat @ ar_coef)
+            
             A = np.zeros((ar_len, ar_len))
             A[0,:] = ar_coef
             for i in range(1, ar_len):
@@ -186,7 +187,7 @@ class SystemIdentifier:
             C[0,0] += 1
 
             W = np.zeros((ar_len, ar_len))
-            W[1,1] = np.mean(ar_residual ** 2)
+            W[0,0] = np.mean(ar_residual ** 2) + rms(self.ol)
 
             V = np.array([[self.est_measurenoise(mode) ** 2]])
 

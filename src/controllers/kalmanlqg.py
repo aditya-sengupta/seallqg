@@ -3,6 +3,7 @@
 import numpy as np
 from copy import copy
 from scipy import linalg
+from scipy.stats import multivariate_normal as mvn
 
 from .dare import solve_dare
 
@@ -108,3 +109,39 @@ class KalmanLQG:
             states[i] = self.x
         
         return states
+
+    def sim_control(self, nsteps=1000):
+        process_dist = mvn(cov=self.W, allow_singular=True)
+        measure_dist = mvn(cov=self.V, allow_singular=True)
+        x_init = copy(self.x)
+        self.x = process_dist.rvs()
+        states = np.zeros((nsteps, self.state_size))
+        states[0] = self.x
+        for i in range(1, nsteps):
+            u = klv.control()
+            klv.predict(u)
+            x = self.A @ states[i-1] + self.B @ u + process_dist.rvs()
+            y = self.C @ x + measure_dist.rvs()
+            klv.update(y)
+            states[i] = x
+    
+        self.x = x_init
+        return states @ self.C.T
+
+    def sim_process(self, nsteps=1000):
+        process_dist = mvn(cov=self.W, allow_singular=True)
+        states = np.zeros((nsteps, self.state_size))
+        states[0] = process_dist.rvs()
+        for i in range(1, nsteps):
+            states[i] = self.A @ states[i-1] + process_dist.rvs()
+            
+        return states @ self.C.T
+
+    def sim_control_nokf(self, nsteps=1000):
+        process_dist = mvn(cov=self.W, allow_singular=True)
+        states = np.zeros((nsteps, self.state_size))
+        states[0] = process_dist.rvs()
+        for i in range(1, nsteps):
+            states[i] = (self.A + self.B @ self.L) @ states[i-1] + process_dist.rvs()
+            
+        return states @ self.C.T
