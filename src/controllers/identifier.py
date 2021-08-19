@@ -126,16 +126,16 @@ class SystemIdentifier:
         # Make a Kalman-LQG object with which to control vibrations.
         A = self.make_state_transition_vibe(params)
         STATE_SIZE = 2 * params.shape[0]
-        B = np.zeros((STATE_SIZE, 0))
+        B = np.zeros((STATE_SIZE, 1))
+        B[0,0] = 1 / (2 * STATE_SIZE)
         C = np.array([[1, 0] * (STATE_SIZE // 2)])
         W = np.zeros((STATE_SIZE, STATE_SIZE))
-        Q = np.zeros((STATE_SIZE, STATE_SIZE))
         for i in range(variances.size):
             W[2 * i][2 * i] = variances[i]
-            Q[2 * i][2 * i] = 100.0
         V = self.est_measurenoise(mode)**2 * np.identity(1)
         
-        R = np.zeros((0,0))
+        Q = 100 * C.T @ np.eye(1) @ C # only penalize the observables
+        R = np.eye(1)
         return (A, B, C, W, V, Q, R)
 
     def make_2d_klqg_vibe(self):
@@ -194,20 +194,19 @@ class SystemIdentifier:
         """
         self.N_vib_max = 1 # just for now
 
-        # start off with the steering functionality
-        A = 0.1 * np.eye(2)
-        B = np.eye(2)
-        C = np.eye(2)
-        W = 1e-4 * np.eye(2)
-        V = 1e-2 * np.eye(2)
-        Q = np.eye(2)
-        R = 1e-6 * np.eye(2)
+        A = np.zeros((0,0))
+        B = np.zeros((0,0))
+        C = np.zeros((2,0))
+        W = np.zeros((0,0))
+        V = np.zeros((0,0))
+        Q = np.zeros((0,0))
+        R = np.zeros((0,0))
 
         matrices = [A, B, C, W, V, Q, R]
         
         # self.energy_cutoff = np.mean(p[f > self.fw])
 
-            # f, p = genpsd(self.ol[:,mode], dt=1 / self.fs)
+        # f, p = genpsd(self.ol[:,mode], dt=1 / self.fs)
 
         if model_vib:
             vib_matrices = self.make_2d_klqg_vibe()

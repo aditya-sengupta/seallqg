@@ -4,10 +4,10 @@ from src import *
 
 ol = np.load("data/tt_center_noise/tt_center_noise_nsteps_10000_delay_0.01_dt_21_07_2021_12.npy")
 fs = 100
-nsteps = 10000
+nsteps = 1000
 ident = SystemIdentifier(ol, fs=fs)
 klqg = ident.make_klqg_from_openloop()
-x0 = np.hstack((np.array([0.0, 0.0]), np.array([1.0, 0.0, 1.0, 0.0])))
+x0 = np.array([1.0, 0.0, 1.0, 0.0])
 print("Improvement: ", klqg.improvement(x0=x0))
 states_un = klqg.sim_process(nsteps=nsteps, x0=x0)
 f_un, p_un = genpsd(states_un[:,0], dt=1/fs)
