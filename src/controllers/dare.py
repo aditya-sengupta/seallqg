@@ -3,7 +3,7 @@ import scipy.linalg as la
 from copy import copy
 
 def dare_iterative_update(A, B, Q, R, P):
-    return A.T @ P @ A - (A.T @ P @ B) @ np.linalg.inv(B.T @ P @ B + R) @ (B.T @ P @ A) + Q
+    return A.T @ P @ A - (A.T @ P @ B) @ np.linalg.pinv(B.T @ P @ B + R) @ (B.T @ P @ A) + Q
 
 def check_dare(A, B, Q, R, P):
     return np.allclose(

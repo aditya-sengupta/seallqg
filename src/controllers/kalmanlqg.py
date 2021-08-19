@@ -6,6 +6,7 @@ from scipy import linalg
 from scipy.stats import multivariate_normal as mvn
 
 from .dare import solve_dare
+from ..utils import rms
 
 # I don't really need to keep W, V, Q, R as state attributes
 # but just want to be aware in case the DARE solution is not nice
@@ -31,8 +32,8 @@ class KalmanLQG:
     def recompute(self):
         self.Pobs = solve_dare(self.A.T, self.C.T, self.W, self.V)
         self.Pcon = solve_dare(self.A, self.B, self.Q, self.R)
-        self.K = self.Pobs @ self.C.T @ np.linalg.inv(self.C @ self.Pobs @ self.C.T + self.V)
-        self.L = -np.linalg.inv(self.R + self.B.T @ self.Pcon @ self.B) @ self.B.T @ self.Pcon @ self.A
+        self.K = self.Pobs @ self.C.T @ np.linalg.pinv(self.C @ self.Pobs @ self.C.T + self.V)
+        self.L = -np.linalg.pinv(self.R + self.B.T @ self.Pcon @ self.B) @ self.B.T @ self.Pcon @ self.A
 
     @property
     def state_size(self):
@@ -48,41 +49,6 @@ class KalmanLQG:
 
     def __str__(self):
         return "Kalman-LQG observer and controller with state size " + str(self.state_size) + ", input size " + str(self.input_size) + " and measurement size " + str(self.measure_size)
-
-    def __add__(self, other):
-        if self.state_size == 0:
-            return other
-        elif other.state_size == 0:
-            return self
-        A = linalg.block_diag(self.A, other.A)
-        B = np.hstack((self.B, other.B))
-        C = np.hstack((self.C, other.C))
-        W = linalg.block_diag(self.W, other.W)
-        V = self.V # this is a hacky workaround
-        # really there's no read noise that is *uniquely* associated with one process or the other
-        # so we just pick one, assuming that if we are adding KalmanLQGs
-        # either one's V matrix would be representative of the read noise properties of the whole
-        Q = linalg.block_diag(self.Q, other.Q)
-        R = self.R # hack
-        return KalmanLQG(A, B, C, W, V, Q, R)
-
-    def concat(self, other):
-        """
-        This differs from addition in that we don't combine the observed state variables.
-        In this package, we'll use this only for combining a tip filter with a tilt filter.
-        """
-        if self.state_size == 0:
-            return other
-        elif other.state_size == 0:
-            return self
-        A = linalg.block_diag(self.A, other.A)
-        B = linalg.block_diag(self.B, other.B)
-        C = linalg.block_diag(self.C, other.C)
-        W = linalg.block_diag(self.W, other.W)
-        V = linalg.block_diag(self.V, other.V)
-        Q = linalg.block_diag(self.Q, other.Q)
-        R = linalg.block_diag(self.R, other.R)
-        return KalmanLQG(A, B, C, W, V, Q, R)
 
     def predict(self, u):
         self.x = self.A @ self.x + self.B @ u
@@ -110,38 +76,55 @@ class KalmanLQG:
         
         return states
 
-    def sim_control(self, nsteps=1000):
+    def sim_control(self, nsteps=1000, x0=None):
         process_dist = mvn(cov=self.W, allow_singular=True)
         measure_dist = mvn(cov=self.V, allow_singular=True)
         x_init = copy(self.x)
-        self.x = process_dist.rvs()
+        if x0 is None:
+            self.x = process_dist.rvs()
+        else:
+            self.x = x0
         states = np.zeros((nsteps, self.state_size))
         states[0] = self.x
         for i in range(1, nsteps):
-            u = klv.control()
-            klv.predict(u)
+            u = self.control()
+            self.predict(u)
             x = self.A @ states[i-1] + self.B @ u + process_dist.rvs()
             y = self.C @ x + measure_dist.rvs()
-            klv.update(y)
+            self.update(y)
             states[i] = x
     
         self.x = x_init
         return states @ self.C.T
 
-    def sim_process(self, nsteps=1000):
+    def sim_process(self, nsteps=1000, x0=None):
         process_dist = mvn(cov=self.W, allow_singular=True)
         states = np.zeros((nsteps, self.state_size))
+        if x0 is None:
+            states[0] = process_dist.rvs()
+        else:
+            states[0] = x0
         states[0] = process_dist.rvs()
         for i in range(1, nsteps):
             states[i] = self.A @ states[i-1] + process_dist.rvs()
             
         return states @ self.C.T
 
-    def sim_control_nokf(self, nsteps=1000):
+    def sim_control_nokf(self, nsteps=1000, x0=None):
         process_dist = mvn(cov=self.W, allow_singular=True)
         states = np.zeros((nsteps, self.state_size))
-        states[0] = process_dist.rvs()
+        if x0 is None:
+            states[0] = process_dist.rvs()
+        else:
+            states[0] = x0
         for i in range(1, nsteps):
             states[i] = (self.A + self.B @ self.L) @ states[i-1] + process_dist.rvs()
             
         return states @ self.C.T
+
+    def improvement(self, x0=None, kfilter=True):
+        if kfilter:
+            return rms(self.sim_process(x0=x0)) / rms(self.sim_control(x0=x0))
+        else:
+            return rms(self.sim_process(x0=x0)) / rms(self.sim_control_nokf(x0=x0))
+            
