@@ -6,6 +6,7 @@ import sys
 sys.path.append("..")
 
 from src import *
+from src.utils import joindata
 from src.controllers import make_kalman_controllers
 from src.experiments.schedules import *
 from src.experiments.exp_utils import record_experiment, control_schedule
@@ -14,18 +15,14 @@ import numpy as np
 from matplotlib import pyplot as plt
 from functools import partial
 
-ol = np.load(joindata("openloop/ol_tt_stamp_12_08_2021_12_38_24.npy"))
-ident = SystemIdentifier()
-kf = ident.make_kfilter_from_openloop(ol)
-kf.Q *= 1e12
-kf.compute_gain()
-
-Q = np.zeros((4,4)) # LQG state penalty matrix 
-Q[0,0] = 1e4
-Q[2,2] = Q[0,0]
-R = 100 * np.identity(2) # LQG input penalty matrix
-
-kalman_integrate, kalman_lqg = make_kalman_controllers(kf, Q, R)
+collect_new_ol = False
+if collect_new_ol:
+    _, ol = record_olnone(t=100)
+else:
+    ol = np.load(joindata("openloop/ol_tt_stamp_12_08_2021_12_38_24.npy"))
+ident = SystemIdentifier(ol, fs=100)
+klqg = ident.make_klqg_from_openloop()
+kalman_integrate, kalman_lqg = make_kalman_controllers(klqg)
 
 def record_kf_integ(dist_schedule, t=1, gain=0.1, leak=1.0, **kwargs):
     path = "kfilter/kf"
@@ -67,15 +64,15 @@ simulate = False
 
 if simulate:
     ttvals = ol - kf.run(ol, kf.x) @ kf.C.T
-
 else:
-    times, ttvals = record_lqgnone(t=10)
+    times, ttvals = record_lqgnone(t=0.1)
 
-f, p = genpsd(ttvals[:,0])
+"""f, p = genpsd(ttvals[:,0])
 plt.loglog(f, p)
 plt.xlabel("Frequency (Hz)")
 plt.ylabel("Power (DM units^2/Hz)")
 plt.title("Closed loop results from Kalman-LQG control")
 if not simulate:
-    plt.savefig("/home/lab/asengupta/plots/cl_kf_lqg.pdf")
+    plt.savefig(joindata("../plots/cl_kf_lqg.pdf"))
 plt.show()
+"""

@@ -6,9 +6,13 @@ def identity(measurement, **kwargs):
     return measurement
 
 def make_kf_observer(klqg):
+    uzero = np.zeros((klqg.input_size,))
     def kfilter(measurement, **kwargs):
+        u = kwargs.get("u")
+        if u is None:
+            u = uzero
         klqg.update(measurement)
-        klqg.predict()
-        return klqg.x.astype(np.float32) # specific
+        klqg.predict(u)
+        return klqg.x
 
-    return klqg
+    return kfilter

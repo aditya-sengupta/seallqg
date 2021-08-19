@@ -20,8 +20,6 @@ bestflat = np.load(joindata("bestflats/bestflat.npy"))
 def record_im(out_q, t=1, timestamp=datetime.now().strftime("%d_%m_%Y_%H_%M_%S")):
     t1 = time.time()
     times = [] 
-    # there is no way this over the preallocation will be the bottleneck, it takes nanoseconds to append
-    # this would be much easier to feel good about in a lower level language
 
     while time.time() < t1 + t:
         imval = optics.getim()
@@ -39,11 +37,11 @@ def record_im(out_q, t=1, timestamp=datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
 def tt_from_queued_image(in_q, out_q, cmd_mtx, timestamp=datetime.now().strftime("%d_%m_%Y_%H_%M_%S")):
     imflat = np.load(joindata("bestflats/imflat.npy"))
     fname = joindata("recordings/rectt_stamp_{0}.npy".format(timestamp))
-    ttvals = [] # I have become the victim of premature optimization
+    ttvals = []
     while True:
         # if you don't have any work, take a nap!
         if in_q.empty():
-            time.sleep(0.01)
+            time.sleep(dt)
         else:
             v = in_q.get()
             in_q.task_done()
@@ -68,6 +66,7 @@ def control_schedule(q, control, t=1):
     control : callable
     The function to execute control.
     """
+    last_tt = None # the most recently applied control command
     t1 = time.time()
     while time.time() < t1 + t:
         if q.empty():
@@ -75,7 +74,8 @@ def control_schedule(q, control, t=1):
         else:
             tt = q.get()
             q.task_done()
-            optics.applydmc(control(tt))
+            last_tt, dmcmd = control(tt, u=last_tt)
+            optics.applydmc(dmcmd)
 
 def record_experiment(path, control_schedule, dist_schedule, t=1, verbose=True):
     _, cmd_mtx = make_im_cm(verbose)
@@ -118,10 +118,10 @@ def record_experiment(path, control_schedule, dist_schedule, t=1, verbose=True):
 
     q_compute.join()
     q_control.join()
-    record_thread.join()
-    compute_thread.join()
-    control_thread.join()
-    command_thread.join()
+    record_thread.join(t)
+    compute_thread.join(t)
+    control_thread.join(t)
+    command_thread.join(t)
 
     if verbose:
         print("Done with experiment.")

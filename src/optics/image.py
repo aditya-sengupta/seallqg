@@ -3,6 +3,7 @@
 from abc import ABC, abstractmethod
 import numpy as np
 from copy import copy
+import time
 import warnings
 
 from ..utils import joindata
@@ -95,7 +96,7 @@ class FAST(Optics):
 		if np.any(dmc > 1):
 			warnings.warn("saturating DM ones!")
 		dmc = np.maximum(0, np.minimum(1, dmc))
-		self.dmChannel.set_data(dmc)
+		self.dmChannel.set_data(dmc.astype(np.float32))
 
 class Sim(Optics):
 	def __init__(self):
@@ -115,6 +116,7 @@ class Sim(Optics):
 
 	def getim(self):
 		warnings.warn("Image propagation from the DM has not been implemented.")
+		time.sleep(0.01)
 		return np.zeros(self.imdims, dtype=np.float32)
 
 	def getdmc(self):

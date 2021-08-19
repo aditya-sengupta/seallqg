@@ -36,7 +36,7 @@ def ol_controller(state, **kwargs):
     """
     Do nothing.
     """
-    return optics.getdmc()
+    return np.array([0, 0]).astype(np.float32), optics.getdmc()
 
 def integrator(state, gain=0.1, leak=1.0, **kwargs):
     """
@@ -59,13 +59,17 @@ def integrator(state, gain=0.1, leak=1.0, **kwargs):
     The command to be put on the DM.
     """
     dmcn = tt_to_dmc(state)
-    return gain * dmcn + leak * optics.getdmc()
+    return state, gain * dmcn + leak * optics.getdmc()
 
-def lqg_controller(klqg, **kwargs):
-    """
-    Linear-quadratic-Gaussian control.
-    """
-    return optics.getdmc() + tt_to_dmc(klqg.control())
+def make_lqg_controller(klqg):
+    def lqg_controller(state, **kwargs):
+        """
+        Linear-quadratic-Gaussian control.
+        """
+        u = klqg.control()
+        return u, optics.getdmc() + tt_to_dmc(u)
+
+    return lqg_controller
 
 # Control laws: combination of an observer and controller
 openloop = partial(control, observer=identity, controller=ol_controller)
@@ -73,6 +77,7 @@ integrate = partial(control, observer=identity, controller=integrator)
 
 def make_kalman_controllers(klqg):
     kfilter = make_kf_observer(klqg)
+    lqg = make_lqg_controller(klqg)
     kalman_integrate = partial(control, observer=kfilter, controller=integrator)
-    kalman_lqg = partial(control, observer=kfilter, controller=lqg_controller)
+    kalman_lqg = partial(control, observer=kfilter, controller=lqg)
     return kalman_integrate, kalman_lqg
