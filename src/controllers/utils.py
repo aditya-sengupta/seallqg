@@ -13,9 +13,16 @@ def log_likelihood(func, data):
 def combine_matrices_for_klqg(base, addons, measure_once=False):
     matrices = []    
     for (i, (Mb, Ma)) in enumerate(zip(base, addons)):
-        if measure_once and i == 2: # C
-                matrices.append(np.hstack((Mb, Ma)))
+        if measure_once and i == 1: # B
+            matrices.append(np.vstack((Mb, Ma)))
+        elif measure_once and i == 2: # C
+            matrices.append(np.hstack((Mb, Ma)))
         elif measure_once and i == 4: # V
+            matrices.append(Ma)
+        elif measure_once and i == 6: # R
+            if Mb.shape == Ma.shape:
+                matrices.append(Mb + Ma)
+            else:
                 matrices.append(Ma)
         else:
             matrices.append(linalg.block_diag(Mb, Ma))

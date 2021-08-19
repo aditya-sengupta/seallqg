@@ -134,8 +134,8 @@ class SystemIdentifier:
             W[2 * i][2 * i] = variances[i]
         V = self.est_measurenoise(mode)**2 * np.identity(1)
         
-        Q = 100 * C.T @ np.eye(1) @ C # only penalize the observables
-        R = np.eye(1)
+        Q = 10 * C.T @ C # only penalize the observables
+        R = 0.1 * np.eye(1)
         return (A, B, C, W, V, Q, R)
 
     def make_2d_klqg_vibe(self):
@@ -146,8 +146,7 @@ class SystemIdentifier:
 
         return matrices
 
-    def make_klqg_ar(self, mode=0, ar_len=5):
-        kls = []
+    def make_klqg_ar(self, mode=0, ar_len=2):
         n = len(self.ol[:,mode])
         TTs_mat = np.empty((n - ar_len, ar_len))
         for i in range(ar_len):
@@ -161,20 +160,28 @@ class SystemIdentifier:
         for i in range(1, ar_len):
             A[i,i-1] += 1.0
 
-        B = np.zeros((ar_len, 0))
+        B = np.zeros((ar_len, 1))
+        B[0,0] = 1
         C = np.zeros((1, ar_len))
-        C[0,0] += 1
+        C[0,0] = 1
 
         W = np.zeros((ar_len, ar_len))
         W[0,0] = np.mean(ar_residual ** 2) + rms(self.ol)
 
         V = np.array([[self.est_measurenoise(mode) ** 2]])
 
-        Q = np.eye(ar_len)
-        R = 0.0 * np.eye(1)
+        Q = C.T @ C
+        R = 0.01 * np.eye(1)
         return (A, B, C, W, V, Q, R)
 
-    def make_klqg_from_openloop(self, model_atm=False, model_vib=True):
+    def make_2d_klqg_ar(self, ar_len=2):
+        matrices = [np.zeros((0,0)) for _ in range(7)]
+        for mode in range(2):
+            matrices = combine_matrices_for_klqg(matrices, self.make_klqg_ar(mode, ar_len))
+
+        return matrices
+
+    def make_klqg_from_openloop(self, model_atm=True, model_vib=True):
         """
         Designs a KalmanLQG object based on open-loop data. 
         (Essentially stitches together a bunch of KalmanLQG objects.)
@@ -195,7 +202,7 @@ class SystemIdentifier:
         self.N_vib_max = 1 # just for now
 
         A = np.zeros((0,0))
-        B = np.zeros((0,0))
+        B = np.zeros((0,2))
         C = np.zeros((2,0))
         W = np.zeros((0,0))
         V = np.zeros((0,0))
@@ -206,15 +213,13 @@ class SystemIdentifier:
         
         # self.energy_cutoff = np.mean(p[f > self.fw])
 
-        # f, p = genpsd(self.ol[:,mode], dt=1 / self.fs)
-
         if model_vib:
             vib_matrices = self.make_2d_klqg_vibe()
             matrices = combine_matrices_for_klqg(matrices, vib_matrices, measure_once=True)
 
         if model_atm:
-            for mode in range(2): # tip, tilt
-                atm_matrices = self.make_klqg_ar(mode)
-                matrices = combine_matrices_for_klqg(matrices, atm_matrices, measure_once=True)
+            atm_matrices = self.make_2d_klqg_ar()
+            matrices = combine_matrices_for_klqg(matrices, atm_matrices, measure_once=True)
 
+        matrices[1] /= np.sum(matrices[1])
         return KalmanLQG(*matrices)
