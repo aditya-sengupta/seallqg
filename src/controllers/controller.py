@@ -65,7 +65,6 @@ def lqg_controller(klqg, **kwargs):
     """
     Linear-quadratic-Gaussian control.
     """
-    # B = np.array([[1, 0, 0, 0], [0, 0, 1, 0]]).T # disgustingly hardcoded, put me in programming jail
     return optics.getdmc() + tt_to_dmc(klqg.control())
 
 # Control laws: combination of an observer and controller
@@ -73,10 +72,7 @@ openloop = partial(control, observer=identity, controller=ol_controller)
 integrate = partial(control, observer=identity, controller=integrator)
 
 def make_kalman_controllers(klqg):
-    # dinosaur
     kfilter = make_kf_observer(klqg)
-    # unobs_lqg = partial(control, observer=identity, controller=lqg_controller)
-    # unobs lqg is lowkey pointless because of the state-measurement mismatch
     kalman_integrate = partial(control, observer=kfilter, controller=integrator)
     kalman_lqg = partial(control, observer=kfilter, controller=lqg_controller)
     return kalman_integrate, kalman_lqg

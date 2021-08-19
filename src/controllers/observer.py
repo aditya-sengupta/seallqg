@@ -9,6 +9,6 @@ def make_kf_observer(klqg):
     def kfilter(measurement, **kwargs):
         klqg.update(measurement)
         klqg.predict()
-        return klqg.measure().astype(np.float32) # specific
+        return klqg.x.astype(np.float32) # specific
 
     return klqg

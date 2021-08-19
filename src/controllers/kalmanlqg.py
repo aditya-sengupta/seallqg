@@ -25,10 +25,13 @@ class KalmanLQG:
     def __init__(self, A, B, C, W, V, Q, R, verbose=True):
         self.A, self.B, self.C, self.W, self.V, self.Q, self.R = A, B, C, W, V, Q, R
         self.x = np.zeros((self.state_size,))
-        self.Pobs = solve_dare(A.T, C.T, W, V, verbose=verbose)
-        self.Pcon = solve_dare(A, B, Q, R, verbose=verbose)
-        self.K = self.Pobs @ C.T @ np.linalg.inv(C @ self.Pobs @ C.T + self.V)
-        self.L = -np.linalg.inv(R + B.T @ self.Pcon @ B) @ B.T @ self.Pcon @ A
+        self.recompute()
+
+    def recompute(self):
+        self.Pobs = solve_dare(self.A.T, self.C.T, self.W, self.V)
+        self.Pcon = solve_dare(self.A, self.B, self.Q, self.R)
+        self.K = self.Pobs @ self.C.T @ np.linalg.inv(self.C @ self.Pobs @ self.C.T + self.V)
+        self.L = -np.linalg.inv(self.R + self.B.T @ self.Pcon @ self.B) @ self.B.T @ self.Pcon @ self.A
 
     @property
     def state_size(self):
@@ -80,8 +83,8 @@ class KalmanLQG:
         R = linalg.block_diag(self.R, other.R)
         return KalmanLQG(A, B, C, W, V, Q, R)
 
-    def predict(self):
-        self.x = self.A @ self.x
+    def predict(self, u):
+        self.x = self.A @ self.x + self.B @ u
 
     def update(self, y):
         self.x = self.x + self.K @ (y - self.C @ self.x)
@@ -92,14 +95,15 @@ class KalmanLQG:
     def control(self):
         return self.L @ self.x
 
-    def run_filter(self, measurements, x0):
+    def filter(self, measurements, x0):
         steps = len(measurements)
         assert len(measurements.shape) == 2 and measurements.shape[1] == self.measure_size, "incorrect size for measurements in Kalman filter."
         states = np.empty((steps, self.state_size))
         self.x = x0
+        uzero = np.zeros((self.input_size,))
 
         for (i, m) in enumerate(measurements):
-            self.predict()
+            self.predict(uzero)
             self.update(m)
             states[i] = self.x
         

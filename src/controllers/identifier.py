@@ -82,7 +82,7 @@ class SystemIdentifier:
 
     def interpolate_psd(self, freqs, psd):
         mask = np.logical_and(self.f1 < freqs, freqs < self.f2)
-        return stats.linregress(np.log(freqs[mask], np.log(psd[mask])))
+        return stats.linregress(np.log(freqs[mask]), np.log(psd[mask]))
 
     def vibe_fit_freq(self, mode=0):
         # returns a 4xN np array with fit parameters, and a 1xN np array with variances.
