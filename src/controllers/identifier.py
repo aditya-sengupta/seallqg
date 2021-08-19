@@ -129,10 +129,12 @@ class SystemIdentifier:
         B = np.zeros((STATE_SIZE, 0))
         C = np.array([[1, 0] * (STATE_SIZE // 2)])
         W = np.zeros((STATE_SIZE, STATE_SIZE))
-        for i in range(variances. size):
+        Q = np.zeros((STATE_SIZE, STATE_SIZE))
+        for i in range(variances.size):
             W[2 * i][2 * i] = variances[i]
+            Q[2 * i][2 * i] = 100.0
         V = self.est_measurenoise(mode)**2 * np.identity(1)
-        Q = np.eye(STATE_SIZE)
+        
         R = np.zeros((0,0))
         return (A, B, C, W, V, Q, R)
 
@@ -193,11 +195,11 @@ class SystemIdentifier:
         self.N_vib_max = 1 # just for now
 
         # start off with the steering functionality
-        A = np.eye(2)
+        A = 0.1 * np.eye(2)
         B = np.eye(2)
         C = np.eye(2)
-        W = 1e-0 * np.eye(2)
-        V = 1e-6 * np.eye(2)
+        W = 1e-4 * np.eye(2)
+        V = 1e-2 * np.eye(2)
         Q = np.eye(2)
         R = 1e-6 * np.eye(2)
 
