@@ -105,7 +105,7 @@ def record_experiment(path, control_schedule, dist_schedule, t=1, verbose=True):
     q_control = Queue()
     record_thread = Thread(target=partial(record_im, t=t, timestamp=timestamp), args=(q_compute,))
     compute_thread = Thread(target=partial(tt_from_queued_image, timestamp=timestamp), args=(q_compute, q_control, cmd_mtx,))
-    control_thread = Thread(target=control_schedule, args=(q_control,))
+    control_thread = Thread(target=partial(control_schedule, t=t), args=(q_control,))
     command_thread = Thread(target=dist_schedule)
 
     if verbose:

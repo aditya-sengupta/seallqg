@@ -26,10 +26,10 @@ class KalmanLQG:
     """
     def __init__(self, A, B, C, W, V, Q, R, verbose=True):
         self.A, self.B, self.C, self.W, self.V, self.Q, self.R = A, B, C, W, V, Q, R
-        self.x = np.zeros((self.state_size,))
         self.recompute()
 
     def recompute(self):
+        self.x = np.zeros((self.state_size,))
         self.Pobs = solve_dare(self.A.T, self.C.T, self.W, self.V)
         self.Pcon = solve_dare(self.A, self.B, self.Q, self.R)
         self.K = self.Pobs @ self.C.T @ np.linalg.pinv(self.C @ self.Pobs @ self.C.T + self.V)

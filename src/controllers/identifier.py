@@ -127,7 +127,7 @@ class SystemIdentifier:
         A = self.make_state_transition_vibe(params)
         STATE_SIZE = 2 * params.shape[0]
         B = np.zeros((STATE_SIZE, 1))
-        B[0,0] = 1 / (2 * STATE_SIZE)
+        B[0,0] = -1 / (2 * STATE_SIZE)
         C = np.array([[1, 0] * (STATE_SIZE // 2)])
         W = np.zeros((STATE_SIZE, STATE_SIZE))
         for i in range(variances.size):
@@ -161,7 +161,7 @@ class SystemIdentifier:
             A[i,i-1] += 1.0
 
         B = np.zeros((ar_len, 1))
-        B[0,0] = 1
+        B[0,0] = -1
         C = np.zeros((1, ar_len))
         C[0,0] = 1
 
@@ -221,5 +221,5 @@ class SystemIdentifier:
             atm_matrices = self.make_2d_klqg_ar()
             matrices = combine_matrices_for_klqg(matrices, atm_matrices, measure_once=True)
 
-        matrices[1] /= np.sum(matrices[1])
+        matrices[1] /= np.abs(np.sum(matrices[1]))
         return KalmanLQG(*matrices)

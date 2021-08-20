@@ -28,7 +28,6 @@ def control(measurement, observer, controller, **kwargs):
     The command to be put on the DM.
     """
     state = observer(measurement, **kwargs)
-    print(state)
     return controller(state, **kwargs)
 
 # Controllers

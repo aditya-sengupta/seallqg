@@ -14,12 +14,13 @@ from src.experiments.exp_utils import record_experiment, control_schedule
 import numpy as np
 from matplotlib import pyplot as plt
 from functools import partial
+from datetime import datetime
 
-collect_new_ol = False
-if collect_new_ol:
-    _, ol = record_olnone(t=100)
-else:
-    ol = np.load(joindata("openloop/ol_tt_stamp_20_08_2021_09_45_48.npy"))
+ol = np.load(joindata("openloop/ol_tt_stamp_20_08_2021_12_51_53.npy"))
+# update this with the latest 100-second openloop
+
+ol_spectra = [genpsd(ol[:,i], dt=0.01) for i in range(2)]
+
 ident = SystemIdentifier(ol, fs=100)
 klqg = ident.make_klqg_from_openloop()
 def recompute_schedules(klqg):
@@ -63,15 +64,48 @@ def recompute_schedules(klqg):
 
     return record_kintnone, record_lqgnone
 
-record_kintnone, record_lqgnone = recompute_schedules(klqg)
-times, ttvals = record_kintnone(t=1)
+def kint(klqg):
+    klqg.recompute()
+    record_kintnone, record_lqgnone = recompute_schedules(klqg)
+    klqg.x = np.zeros(klqg.state_size,)
+    times, ttvals = record_kintnone(t=10)
+    return times, ttvals, datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
 
-"""f, p = genpsd(ttvals[:,0])
-plt.loglog(f, p)
-plt.xlabel("Frequency (Hz)")
-plt.ylabel("Power (DM units^2/Hz)")
-plt.title("Closed loop results from Kalman-LQG control")
-if not simulate:
-    plt.savefig(joindata("../plots/cl_kf_lqg.pdf"))
-plt.show()
-"""
+def lqg(klqg):
+    klqg.recompute()
+    record_kintnone, record_lqgnone = recompute_schedules(klqg)
+    klqg.x = np.zeros(klqg.state_size,)
+    times, ttvals = record_lqgnone(t=10)
+    return times, ttvals, datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
+
+def plot_cl_rtf(ttvals, mode, dt=datetime.now().strftime("%d_%m_%Y_%H_%M_%S")):
+    fig, axs = plt.subplots(2, figsize=(9,9))
+    fig.tight_layout()
+    plt.suptitle("LQG rejection")
+    for mode in range(2):
+        cl = ttvals[:,mode]
+        olc = ol[:len(cl),mode]
+        f_ol, p_ol = genpsd(olc, dt=0.01)
+        f_cl, p_cl = genpsd(cl, dt=0.01)
+        rms_ratio = rms(cl) / rms(olc)
+        rms_ratio = np.round(rms_ratio, 4)
+        axs[mode].loglog(f_ol, p_ol, label="Open-loop")
+        axs[mode].loglog(f_cl, p_cl, label="Closed-loop")
+        axs[mode].loglog(f_cl, p_cl / p_ol, label="Rejection TF")
+        axs[mode].legend()
+        axs[mode].set_xlabel("Frequency (Hz)")
+        axs[mode].set_ylabel(r"Power (DM $units^2/Hz$)")
+        axs[mode].set_title("Mode {0}, CL/OL RMS {1}".format(mode, rms_ratio))
+        fname = "../plots/cl_lqg" + dt
+        plt.savefig(joindata(fname))
+    plt.show()
+
+# start ad hoc modifications to the observe/control matrices
+klqg.R *= 1e6
+#klqg.Q[:2,:2] *= 1e2
+klqg.W[:2,:2] *= 1e4
+# end modifications
+
+if __name__ == "__main__":
+    times, ttvals, dt = lqg(klqg)
+    plot_cl_rtf(ttvals, dt)
