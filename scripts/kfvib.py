@@ -75,12 +75,12 @@ def lqg(klqg):
     klqg.recompute()
     record_kintnone, record_lqgnone = recompute_schedules(klqg)
     klqg.x = np.zeros(klqg.state_size,)
-    times, ttvals = record_lqgnone(t=10)
+    times, ttvals = record_lqgnone(t=20)
     return times, ttvals, datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
 
 def plot_cl_rtf(ttvals, mode, dt=datetime.now().strftime("%d_%m_%Y_%H_%M_%S")):
     fig, axs = plt.subplots(2, figsize=(9,9))
-    fig.tight_layout()
+    fig.tight_layout(pad=4.0)
     plt.suptitle("LQG rejection")
     for mode in range(2):
         cl = ttvals[:,mode]
@@ -88,7 +88,7 @@ def plot_cl_rtf(ttvals, mode, dt=datetime.now().strftime("%d_%m_%Y_%H_%M_%S")):
         f_ol, p_ol = genpsd(olc, dt=0.01)
         f_cl, p_cl = genpsd(cl, dt=0.01)
         rms_ratio = rms(cl) / rms(olc)
-        rms_ratio = np.round(rms_ratio, 4)
+        rms_ratio = str(np.round(rms_ratio, 4))[:7]
         axs[mode].loglog(f_ol, p_ol, label="Open-loop")
         axs[mode].loglog(f_cl, p_cl, label="Closed-loop")
         axs[mode].loglog(f_cl, p_cl / p_ol, label="Rejection TF")
