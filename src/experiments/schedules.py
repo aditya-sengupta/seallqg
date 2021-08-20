@@ -58,4 +58,4 @@ def atmvib_schedule(t, atm=0, vib=2, scaledown=10, **kwargs):
     control_commands = control_commands[:int(100*t)]
     for cmd in control_commands:
         time.sleep(dt)
-        applytiptilt(cmd[0], cmd[1], verbose=False)
+        applytiptilt(cmd[0], cmd[1])

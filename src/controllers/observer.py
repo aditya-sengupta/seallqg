@@ -13,6 +13,6 @@ def make_kf_observer(klqg):
             u = uzero
         klqg.update(measurement)
         klqg.predict(u)
-        return klqg.x
+        return klqg.measure()
 
     return kfilter

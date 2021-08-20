@@ -74,7 +74,7 @@ def vz(n, m, IMamp): #determine the minimum IMamp (interaction matrix amplitude)
 	zern = funz(n, m, IMamp)
 	time.sleep(tsleep)
 	imzern = optics.stack(10)
-	applydmc(bestflat)
+	optics.applydmc(bestflat)
 	time.sleep(tsleep)
 	imflat = optics.stack(10)
 	return imflat
@@ -141,7 +141,7 @@ def linearity(mode=0, nlin=20, amp=IMamp, plot=True):
 		coeffsout = genzerncoeffs(mode, zernamp)
 		zernampout[:,i] = coeffsout
 	
-	applydmc(bestflat)
+	optics.applydmc(bestflat)
 
 	if plot:
 		plt.figure()

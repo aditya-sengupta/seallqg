@@ -87,7 +87,7 @@ class FAST(Optics):
 	def getdmc(self): # read current command applied to the DM
 		return self.dmChannel.get_data()
 
-	def applydmc(self, dmc, min_cmd=0.05, max_cmd=0.95): #apply command to the DM
+	def applydmc(self, dmc, min_cmd=0.15, max_cmd=0.85): #apply command to the DM
 		"""
 		Applies the DM command `dmc`.
 		"""
@@ -126,7 +126,6 @@ class Sim(Optics):
 		self.dmc = np.maximum(0, np.minimum(1, dmc))
 	
 try:
-	from krtc import shmlib
 	optics = FAST()
 except (ModuleNotFoundError, OSError):
 	print("Running in simulation mode.")

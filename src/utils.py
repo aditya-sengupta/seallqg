@@ -6,6 +6,7 @@ from scipy.signal import welch, windows
 from copy import deepcopy
 from os import path
 from socket import gethostname
+from datetime import datetime
 
 from .constants import dt
 
@@ -62,3 +63,12 @@ def genpsd(tseries, dt=dt, nseg=4, remove_dc=True):
 	if remove_dc:
 		freq, psd = freq[1:], psd[1:] #remove DC component (freq=0 Hz)
 	return freq, psd
+
+def save_pupil_image(optics):
+	expt_init = optics.get_expt()
+	optics.set_expt(1e-3)
+	image = optics.stack(100)
+	path = joindata("pupils/pupil_" + datetime.now().strftime("%d_%m_%Y_%H_%M_%S"))
+	np.save(path, image)
+	optics.set_expt(expt_init)
+	return image
