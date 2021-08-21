@@ -64,12 +64,12 @@ def recompute_schedules(klqg):
 
     return record_kintnone, record_lqgnone
 
-def run_experiment(klqg, i=1):
+def run_experiment(klqg, t=10, i=1):
     klqg.recompute()
     # assert klqg.improvement() >= 1, "Kalman-LQG setup does not improve in simulation."
     exp = recompute_schedules(klqg)[i]
     klqg.x = np.zeros(klqg.state_size,)
-    times, ttvals = exp(t=10)
+    times, ttvals = exp(t=t)
     return times, ttvals, datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
 
 kint = partial(run_experiment, i=0)
@@ -99,10 +99,10 @@ def plot_cl_rtf(ttvals, mode, dt=datetime.now().strftime("%d_%m_%Y_%H_%M_%S"), s
     plt.show()
 
 # start ad hoc modifications to the observe/control matrices
-klqg.W[2:,2:] *= 1e2
+klqg.W *= 1e2
 klqg.R *= 1e6
 # end modifications
 
 if __name__ == "__main__":
-    times, ttvals, dt = lqg(klqg)
+    times, ttvals, dt = kint(klqg, t=50)
     plot_cl_rtf(ttvals, dt)
