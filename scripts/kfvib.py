@@ -16,7 +16,7 @@ from matplotlib import pyplot as plt
 from functools import partial
 from datetime import datetime
 
-ol = np.load(joindata("openloop/ol_tt_stamp_20_08_2021_12_51_53.npy"))
+ol = np.load(joindata("openloop/ol_tt_stamp_21_08_2021_08_56_31.npy"))
 # update this with the latest 100-second openloop
 
 ol_spectra = [genpsd(ol[:,i], dt=0.01) for i in range(2)]
@@ -64,21 +64,18 @@ def recompute_schedules(klqg):
 
     return record_kintnone, record_lqgnone
 
-def kint(klqg):
+def run_experiment(klqg, i=1):
     klqg.recompute()
-    record_kintnone, record_lqgnone = recompute_schedules(klqg)
+    # assert klqg.improvement() >= 1, "Kalman-LQG setup does not improve in simulation."
+    exp = recompute_schedules(klqg)[i]
     klqg.x = np.zeros(klqg.state_size,)
-    times, ttvals = record_kintnone(t=10)
+    times, ttvals = exp(t=10)
     return times, ttvals, datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
 
-def lqg(klqg):
-    klqg.recompute()
-    record_kintnone, record_lqgnone = recompute_schedules(klqg)
-    klqg.x = np.zeros(klqg.state_size,)
-    times, ttvals = record_lqgnone(t=20)
-    return times, ttvals, datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
+kint = partial(run_experiment, i=0)
+lqg = partial(run_experiment, i=1)
 
-def plot_cl_rtf(ttvals, mode, dt=datetime.now().strftime("%d_%m_%Y_%H_%M_%S")):
+def plot_cl_rtf(ttvals, mode, dt=datetime.now().strftime("%d_%m_%Y_%H_%M_%S"), save=True):
     fig, axs = plt.subplots(2, figsize=(9,9))
     fig.tight_layout(pad=4.0)
     plt.suptitle("LQG rejection")
@@ -96,14 +93,14 @@ def plot_cl_rtf(ttvals, mode, dt=datetime.now().strftime("%d_%m_%Y_%H_%M_%S")):
         axs[mode].set_xlabel("Frequency (Hz)")
         axs[mode].set_ylabel(r"Power (DM $units^2/Hz$)")
         axs[mode].set_title("Mode {0}, CL/OL RMS {1}".format(mode, rms_ratio))
-        fname = "../plots/cl_lqg" + dt
-        plt.savefig(joindata(fname))
+        fname = "../plots/cl_lqg_" + dt + ".pdf"
+        if save:
+            plt.savefig(joindata(fname))
     plt.show()
 
 # start ad hoc modifications to the observe/control matrices
+klqg.W[2:,2:] *= 1e2
 klqg.R *= 1e6
-#klqg.Q[:2,:2] *= 1e2
-klqg.W[:2,:2] *= 1e4
 # end modifications
 
 if __name__ == "__main__":

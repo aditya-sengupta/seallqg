@@ -24,11 +24,12 @@ def control(measurement, observer, controller, **kwargs):
 
     Returns
     -------
-    command : np.ndarray, (ydim, xdim)
+    command : np.ndarrßßay, (ydim, xdim)
     The command to be put on the DM.
     """
     state = observer(measurement, **kwargs)
-    return controller(state, **kwargs)
+    u = controller(state, **kwargs)
+    return u
 
 # Controllers
 
