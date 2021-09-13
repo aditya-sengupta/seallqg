@@ -54,7 +54,12 @@ def align_fast(view=True):
 
 	#grid tip/tilt search 
 	namp=10
-	amparr=np.linspace(-0.1,0.1,namp) #note the range of this grid search is can be small, assuming day to day drifts are minimal and so you don't need to search far from the previous day to find the new optimal alignment; for larger offsets the range may need to be increases (manimum search range is -1 to 1); but, without spanning the full -1 to 1 range this requires manual tuning of the limits to ensure that the minimum is not at the edge
+	amparr=np.linspace(-0.1,0.1,namp) 
+	# note the range of this grid search is can be small, assuming day to day drifts are minimal 
+	# and so you don't need to search far from the previous day to find the new optimal alignment; 
+	# for larger offsets the range may need to be increases (manimum search range is -1 to 1); 
+	# but, without spanning the full -1 to 1 range this requires manual tuning of the limits 
+	# to ensure that the minimum is not at the edge
 	ttoptarr=np.zeros((namp,namp))
 	for i in range(namp):
 		for j in range(namp):
@@ -64,9 +69,11 @@ def align_fast(view=True):
 			mtfopt=mtf(imopt)
 			sidefraction=np.sum(mtfopt[sidemaskind])/np.sum(mtfopt)
 			cenfraction=np.sum(mtfopt[cenmaskind])/np.sum(mtfopt)
-			ttoptarr[i,j]=sidefraction+0.1/cenfraction #the factor of 0.01 is a relative weight; because we only expect the fringe visibility to max out at 1%, this attempts to give equal weight to both terms 
+			ttoptarr[i,j]=sidefraction+0.1/cenfraction 
+			# the factor of 0.01 is a relative weight; because we only expect the fringe visibility to max out at 1%, 
+			# this attempts to give equal weight to both terms 
 
-	medttoptarr=median_filter(ttoptarr,3) #smooth out hot pizels, attenuating noise issues
+	medttoptarr=median_filter(ttoptarr,3) #smooth out hot pixels, attenuating noise issues
 	indopttip,indopttilt=np.where(medttoptarr==np.max(medttoptarr))
 	indopttip,indopttilt=indopttip[0],indopttilt[0]
 	applytiptilt(amparr[indopttip],amparr[indopttilt])

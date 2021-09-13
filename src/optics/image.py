@@ -87,9 +87,9 @@ class FAST(Optics):
 	def getdmc(self): # read current command applied to the DM
 		return self.dmChannel.get_data()
 
-	def applydmc(self, dmc, min_cmd=0.05, max_cmd=0.95): #apply command to the DM
+	def applydmc(self, dmc, min_cmd=0.05, max_cmd=0.95):
 		"""
-		Applies the DM command `dmc`.
+		Applies the DM command `dmc`, with safeguards
 		"""
 		if np.any(dmc < min_cmd):
 			warnings.warn("saturating DM zeros!")
