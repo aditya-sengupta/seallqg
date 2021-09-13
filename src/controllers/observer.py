@@ -12,7 +12,7 @@ def make_kf_observer(klqg):
         if u is None:
             u = uzero
         klqg.update(measurement)
-        # print(measurement - klqg.measure()) # innovationß
+        print(measurement - klqg.measure()) # innovationß
         klqg.predict(u)
         return klqg.measure()
 

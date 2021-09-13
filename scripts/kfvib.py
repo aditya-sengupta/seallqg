@@ -99,10 +99,9 @@ def plot_cl_rtf(ttvals, mode, dt=datetime.now().strftime("%d_%m_%Y_%H_%M_%S"), s
     plt.show()
 
 # start ad hoc modifications to the observe/control matrices
-klqg.W *= 1e2
 klqg.R *= 1e6
 # end modifications
 
 if __name__ == "__main__":
-    times, ttvals, dt = kint(klqg, t=50)
+    times, ttvals, dt = kint(klqg, t=10)
     plot_cl_rtf(ttvals, dt)

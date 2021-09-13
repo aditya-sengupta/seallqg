@@ -161,7 +161,7 @@ class SystemIdentifier:
             A[i,i-1] += 1.0
 
         B = np.zeros((ar_len, 1))
-        B[0,0] = -1
+        #B[0,0] = -1
         C = np.zeros((1, ar_len))
         C[0,0] = 1
 
@@ -211,8 +211,6 @@ class SystemIdentifier:
 
         matrices = [A, B, C, W, V, Q, R]
         
-        # self.energy_cutoff = np.mean(p[f > self.fw])
-
         if model_vib:
             vib_matrices = self.make_2d_klqg_vibe()
             matrices = combine_matrices_for_klqg(matrices, vib_matrices, measure_once=True)
@@ -221,5 +219,17 @@ class SystemIdentifier:
             atm_matrices = self.make_2d_klqg_ar()
             matrices = combine_matrices_for_klqg(matrices, atm_matrices, measure_once=True)
 
-        matrices[1] /= np.abs(np.sum(matrices[1]))
+        # matrices[1] /= (np.abs(np.sum(matrices[1])))
+        # steering + delay model here
+        matrices = combine_matrices_for_klqg(matrices, [
+            np.zeros((2,2)),
+            -np.eye(2),
+            np.eye(2),
+            1e-6 * np.eye(2),
+            1e-6 * np.eye(2),
+            1e-6 * np.eye(2),
+            np.eye(2)
+            ],
+        measure_once=True)
+
         return KalmanLQG(*matrices)
