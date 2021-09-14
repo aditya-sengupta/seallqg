@@ -13,7 +13,7 @@ import matplotlib as mpl
 import multiprocessing as mp
 
 from .ao import * #utility functions to use throughout the simulation
-from ..utils import joindata
+from ..utils import joindata, joinsimdata
 
 p3i = lambda i: int(round(i)) #python2 to 3: change indicies that are floats to integers
 
@@ -165,7 +165,7 @@ def funsin(freq,pa):
 	sin=rotate(amp*np.sin(2.*np.pi*freq*imagepix/pupilpix*grid[0]/grid[0][-1,0]),pa,reshape=False,mode='wrap')
 	im_out=(propagate(sin)-static_psf)
 	im_spot_loc=np.abs(scc(im_out)) #this quantity appears to be the best way of finding the spot position, instead of propagate(sin,pin=False), (propagate(sin,pin=False)-propagate(no_phase_offset,pin=False)), or np.abs(scc(propagate(sin)))-np.abs(scc(propagate(no_phase_offset)))
-	ygridcen,xgridcen=np.where(im_spot_loc*DH_mask==np.max(im_spot_loc*DH_mask))
+	ygridcen,xgridcen = np.where(im_spot_loc*DH_mask == np.max(im_spot_loc*DH_mask))
 	buttgrid=np.sqrt((grid[0]-ygridcen[0])**2.+(grid[1]-xgridcen[0])**2.)
 	spot_mask=np.zeros(aperture.shape)
 	spot_mask[np.where(buttgrid<beam_ratio/2.*1.5)]=1. #note the tunable factor of currently 1.5, setting how much overlap there is with the adjascent spots
@@ -199,10 +199,10 @@ loopx,loopy=np.array(list(allx)).astype(float),np.array(list(ally)).astype(float
 freq_loop=np.sqrt((loopy-imagepix/2.)**2.+(loopx-imagepix/2.)**2.)/beam_ratio #sine wave frequency for (lambda/D)**2 region w/in DH
 pa_loop=90.-180./np.pi*np.arctan2(loopy-imagepix/2.,loopx-imagepix/2.) #position angle of sine wave for (lambda/D)**2 region w/in DH
 
-n=2*len(freq_loop)
-iter_arr=list(range(len(pa_loop)))
-refdir = joinsimdata("sin_amp_" + str(int(round(amp/1e-9*wav0/(2.*np.pi)))) + "_tg")
-joinrefdir = lambda f: path.join(refdir, f)
+n = 2*len(freq_loop)
+iter_arr = list(range(len(pa_loop)))
+refdir = "sin_amp_" + str(int(round(amp/1e-9*wav0/(2.*np.pi)))) + "_tg"
+joinrefdir = lambda f: joinsimdata(path.join(refdir, f))
 
 def return_vars():
 	return imagepix,pupilpix,beam_ratio,e,no_phase_offset,xy_dh,grid,N_act,wav0,amp,aperture,indpup,ind_mask_dh,loopx,loopy,freq_loop,pa_loop,n,refdir,iter_arr

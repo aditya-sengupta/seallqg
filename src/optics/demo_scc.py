@@ -3,6 +3,7 @@ demo code, using SCC as both a HOWFS and LOWFS, to run closed-loop FAST control
 '''
 
 import os
+from os import path
 import sys
 import itertools
 import numpy as np
@@ -13,14 +14,18 @@ import matplotlib as mpl
 import multiprocessing as mp
 
 from .ao import * #utility functions to use throughout the simulation
+from .calibrate_scc import make_im_scc_howfs
 from .par_functions import return_vars,propagate,scc,make_IM,make_cov,make_covinvrefj
 from ..utils import joinsimdata, joinplot
 
 imagepix,pupilpix,beam_ratio,e,no_phase_offset,xy_dh,grid,N_act,wav0,amp,aperture,indpup,ind_mask_dh,loopx,loopy,freq_loop,pa_loop,n,refdir,iter_arr=return_vars()
 
 #high order SCC command matrix
-import calibrate_scc
-covinvcor = np.load(joinsimdata('covinvcor_'+refdir+'.npy'))
+covinvcor_path = joinsimdata('covinvcor_' + refdir + '.npy')
+if path.isfile(covinvcor_path):
+	covinvcor = np.load(joinsimdata('covinvcor_' + refdir + '.npy'))
+else:
+	covinvcor = make_im_scc_howfs()
 
 #functions to generate coefficients and DM commands
 i_arr=list(range(n))
@@ -186,81 +191,84 @@ else:
 	plot_opt_gain_ttf(coeffslowfsolarr,t_int,t_lag,freq_loop,imagepix,N_act,beam_ratio)
 	'''
 
+def close_sim_loop():
+	#close the loop!
+	phatm = make_noise_pl(nmrms,imagepix,pupilpix,wav0,-2)
+	phatmin = phatm
+	phdm = phout_diff
+	#phdm=no_phase_offset
+	imin, phatmin = genim(phatmin, phout_diff) #first frame
+	np.save(joinsimdata('phdm.npy'), phdm)
+	np.save(joinsimdata('phatmin.npy'), phatmin)
+	np.save(joinsimdata('imin.npy'), imin)
 
-#close the loop!
-phatm=make_noise_pl(nmrms,imagepix,pupilpix,wav0,-2)
-phatmin=phatm
-phdm=phout_diff
-#phdm=no_phase_offset
-imin,phatmin=genim(phatmin, phout_diff) #first frame
-np.save(joinsimdata('phdm.npy'), phdm)
-np.save(joinsimdata('phatmin.npy'), phatmin)
-np.save(joinsimdata('imin.npy'), imin)
+	#manually set DH corners equal to zero gain; not sure why there are a non-zero gain as I am setting these modes to zero in the IM...
+	ind_corner=np.where(freq_loop>N_act/2.)[0]
+	gopt[ind_corner,:],gopt[ind_corner+len(freq_loop),:]=0.,0.
 
-#manually set DH corners equal to zero gain; not sure why there are a non-zero gain as I am setting these modes to zero in the IM...
-ind_corner=np.where(freq_loop>N_act/2.)[0]
-gopt[ind_corner,:],gopt[ind_corner+len(freq_loop),:]=0.,0.
+	vpup=lambda im:(aperture*im)[p3i(imagepix/2-pupilpix/2):p3i(imagepix/2+pupilpix/2),p3i(imagepix/2-pupilpix/2):p3i(imagepix/2+pupilpix/2)]
+	vim=lambda im: im[p3i(imagepix/2-N_act/2*beam_ratio):p3i(imagepix/2+N_act/2*beam_ratio),p3i(imagepix/2-N_act/2*beam_ratio):p3i(imagepix/2+N_act/2*beam_ratio)]
 
-vpup=lambda im:(aperture*im)[p3i(imagepix/2-pupilpix/2):p3i(imagepix/2+pupilpix/2),p3i(imagepix/2-pupilpix/2):p3i(imagepix/2+pupilpix/2)]
-vim=lambda im: im[p3i(imagepix/2-N_act/2*beam_ratio):p3i(imagepix/2+N_act/2*beam_ratio),p3i(imagepix/2-N_act/2*beam_ratio):p3i(imagepix/2+N_act/2*beam_ratio)]
+	size=20
+	font = {'family' : 'Times New Roman',
+			'size'   : size}
 
-size=20
-font = {'family' : 'Times New Roman',
-        'size'   : size}
+	mpl.rc('font', **font)
+	mpl.rcParams['image.interpolation'] = 'nearest'
 
-mpl.rc('font', **font)
-mpl.rcParams['image.interpolation'] = 'nearest'
+	from matplotlib import animation
 
-from matplotlib import animation
+	fig,axs=plt.subplots(ncols=2,nrows=2,figsize=(10,10))
+	[ax.axis('off') for ax in axs.flatten()]
+	[axs.flatten()[i].set_title(['OL phase','CL phase','OL SCC image','CL SCC image'][i],size=size) for i in list(range(4))]
+	im1=axs[0,0].imshow(vpup(phatm),vmin=-1,vmax=1)
+	im2=axs[0,1].imshow(vpup(phatm),vmin=-1,vmax=1)
+	im3=axs[1,0].imshow(vim(imin),vmin=0,vmax=1e-5)
+	im4=axs[1,1].imshow(vim(imin),vmin=0,vmax=1e-5)
+	fig.suptitle('t=0.000s, OL',y=0.1,x=0.51)
 
-fig,axs=plt.subplots(ncols=2,nrows=2,figsize=(10,10))
-[ax.axis('off') for ax in axs.flatten()]
-[axs.flatten()[i].set_title(['OL phase','CL phase','OL SCC image','CL SCC image'][i],size=size) for i in list(range(4))]
-im1=axs[0,0].imshow(vpup(phatm),vmin=-1,vmax=1)
-im2=axs[0,1].imshow(vpup(phatm),vmin=-1,vmax=1)
-im3=axs[1,0].imshow(vim(imin),vmin=0,vmax=1e-5)
-im4=axs[1,1].imshow(vim(imin),vmin=0,vmax=1e-5)
-fig.suptitle('t=0.000s, OL',y=0.1,x=0.51)
+	Tint_cl=1 #number of seconds to run the closed-loop simulation
+	num_time_steps=int(Tint_cl/t_int)
+	time_steps = np.arange(num_time_steps)
 
-Tint_cl=1 #number of seconds to run the closed-loop simulation
-num_time_steps=int(Tint_cl/t_int)
-time_steps = np.arange(num_time_steps)
+	def animate(it):
+		phdm=np.load('phdm.npy')
+		phatmin=np.load('phatmin.npy')
+		imin=np.load('imin.npy')
+		
+		# note that there is no servo lag simulated here; 
+		# DM commands are applied to the atmospheric realization starting at the end of the previous exposure 
+		# (so this is at least simulating half a frame lag). 
+		# at 100 Hz, even a 1 ms lag is only one tenth of a frame delay, effectively negligible
 
-def animate(it):
-	phdm=np.load('phdm.npy')
-	phatmin=np.load('phatmin.npy')
-	imin=np.load('imin.npy')
-	
-	#note that there is no servo lag simulated here; DM commands are applied to the atmospheric realization starting at the end of the previous exposure (so this is at least simulating half a frame lag). at 100 Hz, even a 1 ms lag is only one tenth of a frame delay, effectively negligible
+		if it*t_int<=0.25: #open loop
+			phlsq,imoutlsq=corr(imin,np.zeros(gopt.shape))
+			phlowfs=lowfsout(imin,np.zeros(gopt_lowfs.shape))
+			fig.suptitle('t='+str(round(t_int*it,4))+'s, OL',y=0.1,x=0.51)
+		elif it*t_int<=0.5: #TTF loop closed
+			phlsq,imoutlsq=corr(imin,np.zeros(gopt.shape))
+			phlowfs=lowfsout(imin,gopt_lowfs)
+			fig.suptitle('t='+str(round(t_int*it,4))+'s, CL TTF',y=0.1,x=0.51)
+		else: #all loops closed
+			phlsq,imoutlsq=corr(imin,gopt)
+			phlowfs=lowfsout(imin,gopt_lowfs)
+			fig.suptitle('t='+str(round(t_int*it,4))+'s, CL TTF+HO',y=0.1,x=0.51)
+		phdm=phdm+phlsq+phlowfs
 
-	if it*t_int<=0.25: #open loop
-		phlsq,imoutlsq=corr(imin,np.zeros(gopt.shape))
-		phlowfs=lowfsout(imin,np.zeros(gopt_lowfs.shape))
-		fig.suptitle('t='+str(round(t_int*it,4))+'s, OL',y=0.1,x=0.51)
-	elif it*t_int<=0.5: #TTF loop closed
-		phlsq,imoutlsq=corr(imin,np.zeros(gopt.shape))
-		phlowfs=lowfsout(imin,gopt_lowfs)
-		fig.suptitle('t='+str(round(t_int*it,4))+'s, CL TTF',y=0.1,x=0.51)
-	else: #all loops closed
-		phlsq,imoutlsq=corr(imin,gopt)
-		phlowfs=lowfsout(imin,gopt_lowfs)
-		fig.suptitle('t='+str(round(t_int*it,4))+'s, CL TTF+HO',y=0.1,x=0.51)
-	phdm=phdm+phlsq+phlowfs
+		imout_ol,phatmout=genim(phatmin,phout_diff)
+		imout,phatmout=genim(phatmin,phdm)
+		
+		np.save(joinsimdata('phdm.npy'),phdm)
+		np.save(joinsimdata('phatmin.npy'),phatmout)
+		np.save(joinsimdata('imin.npy'),imout)
 
-	imout_ol,phatmout=genim(phatmin,phout_diff)
-	imout,phatmout=genim(phatmin,phdm)
-	
-	np.save(joinsimdata('phdm.npy'),phdm)
-	np.save(joinsimdata('phatmin.npy'),phatmout)
-	np.save(joinsimdata('imin.npy'),imout)
+		im1.set_data(vpup(phatmout))
+		im2.set_data(vpup(phatmout+phdm-phout_diff))
+		im3.set_data(vim(imout_ol))
+		im4.set_data(vim(imout))
+		print('closed-loop: iteration {0} of {1}'.format(it, num_time_steps))
+		return [im1,im2,im3,im4]
 
-	im1.set_data(vpup(phatmout))
-	im2.set_data(vpup(phatmout+phdm-phout_diff))
-	im3.set_data(vim(imout_ol))
-	im4.set_data(vim(imout))
-	print('closed-loop: iteration {0} of {1}'.format(it, num_time_steps))
-	return [im1,im2,im3,im4]
-
-ani = animation.FuncAnimation(fig, animate, time_steps, interval=50, blit=True)
-ani.save(joinplot('fast_cl_demo.gif'),writer='imagemagick')
-plt.close(fig)
+	ani = animation.FuncAnimation(fig, animate, time_steps, interval=50, blit=True)
+	ani.save(joinplot('fast_cl_demo.gif'),writer='imagemagick')
+	plt.close(fig)
