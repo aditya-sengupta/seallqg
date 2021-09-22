@@ -54,7 +54,12 @@ def align_fast(view=True):
 
 	#grid tip/tilt search 
 	namp=10
-	amparr=np.linspace(-0.1,0.1,namp) #note the range of this grid search is can be small, assuming day to day drifts are minimal and so you don't need to search far from the previous day to find the new optimal alignment; for larger offsets the range may need to be increases (manimum search range is -1 to 1); but, without spanning the full -1 to 1 range this requires manual tuning of the limits to ensure that the minimum is not at the edge
+	amparr=np.linspace(-0.1,0.1,namp) 
+	# note the range of this grid search is can be small, 
+	# assuming day to day drifts are minimal and so you don't need to search far from the previous day 
+	# to find the new optimal alignment; for larger offsets the range may need to be increases 
+	# (manimum search range is -1 to 1); but, without spanning the full -1 to 1 range 
+	# this requires manual tuning of the limits to ensure that the minimum is not at the edge
 	ttoptarr=np.zeros((namp,namp))
 	for i in range(namp):
 		for j in range(namp):
