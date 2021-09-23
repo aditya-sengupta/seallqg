@@ -11,8 +11,10 @@ from scipy.signal import welch
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import multiprocessing as mp
+
 from .ao import * #utility functions to use throughout the simulation
 from .par_functions import return_vars, propagate, scc, make_IM, make_cov, make_covinvrefj
+from ..utils import joinsimdata
 
 imagepix,pupilpix,beam_ratio,e,no_phase_offset,xy_dh,grid,N_act,wav0,amp,aperture,indpup,ind_mask_dh,loopx,loopy,freq_loop,pa_loop,n,refdir,iter_arr=return_vars()
 immask = np.zeros((aperture.shape))
@@ -22,8 +24,8 @@ phout_diff = np.load(joinsimdata("ph_diff.npy"))
 sccref = scc(propagate(phout_diff))
 
 if path.isfile(joinsimdata("covinvcor_lowfs.npy")):
-	zrefarr=np.load('zrefarr.npy')
-	covinvcor_lowfs=np.load('covinvcor_lowfs.npy')
+	zrefarr = np.load(joinsimdata("zrefarr.npy"))
+	covinvcor_lowfs = np.load(joinsimdata("covinvcor_lowfs.npy"))
 else:
 	rho, phi = polar_grid(imagepix,pupilpix)
 	def zern(n,m,famp):

@@ -23,6 +23,7 @@ imagepix, pupilpix, beam_ratio, e, no_phase_offset,xy_dh,grid,N_act,wav0,amp,ape
 
 def make_im_scc_howfs():
 	covinvcor_path = joindata(path.join("scc_sim", "covinvcor_{0}.npy".format(refdir)))
+	print(covinvcor_path)
 	if path.isfile(covinvcor_path):
 		covinvcor = np.load(covinvcor_path)
 	else:
@@ -68,13 +69,13 @@ def make_im_scc_howfs():
 		np.save(joinsimdata('cov_'+refdir),cov)
 
 		#invert covariance matrix:
-		rcond=  1e-5 #for this setup, anything below rcond = 1e-2 makes no difference becuase of the implemented binary masks; this will likely not be true and need to be optimized in real life
+		rcond = 1e-5 #for this setup, anything below rcond = 1e-2 makes no difference becuase of the implemented binary masks; this will likely not be true and need to be optimized in real life
 		covinv = np.linalg.pinv(cov,rcond=rcond)
 		np.save(joinsimdata('covinv_'+refdir),covinv)
 		cov = False
 
 		#dot product by reference vector to not have to save reference images
-		refi=np.load(joinsimdata(refdir+'/'+str(i)+'.npy'))
+		refi = np.load(joinsimdata(refdir+'/'+str(i)+'.npy'))
 		
 		tpool=mp.Pool(processes=numcores)
 		results=tpool.map(make_covinvrefj,i_arr)

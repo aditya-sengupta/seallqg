@@ -22,10 +22,10 @@ N_act = 32 #number of actuators across the pupil
 
 imagepix = 1024
 beam_ratio = 5.361256544502618 #pixels/resel
-pupilpix = p3i(round(imagepix/beam_ratio))
+pupilpix = int(round(imagepix/beam_ratio))
 
 grid = np.mgrid[0:imagepix,0:imagepix]
-xcen,ycen = imagepix/2, imagepix/2
+xcen, ycen = imagepix/2, imagepix/2
 xy_dh = np.sqrt((grid[1]-imagepix/2.)**2.+(grid[0]-imagepix/2.)**2.)
 
 aperture = np.zeros((imagepix,imagepix))
@@ -36,9 +36,9 @@ scc_diameter = 1.22*np.sqrt(2.)/32.*pupilpix
 left_edge = 1.54*pupilpix-1.22*np.sqrt(2.)/32.*pupilpix/2.
 xi_0 = left_edge+scc_diameter/2.
 #make scc lyot stop hole in the GPI coronagraph
-scc_xpos = imagepix/2.+xi_0
-xy = np.sqrt((grid[0]-imagepix/2.)**2.+(grid[1]-scc_xpos)**2.) #radial grid centered on lyot stop hole
-ind = np.where(xy<scc_diameter/2.)
+scc_xpos = imagepix/2. + xi_0
+xy = np.sqrt((grid[0]-imagepix/2.)**2. + (grid[1]-scc_xpos)**2.) #radial grid centered on lyot stop hole
+ind = np.where(xy < scc_diameter/2.)
 
 lyot_stop = np.zeros(aperture.shape)
 lyot_stop[np.where(xy_dh<pupilpix/2.*0.95)] = 1. #slightly undersized pupil
