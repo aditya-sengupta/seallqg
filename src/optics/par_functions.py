@@ -11,17 +11,18 @@ from scipy.ndimage.interpolation import rotate
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import multiprocessing as mp
+import warnings
 
 from .ao import * #utility functions to use throughout the simulation
 from ..utils import joindata, joinsimdata
+from ..constants import dmdims, imdims, wav0, beam_ratio
 
 p3i = lambda i: int(round(i)) #python2 to 3: change indicies that are floats to integers
 
-wav0 = 1.65e-6 #assumed wav0 for sine amplitude input in meters
-N_act = 32 #number of actuators across the pupil
+warnings.warn("DM command -> DM phase has not been implemented.")
+N_act = imdims[0] #number of actuators across the pupil
 
-imagepix = 1024
-beam_ratio = 5.361256544502618 #pixels/resel
+imagepix = imdims[0]
 pupilpix = int(round(imagepix/beam_ratio))
 
 grid = np.mgrid[0:imagepix,0:imagepix]
@@ -115,6 +116,7 @@ def propagate(pupil_phase_dm,pin=True,ph=False,norm=True,m_object=5,t_int=10e-3,
 	tr_atm, th, qe = 0.9, 0.2, 0.8 #assume transmission through the atmosphere, instrument throughput, quantum efficiency of CCD
 	flux_object = flux_object_ini * tr_atm * th * qe
 	Nphot = flux_object * t_int * np.pi * (Dtel/2.)**2. 
+	print(pupil_phase_dm.shape)
 
 	pupil_wavefront_dm_unnorm=aperture*np.exp(1j*(pupil_phase_dm)) #initial 
 	norm_phot=np.sum(intensity(np.ones((imagepix,imagepix))[np.where(xy_dh<pupilpix/2.)]))

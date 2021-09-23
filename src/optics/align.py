@@ -16,7 +16,7 @@ def align_fast(view=True):
 	expt_init = optics.get_expt()
 	optics.set_expt(1e-4)
 
-	bestflat = np.load(joindata("bestflats/bestflat.npy"))
+	bestflat = np.load(joindata(os.path.join("bestflats", "bestflat_{0}_{1}.npy".format(optics.name, optics.dmdims[0]))))
 
 	#side lobe mask where there is no signal to measure SNR
 	xnoise,ynoise=161.66,252.22
@@ -103,7 +103,7 @@ def align_fast(view=True):
 	applytiptilt(tipamparr[indopttip1][0],tiltamparr[indopttilt1][0])
 
 	optics.set_expt(expt_init)
-	np.save(joindata("bestflats/bestflat.npy"), bestflat)
+	np.save(joindata(os.path.join("bestflats", "bestflat_{0}_{1}.npy".format(optics.name, optics.dmdims[0]))))
 	print("Saved best flat")
 
 def align_fast2(view=True):
@@ -179,5 +179,5 @@ def align_fast2(view=True):
 	optics.set_expt(expt_init)
 
 	bestflat = optics.getdmc()
-	np.save(joindata("bestflats/bestflat.npy"), bestflat)
+	np.save(joindata(os.path.join("bestflats", "bestflat_{0}_{1}.npy".format(optics.name, optics.dmdims[0]))))
 	print("Saved best flat")

@@ -5,7 +5,9 @@ import numpy as np
 from copy import copy
 import time
 import warnings
+from os import path
 
+from .par_functions import propagate
 from ..utils import joindata
 
 optics = None
@@ -19,11 +21,11 @@ class Optics(ABC):
 		self.applydmc(self.dmzero)
 
 	def refresh(self, verbose=True):
-		bestflat = np.load(joindata("bestflats/bestflat.npy"))
+		bestflat = np.load(joindata(path.join("bestflats", "bestflat_{0}_{1}.npy".format(self.name, self.dmdims[0]))))
 		dmc = self.getdmc()
 		self.applydmc(bestflat)
 		imflat = self.stack(100)
-		np.save(joindata("bestflats/imflat.npy"), imflat)
+		np.save(joindata(path.join("bestflats", "imflat_{0}_{1}.npy".format(self.name, self.imdims[0])), imflat), imflat)
 		if verbose:
 			print("Updated the flat image.")
 		self.applydmc(dmc)
@@ -68,6 +70,7 @@ class FAST(Optics):
 		self.dmChannel = shmlib.shm('/tmp/dm02disp01.im.shm')
 		self.dmdims = self.getdmc().shape
 		self.imdims = self.getim().shape
+		self.name = "FAST"
 
 	def set_expt(self, t):
 		'''
@@ -100,29 +103,28 @@ class FAST(Optics):
 
 class Sim(Optics):
 	def __init__(self):
-		from ..constants import dmdims, imdims
-		self.dmdims = dmdims
+		from ..constants import dmdims, imdims, dt
+		self.dmdims = imdims # dmdims
 		self.imdims = imdims
-		self.t = 1e-3
+		self.expt = 1e-3
+		self.dt = dt
 		self.dmc = copy(self.dmzero)
+		self.name = "Sim"
 
 	def set_expt(self, t):
-		warnings.warn("Exposure time in sim optics is not used yet.")
-		self.t = t
+		self.expt = t
 
 	def get_expt(self):
-		warnings.warn("Exposure time in sim optics is not used yet.")
-		return self.t
+		return self.expt
 
 	def getim(self):
-		warnings.warn("Image propagation from the DM has not been implemented.")
-		time.sleep(0.01)
-		return np.zeros(self.imdims, dtype=np.float32)
+		return propagate(self.dmc, ph=True, t_int=self.expt)
 
 	def getdmc(self):
 		return self.dmc
 
 	def applydmc(self, dmc):
+		assert self.dmc.shape == dmc.shape
 		self.dmc = np.maximum(0, np.minimum(1, dmc))
 	
 try:

@@ -10,8 +10,6 @@ from socket import gethostname
 from .constants import dt
 
 host = gethostname()
-print(host)
-
 if host == "Adityas-Air.net" or "Adityas-MacBook-Air.local":
 	ROOTDIR = "/Users/adityasengupta/research/ao/set-tt-control/"
 elif host == "SEAL":
