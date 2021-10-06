@@ -116,7 +116,6 @@ def propagate(pupil_phase_dm,pin=True,ph=False,norm=True,m_object=5,t_int=10e-3,
 	tr_atm, th, qe = 0.9, 0.2, 0.8 #assume transmission through the atmosphere, instrument throughput, quantum efficiency of CCD
 	flux_object = flux_object_ini * tr_atm * th * qe
 	Nphot = flux_object * t_int * np.pi * (Dtel/2.)**2. 
-	print(pupil_phase_dm.shape)
 
 	pupil_wavefront_dm_unnorm=aperture*np.exp(1j*(pupil_phase_dm)) #initial 
 	norm_phot=np.sum(intensity(np.ones((imagepix,imagepix))[np.where(xy_dh<pupilpix/2.)]))
