@@ -15,7 +15,7 @@ from ..optics import optics
 from ..optics import measure_tt, make_im_cm
 from ..optics import align_fast2
 
-bestflat = np.load(joindata("bestflats/bestflat.npy"))
+bestflat = np.load(joindata(os.path.join("bestflats", "bestflat_{0}_{1}.npy".format(optics.name, optics.dmdims[0]))))
 
 def record_im(out_q, t=1, timestamp=datetime.now().strftime("%d_%m_%Y_%H_%M_%S")):
     t1 = time.time()

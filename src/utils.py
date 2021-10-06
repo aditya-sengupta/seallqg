@@ -11,15 +11,18 @@ from datetime import datetime
 from .constants import dt
 
 host = gethostname()
-
-if host == "Adityas-MacBook-Air.local":
-	DATADIR = "/Users/adityasengupta/research/ao/set-tt-control/data/"
+if host == "Adityas-Air.net" or "Adityas-MacBook-Air.local":
+	ROOTDIR = "/Users/adityasengupta/research/ao/set-tt-control/"
 elif host == "SEAL":
-	DATADIR = "/home/lab/asengupta/data/"
+	ROOTDIR = "/home/lab/asengupta/"
 else:
-	DATADIR = path.join(path.dirname(path.abspath("__file__")), "data")
+	ROOTDIR = path.dirname(path.abspath("__file__"))
 	
+DATADIR = path.join(ROOTDIR, "data")
+PLOTDIR = path.join(ROOTDIR, "plots")
 joindata = lambda f: path.join(DATADIR, f)
+joinsimdata = lambda f: joindata(path.join("scc_sim", f))
+joinplot = lambda f: path.join(PLOTDIR, f)
 
 rms = lambda data: round(np.sqrt(np.mean((data - np.mean(data)) ** 2)), 4)
 
