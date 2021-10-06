@@ -31,12 +31,21 @@ class Optics(ABC):
 		self.applydmc(dmc)
 		return bestflat, imflat
 
-	def stack(self, n):
-		ims = self.getim()
+	def stack(self, func, n):
+		ims = func()
 		for _ in range(n - 1):
-			ims = ims + self.getim()
-		ims = ims / n
-		return ims
+			ims = ims + func()
+		
+		return np.nanmean(ims, axis=0)
+
+	def stackwf(self, n):
+		return self.stack(self, self.getwf, n)
+
+	def stackim(self, n):
+		return self.stack(self, self.getim, n)
+
+	def stackslopes(self, n):
+		return self.stack(self, self.getslopes, n)
 
 	@abstractmethod
 	def getim(self):
@@ -58,19 +67,33 @@ class Optics(ABC):
 	def get_expt(self):
 		pass
 
+	@abstractmethod
+	def getwf(self):
+		pass
+
+	@abstractmethod
+	def getslopes(self):
+		pass
+
 class FAST(Optics):
+	# updated 6 Oct 2021 for the new ALPAO DM
 	def __init__(self):
 		from krtc import shmlib
+		import zmq
 		self.a = shmlib.shm('/tmp/ca03dit.im.shm') 
 		self.im = shmlib.shm('/tmp/ca03im.im.shm')
 		self.b = shmlib.shm('/tmp/dm02itfStatus.im.shm')
 		status = self.b.get_data()
 		status[0,0] = 1
 		self.b.set_data(status)
-		self.dmChannel = shmlib.shm('/tmp/dm02disp01.im.shm')
+		self.dmChannel = shmlib.shm('/tmp/dm03disp01.im.shm')
 		self.dmdims = self.getdmc().shape
 		self.imdims = self.getim().shape
-		self.name = "FAST"
+		self.name = "FAST_LODM"
+		port = "5556"
+		context = zmq.Context()
+		self.socket = context.socket(zmq.REQ)
+		self.socket.connect("tcp://128.114.22.20:%s" % port)
 
 	def set_expt(self, t):
 		'''
@@ -90,7 +113,7 @@ class FAST(Optics):
 	def getdmc(self): # read current command applied to the DM
 		return self.dmChannel.get_data()
 
-	def applydmc(self, dmc, min_cmd=0.15, max_cmd=0.85): #apply command to the DM
+	def applydmc(self, dmc, min_cmd=-1.0, max_cmd=1.0): #apply command to the DM
 		"""
 		Applies the DM command `dmc`, with safeguards
 		"""
@@ -100,6 +123,11 @@ class FAST(Optics):
 			warnings.warn("saturating DM ones!")
 		dmc = np.maximum(min_cmd, np.minimum(max_cmd, dmc))
 		self.dmChannel.set_data(dmc.astype(np.float32))
+
+	def getwf(self):
+		self.socket.send_string("wavefront")
+		data = self.socket.recv()
+		return np.frombuffer(data, dtype=np.float32).reshape(pupSize, pupSize)
 
 class Sim(Optics):
 	def __init__(self):
