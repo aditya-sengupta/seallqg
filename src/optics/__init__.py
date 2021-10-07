@@ -4,7 +4,7 @@ from .tt import applytip, applytilt, applytiptilt, aperture, funz, tip, tilt, xd
 from .flatten import flatten_alpao_fast
 from .align import align_alpao_fast
 from .compute_cmd_int import make_im_cm, measure_tt, linearity
-from .demo_scc import genim
+#from .demo_scc import genim
 
 __all__ = [
     "zernike",
@@ -15,8 +15,8 @@ __all__ = [
     "xdim",
     "ydim",
     "tt_to_dmc",
-    "align_fast",
-    "align_fast2",
+    "flatten_alpao_fast",
+    "align_alpao_fast",
     "applytip",
     "applytilt",
     "applytiptilt",
@@ -25,5 +25,4 @@ __all__ = [
     "make_im_cm",
     "measure_tt",
     "linearity",
-    "genim"
 ]

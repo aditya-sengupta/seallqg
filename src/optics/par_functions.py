@@ -19,7 +19,7 @@ from ..constants import dmdims, imdims, wav0, beam_ratio
 
 p3i = lambda i: int(round(i)) #python2 to 3: change indicies that are floats to integers
 
-warnings.warn("DM command -> DM phase has not been implemented.")
+#warnings.warn("DM command -> DM phase has not been implemented.")
 N_act = imdims[0] #number of actuators across the pupil
 
 imagepix = imdims[0]

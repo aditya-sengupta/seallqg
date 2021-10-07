@@ -13,7 +13,7 @@ from ..constants import dt
 from ..utils import joindata
 from ..optics import optics
 from ..optics import measure_tt, make_im_cm
-from ..optics import align_fast2
+from ..optics import align_alpao_fast
 
 bestflat = np.load(joindata(os.path.join("bestflats", "bestflat_{0}_{1}.npy".format(optics.name, optics.dmdims[0]))))
 
@@ -87,7 +87,7 @@ def record_experiment(path, control_schedule, dist_schedule, t=1, verbose=True):
     imax = 10
     while np.any(np.abs(baseline_ttvals) > 0.03):
         warnings.warn("The system may not be aligned: baseline TT is {}".format(baseline_ttvals.flatten()))
-        align_fast2(view=False)
+        align_alpao_fast(manual=False)
         _, cmd_mtx = make_im_cm()
         bestflat, imflat = optics.refresh()
         optics.applydmc(bestflat)

@@ -50,13 +50,13 @@ indap = np.where(rhoap > 0)
 def applytip(amp): #apply tip; amp is the P2V in DM units
 	dmc = optics.getdmc()
 	dmctip = amp*tip
-	dmc = remove_piston(dmc) + remove_piston(dmctip) + 0.5
+	dmc = remove_piston(dmc) + remove_piston(dmctip)
 	return optics.applydmc(dmc)
 
 def applytilt(amp): #apply tilt; amp is the P2V in DM units
 	dmc = optics.getdmc()
 	dmctilt = amp*tilt
-	dmc = remove_piston(dmc) + remove_piston(dmctilt) + 0.5
+	dmc = remove_piston(dmc) + remove_piston(dmctilt)
 	return optics.applydmc(dmc)
 
 # add something to update best flat in here if needed

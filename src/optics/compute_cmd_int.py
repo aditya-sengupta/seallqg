@@ -25,7 +25,7 @@ grid = np.mgrid[0:ydim, 0:xdim].astype(np.float32)
 bestflat = np.load(joindata(path.join("bestflats", "bestflat_{0}_{1}.npy".format(optics.name, optics.dmdims[0]))))
 #load bestflat, which should be an aligned FPM
 optics.applydmc(bestflat)
-imflat = optics.stack(100)
+imflat = optics.stackim(100)
 
 # expt(1e-3) #set exposure time
 imini = optics.getim()
@@ -75,10 +75,10 @@ def vz(n, m, IMamp): #determine the minimum IMamp (interaction matrix amplitude)
 	# ds9 = pysao.ds9()
 	zern = funz(n, m, IMamp)
 	time.sleep(tsleep)
-	imzern = optics.stack(10)
+	imzern = optics.stackim(10)
 	optics.applydmc(bestflat)
 	time.sleep(tsleep)
-	imflat = optics.stack(10)
+	imflat = optics.stackim(10)
 	return imflat
 	# ds9.view((imzern-imflat)*ttmask)
 
@@ -92,10 +92,10 @@ def make_im_cm(verbose=True):
 		n, m = nmarr[i]
 		zern = funz(n, m, IMamp)
 		time.sleep(tsleep)
-		imzern = optics.stack(10)
+		imzern = optics.stackim(10)
 		optics.applydmc(bestflat)
 		time.sleep(tsleep)
-		imflat = optics.stack(10)
+		imflat = optics.stackim(10)
 		imdiff = imzern - imflat
 		Im_diff = processim(imdiff)
 		refvec[i] = np.array([np.real(Im_diff[indttmask]), np.imag(Im_diff[indttmask])]).flatten()
@@ -127,7 +127,7 @@ def linearity(mode=0, nlin=20, amp=IMamp, plot=True):
 		n, m = nmarr[i]
 		zern = funz(n,m,zernamp)
 		time.sleep(tsleep)
-		imzern = optics.stack(10)
+		imzern = optics.stackim(10)
 		imdiff = (imzern-imflat)
 		tar_ini = processim(imdiff)
 		tar = np.array([np.real(tar_ini[indttmask]), np.imag(tar_ini[indttmask])]).flatten()	

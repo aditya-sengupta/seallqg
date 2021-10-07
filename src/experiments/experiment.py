@@ -21,7 +21,7 @@ def uconvert_ratio(amp=1.0):
         dm2 = optics.getdmc()
         cm2x = []
         while len(cm2x) != 1:
-            im2 = optics.stack(100)
+            im2 = optics.stackim(100)
             cm2x, cm2y = np.where(im2 == np.max(im2))
 
         optics.applydmc(bestflat)
@@ -29,7 +29,7 @@ def uconvert_ratio(amp=1.0):
         dm1 = optics.getdmc()
         cm1x = []
         while len(cm1x) != 1:
-            im1 = optics.stack(100)
+            im1 = optics.stackim(100)
             cm1x, cm1y = np.where(im1 == np.max(im1))
 
         dmdiff = aperture * (dm2 - dm1)

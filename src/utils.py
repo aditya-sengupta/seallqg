@@ -11,7 +11,7 @@ from datetime import datetime
 from .constants import dt
 
 host = gethostname()
-if host == "Adityas-Air.net" or "Adityas-MacBook-Air.local":
+if host == "Adityas-Air.net" or host == "Adityas-MacBook-Air.local":
 	ROOTDIR = "/Users/adityasengupta/research/ao/set-tt-control/"
 elif host == "SEAL":
 	ROOTDIR = "/home/lab/asengupta/"
@@ -70,7 +70,7 @@ def genpsd(tseries, dt=dt, nseg=4, remove_dc=True):
 def save_pupil_image(optics):
 	expt_init = optics.get_expt()
 	optics.set_expt(1e-3)
-	image = optics.stack(100)
+	image = optics.stackim(100)
 	path = joindata("pupils/pupil_" + datetime.now().strftime("%d_%m_%Y_%H_%M_%S"))
 	np.save(path, image)
 	optics.set_expt(expt_init)

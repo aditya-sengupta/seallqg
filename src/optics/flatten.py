@@ -5,18 +5,18 @@ import time
 from matplotlib import pyplot as plt
 # import pysao
 from scipy.ndimage.filters import median_filter
+from os import path
+import tqdm
 
 from ..utils import joindata
 from .image import optics
-from .tt import mtfgrid, sidemaskrad, sidemaskind
-from .ao import mtf, remove_piston
-from .tt import applytiptilt, tip, tilt
+from .ao import image_to_pupil, complex_amplitude, pupil_to_image
 
 def flatten_alpao_fast():
 	expt_init = optics.get_expt()
 	optics.set_expt(1e-4)
 
-	bestflat = np.load(joindata(os.path.join("bestflats", "bestflat_{0}_{1}.npy".format(optics.name, optics.dmdims[0]))))
+	bestflat = np.load(joindata(path.join("bestflats", "bestflat_{0}_{1}.npy".format(optics.name, optics.dmdims[0]))))
 
 	optics.applydmc(bestflat)
 	dmcini = optics.getdmc()
@@ -44,11 +44,11 @@ def flatten_alpao_fast():
 		lsqtt=np.dot(IMtt.T,coeffs.T).reshape(tilt.shape).astype(np.dtype(np.float32))
 		return ph-lsqtt
 
-	nstack=100
-	wf_ini = getWavefront()
+	nstack = 100
+	wf_ini = optics.getwf()
 	wf_ini_arr = np.zeros((nstack,wf_ini.shape[0],wf_ini.shape[1])) #average a sequence of frames to determine the aperture mask, since some frames have fluctuating nan/non-nan values around the edges
 	for i in range(nstack):
-		wf_ini_arr[i]=getWavefront()
+		wf_ini_arr[i] = optics.getwf()
 	wf_ini=np.nanmedian(wf_ini_arr,axis=0)
 
 	wf_ind=np.where(np.isnan(wf_ini)==False) #index for where the pupil is defined
@@ -62,17 +62,17 @@ def flatten_alpao_fast():
 		dmc_poke=np.zeros(dmcini.shape).astype(np.dtype(np.float32))
 		x,y=xdm[i],ydm[i]
 		dmc_poke[y,x]=amp
-		applylodmc(aperture*(bestflat+dmc_poke))
+		optics.applydmc(aperture*(bestflat+dmc_poke))
 
 	def opttsleep(i,tsleep,amp=0.1): #find how long is needed to pause in between DM commands and WFS measurements, and see how to map which actuators are registering on the WFS pupil
 		poke_act(i,amp=amp)
 		time.sleep(tsleep)
-		wf_push=rmpist(stackWavefront(10))
+		wf_push=rmpist(optics.stackwf(10))
 		poke_act(i,amp=-amp) 
 		time.sleep(tsleep)
-		wf_pull=rmpist(stackWavefront(10))
+		wf_pull=rmpist(optics.stackwf(10))
 		out=wfmask*(wf_push-wf_pull)
-		ds9.view(out)
+		#ds9.view(out)
 
 	tsleep=0.1
 
@@ -87,24 +87,24 @@ def flatten_alpao_fast():
 	wfgrid=np.mgrid[0:wf_ini.shape[0],0:wf_ini.shape[1]]
 	IMamp=0.1 #amplitude to poke each actuator in generating the IM (in DM units)
 
-	slope_ini=getSlopes()
+	slope_ini = optics.getslopes()
 	# Push each actuator
 	IM=np.zeros((nact,2*wf.shape[0])) #interaction matrix to fill
-	for i in range(nact):
+	for i in tqdm.trange(nact):
 		actind=inddmuse[i]
 		cmd=bestflat.flatten()
 		cmd[actind] = cmd[actind]+IMamp
-		applylodmc(bestflat+cmd.reshape(dmcini.shape))
+		optics.applydmc(bestflat+cmd.reshape(dmcini.shape))
 		time.sleep(tsleep)
-		spush=stackSlopes(10)
+		spush = optics.stackslopes(10)
 		cmd[actind] = cmd[actind] -2*IMamp
-		applylodmc(bestflat+cmd.reshape(dmcini.shape))
+		optics.applydmc(bestflat+cmd.reshape(dmcini.shape))
 		time.sleep(tsleep)
-		spull=stackSlopes(10)
+		spull = optics.stackslopes(10)
 
 		out=np.array([rmpist(spush[0])-rmpist(spull[0]),rmpist(spush[1])-rmpist(spull[1])])
 
-		dmimap=dmc2wf(getlodmc())
+		dmimap=dmc2wf(optics.getdmc())
 		indact=np.where(dmimap==np.max(dmimap))
 		wfrgrid=np.sqrt((wfgrid[0]-indact[0][0]-0.5)**2+(wfgrid[1]-indact[1][0]-0.5)**2) #in reality it should be +0.5 instead of -0.5, but looking at the ds9.view(out*act_mask) images the latter looks better so I'm going with that.
 		act_mask=np.zeros(wf_ini.shape)
@@ -112,7 +112,6 @@ def flatten_alpao_fast():
 
 		#IM[i]=np.array([(act_mask*out[0])[wf_ind],(act_mask*out[1])[wf_ind]]).flatten()
 		IM[i]=np.array([out[0][wf_ind],out[1][wf_ind]]).flatten()
-		print(i/nact)
 
 	IM[np.where(np.isnan(IM)==True)]=0 #some supapertures may still be nans, set those to zero
 
@@ -120,15 +119,15 @@ def flatten_alpao_fast():
 	def vcmd(rcond): #view the reconstructed DM commands, making sure that waffle mode is not propagated onto the DM
 		cmd_mtx=np.linalg.pinv(IM,rcond=rcond)
 
-		applylodmc(bestflat)
+		optics.applydmc(bestflat)
 		time.sleep(tsleep)
-		tar_ini=stackSlopes(30)
+		tar_ini = optics.stackslopes(30)
 		tar=np.array([tar_ini[0][wf_ind],tar_ini[1][wf_ind]]).flatten().T
 		tar[np.where(np.isnan(tar)==True)]=0 #shouldn't need this line, but again, incase of misregistrations...
 		coeffs=np.dot(tar,cmd_mtx)
 		cmd=np.zeros(dmcini.shape).astype(np.dtype(np.float32)).flatten()
 		cmd[inddmuse]=(act_arr.T*-1*coeffs).flatten()
-		ds9.view(np.flipud(cmd.reshape(dmcini.shape)))
+		#ds9.view(np.flipud(cmd.reshape(dmcini.shape)))
 
 	#reference slopes from commented out code above preamble
 	refslopes=np.load(joindata('refslopes/refSlopes4ALPAOflat.npy'))
@@ -138,21 +137,22 @@ def flatten_alpao_fast():
 	numiter=20 #convergence seems around this many iterations for a gain of 0.5
 	gain=0.5
 	leak=1
-	applylodmc(bestflat)
+	optics.applydmc(bestflat)
 	time.sleep(tsleep)
-	wfs=stackWavefront(10)
+	wfs = optics.stackwf(10)
 	wfarr=np.zeros(numiter)
 	for nit in range(numiter):
-		tar_ini=stackSlopes(10)#-refslopes
+		tar_ini = optics.stackslopes(10)#-refslopes
 		tar=np.array([tar_ini[0][wf_ind],tar_ini[1][wf_ind]]).flatten().T
 		tar[np.where(np.isnan(tar)==True)]=0 #shouldn't need this line, but again, incase of misregistrations...
 		coeffs=np.dot(tar,cmd_mtx)
 		cmd=np.zeros(dmcini.shape).astype(np.dtype(np.float32)).flatten()
 		cmd[inddmuse]=(act_arr.T*-1*coeffs).flatten()
-		applylodmc(leak*getlodmc()+rmtt(cmd.reshape(dmcini.shape)*gain))
+		optics.applydmc(leak*optics.getdmc()+rmtt(cmd.reshape(dmcini.shape)*gain))
 		time.sleep(tsleep)
-		wfarr[nit]=np.std(getWavefront()[wf_ind])
+		wfarr[nit]=np.std(optics.getwf()[wf_ind])
 
-	wfe=stackWavefront(10)
+	wfe=optics.stackwf(10)
 	print(np.nanstd(wfs[wf_ind])/np.nanstd(wfe[wf_ind]))
+	optics.set_expt(expt_init)
 

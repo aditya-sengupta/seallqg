@@ -36,16 +36,17 @@ class Optics(ABC):
 		for _ in range(n - 1):
 			ims = ims + func()
 		
-		return np.nanmean(ims, axis=0)
+		ims = np.nan_to_num(ims)
+		return ims / n
 
 	def stackwf(self, n):
-		return self.stack(self, self.getwf, n)
+		return self.stack(self.getwf, n)
 
 	def stackim(self, n):
-		return self.stack(self, self.getim, n)
+		return self.stack(self.getim, n)
 
 	def stackslopes(self, n):
-		return self.stack(self, self.getslopes, n)
+		return self.stack(self.getslopes, n)
 
 	@abstractmethod
 	def getim(self):
@@ -94,6 +95,8 @@ class FAST(Optics):
 		context = zmq.Context()
 		self.socket = context.socket(zmq.REQ)
 		self.socket.connect("tcp://128.114.22.20:%s" % port)
+		self.socket.send_string("pupSize");
+		self.pup_size = np.frombuffer(self.socket.recv(), dtype=np.int32)[0]
 
 	def set_expt(self, t):
 		'''
@@ -127,7 +130,15 @@ class FAST(Optics):
 	def getwf(self):
 		self.socket.send_string("wavefront")
 		data = self.socket.recv()
-		return np.frombuffer(data, dtype=np.float32).reshape(pupSize, pupSize)
+		return np.frombuffer(data, dtype=np.float32).reshape(self.pup_size, self.pup_size)
+
+	def getslopes(self):
+		self.socket.send_string("slopes")
+		data = self.socket.recv()
+		slopes = np.frombuffer(data, dtype=np.float32).reshape(self.pup_size, 2*self.pup_size)
+		sx = slopes[:,:self.pup_size]
+		sy = slopes[:,self.pup_size:]
+		return np.array([sx, sy])
 
 class Sim(Optics):
 	def __init__(self):
