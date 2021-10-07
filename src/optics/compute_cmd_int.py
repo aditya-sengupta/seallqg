@@ -9,6 +9,7 @@ import numpy as np
 import time
 import tqdm
 # import pysao
+from os import path
 from matplotlib import pyplot as plt
 from scipy.optimize import newton
 
@@ -21,7 +22,8 @@ from ..utils import joindata
 dmcini = optics.getdmc()
 ydim, xdim = dmcini.shape
 grid = np.mgrid[0:ydim, 0:xdim].astype(np.float32)
-bestflat = np.load(joindata("bestflats/bestflat.npy")) #load bestflat, which should be an aligned FPM
+bestflat = np.load(joindata(path.join("bestflats", "bestflat_{0}_{1}.npy".format(optics.name, optics.dmdims[0]))))
+#load bestflat, which should be an aligned FPM
 optics.applydmc(bestflat)
 imflat = optics.stack(100)
 
