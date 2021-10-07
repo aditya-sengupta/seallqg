@@ -165,6 +165,12 @@ class Sim(Optics):
 	def applydmc(self, dmc):
 		assert self.dmc.shape == dmc.shape
 		self.dmc = np.maximum(0, np.minimum(1, dmc))
+
+	def getslopes(self):
+		raise NotImplementedError()
+
+	def getwf(self):
+		raise NotImplementedError()
 	
 try:
 	optics = FAST()
