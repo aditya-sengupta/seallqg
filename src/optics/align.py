@@ -10,9 +10,9 @@ from scipy.ndimage.filters import median_filter
 
 from ..utils import joindata
 from .image import optics
-from .tt import mtfgrid, sidemaskrad, sidemaskind
-from .ao import mtf, remove_piston
-from .tt import applytip, applytilt, tip, tilt
+from .tt import mtfgrid, sidemaskind
+from .ao import mtf
+from .tt import applytip, applytilt
 
 def align_alpao_fast(manual=True, view=True):
 	expt_init = optics.get_expt()

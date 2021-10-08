@@ -6,6 +6,7 @@ Compute command matrix and interaction matrix.
 """
 
 import numpy as np
+from numpy import float32
 import time
 import tqdm
 # import pysao
@@ -14,7 +15,7 @@ from matplotlib import pyplot as plt
 from scipy.optimize import newton
 
 from .image import optics
-from .tt import rhoap, phiap, processim
+from .tt import processim
 from .ao import polar_grid, zernike
 from ..utils import joindata
 
@@ -22,13 +23,15 @@ dmc2wf = np.load(joindata(path.join("bestflats", "lodmc2wfe.npy")))
 
 #initial setup: apply best flat, generate DM grid to apply future shapes
 dmcini = optics.getdmc()
-ydim, xdim = optics.imdims
+ydim, xdim = optics.dmdims
 grid = np.mgrid[0:ydim, 0:xdim].astype(np.float32)
 bestflat = np.load(joindata(path.join("bestflats", "bestflat_{0}_{1}.npy".format(optics.name, optics.dmdims[0]))))
 #load bestflat, which should be an aligned FPM
 optics.applydmc(bestflat)
+time.sleep(1)
+imflat = optics.stackim(100)
 
-expt(1e-3) #set exposure time
+optics.set_expt(1e-3) #set exposure time
 imydim, imxdim = optics.imdims
 
 tsleep = 0.02 
@@ -88,7 +91,7 @@ def vz(n, m, IMamp): #determine the minimum IMamp (interaction matrix amplitude)
 	# ds9.view((imzern-imflat)*ttmask)
 
 #from above function
-ttmask=np.zeros(imini.shape)
+ttmask=np.zeros(optics.imdims)
 rmask=10
 indttmask=np.where(rim/beam_ratio<rmask)
 ttmask[indttmask]=1
