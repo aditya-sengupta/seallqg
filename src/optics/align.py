@@ -17,14 +17,12 @@ from .tt import applytip, applytilt, tip, tilt
 def align_alpao_fast(manual=True, view=True):
 	expt_init = optics.get_expt()
 	optics.set_expt(1e-4)
+	time.sleep(5)
 
 	bestflat = np.load(joindata(path.join("bestflats", "bestflat_{0}_{1}.npy".format(optics.name, optics.dmdims[0]))))
 	optics.applydmc(bestflat)
 	ydim,xdim = optics.dmdims
 	grid=np.mgrid[0:ydim,0:xdim].astype(np.float32)
-
-	optics.set_expt(1e-4) #set exposure time; for current light source config at 100 Hz
-	time.sleep(5)
 
 	#DM aperture;
 	xy=np.sqrt((grid[0]-ydim/2+0.5)**2+(grid[1]-xdim/2+0.5)**2)
@@ -51,7 +49,7 @@ def align_alpao_fast(manual=True, view=True):
 				amp = float(input("Input amplitude: "))
 				func(amp)
 		
-		#MANUALLY USE ABOVE FUNCTIONS TO STEER THE PSF BACK ONTO THE FPM AS NEEDED, then:
+	#MANUALLY USE ABOVE FUNCTIONS TO STEER THE PSF BACK ONTO THE FPM AS NEEDED, then:
 	bestflat = optics.getdmc()
 
 	#apply tip/tilt starting only from the bestflat point (start here if realigning the non-coronagraphic PSF) 
@@ -73,8 +71,6 @@ def align_alpao_fast(manual=True, view=True):
 	#tsleep=0.005 #on really good days
 	tsleep=0.02 #optimized from above function
 	#tsleep=0.4 #on bad days
-
-
 
 	cenmaskrho=np.sqrt((mtfgrid[0]-mtfgrid[0].shape[0]/2)**2+(mtfgrid[1]-mtfgrid[0].shape[0]/2)**2) #radial grid for central MTF lobe
 	cenmask=np.zeros(optics.imdims)
@@ -130,7 +126,6 @@ def align_alpao_fast(manual=True, view=True):
 	bestflat = optics.getdmc()
 	im_bestflat = optics.stackim(100)
 
-	optics.set_expt(expt_init)
 	dt = datetime.now().strftime("%d_%m_%Y_%H")
 	np.save(joindata(path.join("bestflats", "bestflat_{0}_{1}.npy".format(optics.name, optics.dmdims[0]))), bestflat)
 	np.save(joindata(path.join("bestflats", "bestflat_{0}_{1}_{2}.npy".format(optics.name, optics.dmdims[0], dt))), bestflat)
@@ -151,30 +146,24 @@ def align_alpao_fast(manual=True, view=True):
 
 	inds = [np.where(im == np.max(im)) for im in ims]
 
-	def genvy(arr): #return zeroth array element if multiple elements, or single element if not
-		if len(arr[0])>1:
-			return arr[0][0]
-		else:
-			return arr[0]
+	def genv(arr, i): #return zeroth array element if multiple elements, or single element if not
+		if len(arr[0]) > 1:
+			return int(arr[i][0])
+		return int(arr[i])
 
-	def genvx(arr): #return zeroth array element if multiple elements, or single element if not
-		if len(arr[1])>1:
-			return arr[1][0]
-		else:
-			return arr[1]
+	y = [genv(inds[i], 0) for i in range(4)]
+	x = [genv(inds[i], 1) for i in range(4)]
+	ymean=np.mean(y)
+	xmean=np.mean(x)
 
-	y1,y2,y3,y4 = (genvy(inds[i]) for i in range(4))
-	x1,x2,x3,x4 = (genvx(inds[i]) for i in range(4))
-	ymean=np.mean(np.array([y1,y2,y3,y4]))
-	xmean=np.mean(np.array([x1,x2,x3,x4]))
 	np.save(joindata(path.join("bestflats", "imcen.npy")), np.array([xmean,ymean]))
 
-	optics.set_expt(1e-3)
+	optics.set_expt(expt_init)
 
 	#calibrate DM units to lambda/D
 	beam_ratio=np.load(joindata(path.join("bestflats", "beam_ratio.npy"))) #beam ratio is from the old system, but it is not too consequential though if it is off...
-	cal1=np.sqrt((y1-y2)**2+(x1-x2)**2)/(np.max(aperture*(dmcs[0]-dmcs[1]))-np.min(aperture*(dmcs[0]-dmcs[1])))/beam_ratio
-	cal2=np.sqrt((y3-y4)**2+(x3-x4)**2)/(np.max(aperture*(dmcs[2]-dmcs[3]))-np.min(aperture*(dmcs[2]-dmcs[3])))/beam_ratio
+	cal1=np.sqrt((y[0]-y[1])**2+(x[0]-x[1])**2)/(np.max(aperture*(dmcs[0]-dmcs[1]))-np.min(aperture*(dmcs[0]-dmcs[1])))/beam_ratio
+	cal2=np.sqrt((y[2]-y[3])**2+(x[2]-x[3])**2)/(np.max(aperture*(dmcs[2]-dmcs[3]))-np.min(aperture*(dmcs[2]-dmcs[3])))/beam_ratio
 
-	dmc2wfe=np.mean(np.array([cal1,cal2])*0.633) #should be dm commands in volts to WFE in microns, but this is ~10x larger than the calibration I did by poking 1 actuator...?
+	dmc2wfe = (cal1 + cal2) * 0.633 / 2 #should be dm commands in volts to WFE in microns, but this is ~10x larger than the calibration I did by poking 1 actuator...?
 	np.save(joindata(path.join("bestflats", "lodmc2wfe.npy")), dmc2wfe)
