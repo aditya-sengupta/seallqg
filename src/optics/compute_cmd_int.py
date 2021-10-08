@@ -18,33 +18,39 @@ from .tt import rhoap, phiap, processim
 from .ao import polar_grid, zernike
 from ..utils import joindata
 
+dmc2wf = np.load(joindata(path.join("bestflats", "lodmc2wfe.npy")))
+
 #initial setup: apply best flat, generate DM grid to apply future shapes
 dmcini = optics.getdmc()
-ydim, xdim = dmcini.shape
+ydim, xdim = optics.imdims
 grid = np.mgrid[0:ydim, 0:xdim].astype(np.float32)
 bestflat = np.load(joindata(path.join("bestflats", "bestflat_{0}_{1}.npy".format(optics.name, optics.dmdims[0]))))
 #load bestflat, which should be an aligned FPM
 optics.applydmc(bestflat)
-imflat = optics.stackim(100)
 
-# expt(1e-3) #set exposure time
-imini = optics.getim()
-imydim, imxdim = imini.shape
+expt(1e-3) #set exposure time
+imydim, imxdim = optics.imdims
 
-tsleep = 0.01 #should be the same values from align_fpm.py and genDH.py
+tsleep = 0.02 
+#DM aperture;
+xy=np.sqrt((grid[0]-dmcini.shape[0]/2+0.5)**2+(grid[1]-dmcini.shape[1]/2+0.5)**2)
+aperture=np.zeros(dmcini.shape).astype(float32)
+aperture[np.where(xy<dmcini.shape[0]/2)]=1 
+indap=np.where(aperture==1)
+indnap=np.where(aperture==0)
+inddmuse=np.where(aperture.flatten()==1)[0]
+nact=len(inddmuse)
 
-#DM aperture:
-undersize = 29/32 #29 of the 32 actuators are illuminated
-rho,phi = polar_grid(xdim,xdim*undersize)
-aperture = np.zeros(rho.shape).astype(np.float32)
-indap = np.where(rho > 0)
-indnap = np.where(rho == 0)
-aperture[indap] = 1
+remove_piston = lambda dmc: dmc-np.mean(dmc[indap]) #function to remove piston from dm command to have zero mean
 
-def remove_piston(dmc):  #function to remove piston from dm command to have zero mean (must be intermediate) 
-	dmcout = dmc - np.median(dmc[indap]) + 0.5 #remove piston in the pupil
-	dmcout[indnap] = bestflat[indnap] #set the non-illuminated regions to the best flat values
-	return dmcout
+tip,tilt=((grid[0]-ydim/2+0.5)/ydim*2).astype(float32),((grid[1]-xdim/2+0.5)/ydim*2).astype(float32)# DM tip/tilt 
+
+IMtt=np.array([(tip).flatten(),(tilt).flatten()])
+CMtt=np.linalg.pinv(IMtt,rcond=1e-5)
+def rmtt(ph): #remove tip/tilt from DM commands
+	coeffs=np.dot(np.vstack((ph).flatten()).T,CMtt) 
+	lsqtt=np.dot(IMtt.T,coeffs.T).reshape(tilt.shape).astype(float32)
+	return ph-lsqtt
 
 #setup Zernike polynomials
 nmarr = []
@@ -53,23 +59,22 @@ for n in range(1, norder):
 	for m in range(-n, n+1, 2):
 		nmarr.append([n,m])
 
+rho, phi = polar_grid(xdim, ydim)
+rho[int((xdim-1)/2),int((ydim-1)/2)] = 0.00001 #avoid numerical divide by zero issues
+
 def funz(n, m, amp, bestflat=bestflat): #apply zernike to the DM
-	z = zernike(n, m, rhoap, phiap)/2
+	z = zernike(n, m, rho, phi)/2
 	zdm = amp*(z.astype(np.float32))
 	dmc = remove_piston(remove_piston(bestflat)+remove_piston(zdm))
 	optics.applydmc(dmc)
-	return dmc
+	return zdm
 
 #calibrated image center and beam ratio from genDH.py
-imxcen, imycen = np.load(joindata("bestflats/imcen.npy"))
-beam_ratio = np.load(joindata("bestflats/beam_ratio.npy"))
+imxcen, imycen = np.load(joindata(path.join("bestflats", "imcen.npy")))
+beam_ratio = np.load(joindata(path.join("bestflats", "beam_ratio.npy")))
+
 gridim = np.mgrid[0:imydim,0:imxdim]
 rim = np.sqrt((gridim[0]-imycen)**2+(gridim[1]-imxcen)**2)
-
-#algorithmic LOWFS mask (centered around the core, for light less than 6 lambda/D)
-ttmask = np.zeros(imini.shape)
-indttmask = np.where(rim/beam_ratio<6)
-ttmask[indttmask] = 1
 
 def vz(n, m, IMamp): #determine the minimum IMamp (interaction matrix amplitude) to be visible in differential images
 	# ds9 = pysao.ds9()
@@ -82,9 +87,14 @@ def vz(n, m, IMamp): #determine the minimum IMamp (interaction matrix amplitude)
 	return imflat
 	# ds9.view((imzern-imflat)*ttmask)
 
-IMamp = 0.1 #from above function
+#from above function
+ttmask=np.zeros(imini.shape)
+rmask=10
+indttmask=np.where(rim/beam_ratio<rmask)
+ttmask[indttmask]=1
+IMamp=0.001
 
-def make_im_cm(verbose=True):
+def make_im_cm(verbose=True, rcond=1e-3):
 	#make interaction matrix
 	refvec = np.zeros((len(nmarr), ttmask[indttmask].shape[0]*2))
 	zernarr = np.zeros((len(nmarr), aperture[indap].shape[0]))
@@ -102,7 +112,7 @@ def make_im_cm(verbose=True):
 		zernarr[i] = zern[indap]
 
 	IM = np.dot(refvec, refvec.T) #interaction matrix
-	IMinv = np.linalg.pinv(IM, rcond=1e-6)
+	IMinv = np.linalg.pinv(IM, rcond=rcond)
 	cmd_mtx = np.dot(IMinv, refvec).astype(np.float32)
 	if verbose:
 		print("Recomputed interaction matrix and command matrix")
