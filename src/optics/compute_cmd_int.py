@@ -11,6 +11,7 @@ import time
 import tqdm
 # import pysao
 from os import path
+import matplotlib as mpl
 from matplotlib import pyplot as plt
 from scipy.optimize import newton
 
@@ -57,7 +58,7 @@ def rmtt(ph): #remove tip/tilt from DM commands
 
 #setup Zernike polynomials
 nmarr = []
-norder = 2 #how many radial Zernike orders to look at; just start with tip/tilt
+norder = 3 #how many radial Zernike orders to look at; just start with tip/tilt
 for n in range(1, norder):
 	for m in range(-n, n+1, 2):
 		nmarr.append([n,m])
@@ -132,41 +133,63 @@ def measure_tt(image, cmd_mtx=cmd_mtx):
 	return coeffs * IMamp
 
 def linearity(mode=0, nlin=20, amp=IMamp, plot=True):
-	def genzerncoeffs(i, zernamp):
+	def genzerncoeffs(i,zernamp):
 		'''
 		i: zernike mode
 		zernamp: Zernike amplitude in DM units to apply
 		'''
-		n, m = nmarr[i]
-		zern = funz(n,m,zernamp)
+		n,m=nmarr[i]
+		zern=funz(n,m,zernamp)
 		time.sleep(tsleep)
-		imzern = optics.stackim(10)
-		imdiff = (imzern-imflat)
-		tar_ini = processim(imdiff)
-		tar = np.array([np.real(tar_ini[indttmask]), np.imag(tar_ini[indttmask])]).flatten()	
-		coeffs = np.dot(cmd_mtx, tar)
+		imzern=optics.stackim(10)
+		imdiff=(imzern-imflat)
+		tar_ini=processim(imdiff)
+		tar = np.array([np.real(tar_ini[indttmask]),np.imag(tar_ini[indttmask])]).flatten()	
+		coeffs=np.dot(cmd_mtx, tar)
 		return coeffs*IMamp
 
 	nlin = 20 #number of data points to scan through linearity measurements
-	zernamparr = np.linspace(-1.5*amp, 1.5*amp, nlin)
-	#try linearity measurement for Zernike mode 'mode'
-	zernampout=np.zeros((len(nmarr), nlin))
-	for i in tqdm.trange(nlin):
-		zernamp=zernamparr[i]
-		coeffsout = genzerncoeffs(mode, zernamp)
-		zernampout[:,i] = coeffsout
-	
+	zernamparr = np.linspace(-1.5*0.005,1.5*0.005,nlin)
+
+	#try linearity measurement for Zernike mode 0
+	zernampout=np.zeros((len(nmarr),len(nmarr),nlin))
+	for nm in range(len(nmarr)):
+		for i in range(nlin):
+			zernamp=zernamparr[i]
+			coeffsout=genzerncoeffs(nm,zernamp)
+			zernampout[nm,:,i]=coeffsout
+
 	optics.applydmc(bestflat)
 
-	if plot:
-		plt.figure()
-		plt.plot(zernamparr,zernamparr,lw=1,color='k',ls='--',label='y=x')
-		plt.plot(zernamparr,zernampout[0,:],lw=2,color='k',label='i=0')
-		plt.plot(zernamparr,zernampout[1,:],lw=2,color='blue',label='i=1')
-		plt.legend(loc='best')
-		plt.xlabel("Applied command")
-		plt.ylabel("System response")
-		plt.show()
+	fig,axs=plt.subplots(ncols=3,nrows=2,figsize=(12,10),sharex=True,sharey=True)
+	#fig.suptitle('rcond='+str(rcond))
+
+	colors=mpl.cm.viridis(np.linspace(0,1,len(nmarr)))
+	axarr=[axs[0,0],axs[0,1],axs[0,2],axs[1,0],axs[1,1],axs[1,2]]
+	fig.delaxes(axarr[-1])
+	for i in range(len(nmarr)):
+		ax=axarr[i]
+		ax.set_title('n,m='+str(nmarr[i][0])+','+str(nmarr[i][1]))
+		if i==4:
+			ax.plot(zernamparr*dmc2wf,zernamparr*dmc2wf,lw=1,color='k',ls='--',label='y=x')
+			for j in range(len(nmarr)):
+				if j==i:
+					ax.plot(zernamparr*dmc2wf,zernampout[i,i,:]*dmc2wf,lw=2,color=colors[j],label='n,m='+str(nmarr[i][0])+','+str(nmarr[i][1]))
+				else:
+					ax.plot(zernamparr*dmc2wf,zernampout[i,j,:]*dmc2wf,lw=1,color=colors[j],label='n,m='+str(nmarr[j][0])+','+str(nmarr[j][1]))
+		else:
+			ax.plot(zernamparr*dmc2wf,zernamparr*dmc2wf,lw=1,color='k',ls='--')
+			for j in range(len(nmarr)):
+				if j==i:
+					ax.plot(zernamparr*dmc2wf,zernampout[i,i,:]*dmc2wf,lw=2,color=colors[j])
+				else:
+					ax.plot(zernamparr*dmc2wf,zernampout[i,j,:]*dmc2wf,lw=1,color=colors[j])
+
+	axarr[4].legend(bbox_to_anchor=(1.05,0.9))
+	axarr[4].set_xlabel('input ($\\mu$m WFE, PV)')
+	axarr[3].set_xlabel('input ($\\mu$m WFE, PV)')
+	axarr[3].set_ylabel('reconstructed output ($\\mu$m WFE, PV)')
+	axarr[0].set_ylabel('reconstructed output ($\\mu$m WFE, PV)')
 
 	return zernamparr, zernampout
 
