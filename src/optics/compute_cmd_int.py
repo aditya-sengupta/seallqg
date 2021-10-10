@@ -6,6 +6,7 @@ Compute command matrix and interaction matrix.
 """
 
 import numpy as np
+from numpy import float32
 import time
 import tqdm
 # import pysao
@@ -19,80 +20,6 @@ from .ao import polar_grid, zernike
 from ..utils import joindata
 
 dmc2wf = np.load(joindata(path.join("bestflats", "lodmc2wfe.npy")))
-
-#initial setup: apply best flat, generate DM grid to apply future shapes
-dmcini = optics.getdmc()
-ydim, xdim = optics.imdims
-grid = np.mgrid[0:ydim, 0:xdim].astype(np.float32)
-bestflat = np.load(joindata(path.join("bestflats", "bestflat_{0}_{1}.npy".format(optics.name, optics.dmdims[0]))))
-#load bestflat, which should be an aligned FPM
-optics.applydmc(bestflat)
-
-expt(1e-3) #set exposure time
-imydim, imxdim = optics.imdims
-
-tsleep = 0.02 
-#DM aperture;
-xy=np.sqrt((grid[0]-dmcini.shape[0]/2+0.5)**2+(grid[1]-dmcini.shape[1]/2+0.5)**2)
-aperture=np.zeros(dmcini.shape).astype(float32)
-aperture[np.where(xy<dmcini.shape[0]/2)]=1 
-indap=np.where(aperture==1)
-indnap=np.where(aperture==0)
-inddmuse=np.where(aperture.flatten()==1)[0]
-nact=len(inddmuse)
-
-remove_piston = lambda dmc: dmc-np.mean(dmc[indap]) #function to remove piston from dm command to have zero mean
-
-tip,tilt=((grid[0]-ydim/2+0.5)/ydim*2).astype(float32),((grid[1]-xdim/2+0.5)/ydim*2).astype(float32)# DM tip/tilt 
-
-IMtt=np.array([(tip).flatten(),(tilt).flatten()])
-CMtt=np.linalg.pinv(IMtt,rcond=1e-5)
-def rmtt(ph): #remove tip/tilt from DM commands
-	coeffs=np.dot(np.vstack((ph).flatten()).T,CMtt) 
-	lsqtt=np.dot(IMtt.T,coeffs.T).reshape(tilt.shape).astype(float32)
-	return ph-lsqtt
-
-#setup Zernike polynomials
-nmarr = []
-norder = 2 #how many radial Zernike orders to look at; just start with tip/tilt
-for n in range(1, norder):
-	for m in range(-n, n+1, 2):
-		nmarr.append([n,m])
-
-rho, phi = polar_grid(xdim, ydim)
-rho[int((xdim-1)/2),int((ydim-1)/2)] = 0.00001 #avoid numerical divide by zero issues
-
-def funz(n, m, amp, bestflat=bestflat): #apply zernike to the DM
-	z = zernike(n, m, rho, phi)/2
-	zdm = amp*(z.astype(np.float32))
-	dmc = remove_piston(remove_piston(bestflat)+remove_piston(zdm))
-	optics.applydmc(dmc)
-	return zdm
-
-#calibrated image center and beam ratio from genDH.py
-imxcen, imycen = np.load(joindata(path.join("bestflats", "imcen.npy")))
-beam_ratio = np.load(joindata(path.join("bestflats", "beam_ratio.npy")))
-
-gridim = np.mgrid[0:imydim,0:imxdim]
-rim = np.sqrt((gridim[0]-imycen)**2+(gridim[1]-imxcen)**2)
-
-def vz(n, m, IMamp): #determine the minimum IMamp (interaction matrix amplitude) to be visible in differential images
-	# ds9 = pysao.ds9()
-	zern = funz(n, m, IMamp)
-	time.sleep(tsleep)
-	imzern = optics.stackim(10)
-	optics.applydmc(bestflat)
-	time.sleep(tsleep)
-	imflat = optics.stackim(10)
-	return imflat
-	# ds9.view((imzern-imflat)*ttmask)
-
-#from above function
-ttmask=np.zeros(imini.shape)
-rmask=10
-indttmask=np.where(rim/beam_ratio<rmask)
-ttmask[indttmask]=1
-IMamp=0.001
 
 def make_im_cm(verbose=True, rcond=1e-3):
 	#make interaction matrix
@@ -128,7 +55,7 @@ def measure_tt(image, cmd_mtx=cmd_mtx):
 	coeffs = np.dot(cmd_mtx, tar)
 	return coeffs * IMamp
 
-def linearity(mode=0, nlin=20, amp=IMamp, plot=True):
+def linearity(nlin=20, amp=IMamp, plot=True):
 	def genzerncoeffs(i, zernamp):
 		'''
 		i: zernike mode
@@ -150,7 +77,7 @@ def linearity(mode=0, nlin=20, amp=IMamp, plot=True):
 	zernampout=np.zeros((len(nmarr), nlin))
 	for i in tqdm.trange(nlin):
 		zernamp=zernamparr[i]
-		coeffsout = genzerncoeffs(mode, zernamp)
+		coeffsout = genzerncoeffs(i, zernamp)
 		zernampout[:,i] = coeffsout
 	
 	optics.applydmc(bestflat)
