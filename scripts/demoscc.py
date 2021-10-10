@@ -140,7 +140,7 @@ def close_sim_loop():
 		im2.set_data(vpup(phatmout+phdm-phout_diff))
 		im3.set_data(vim(imout_ol))
 		im4.set_data(vim(imout))
-		print('closed-loop: iteration {0} of {1}'.format(it, num_time_steps))
+		print(f"closed-loop: iteration {it} of {num_time_steps}")
 		return [im1,im2,im3,im4]
 
 	ani = animation.FuncAnimation(fig, animate, time_steps, interval=50, blit=True)

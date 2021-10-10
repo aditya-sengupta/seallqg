@@ -92,7 +92,7 @@ def plot_cl_rtf(ttvals, mode, dt=datetime.now().strftime("%d_%m_%Y_%H_%M_%S"), s
         axs[mode].legend()
         axs[mode].set_xlabel("Frequency (Hz)")
         axs[mode].set_ylabel(r"Power (DM $units^2/Hz$)")
-        axs[mode].set_title("Mode {0}, CL/OL RMS {1}".format(mode, rms_ratio))
+        axs[mode].set_title(f"Mode {mode}, CL/OL RMS {rms_ratio}")
         fname = "../plots/cl_lqg_" + dt + ".pdf"
         if save:
             plt.savefig(joindata(fname))

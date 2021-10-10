@@ -99,9 +99,9 @@ def lowfs_get_coeffs(imin):
 	return coeffs
 
 def lowfsout(imin,g=np.ones(zrefarr.shape[0])):
-	coeffs=lowfs_get_coeffs(imin)
+	coeffs = lowfs_get_coeffs(imin)
 	phlsq=np.zeros(aperture.shape)
-	phlsq[indpup]=np.dot(-coeffs*g.flatten(),zrefarr)
+	phlsq[indpup]=np.dot(-(coeffs * g.flatten()),zrefarr)
 	return phlsq
 
 # close the loop on a residual AO phase screen

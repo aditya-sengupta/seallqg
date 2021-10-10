@@ -19,7 +19,7 @@ def align_alpao_fast(manual=True, view=True):
 	optics.set_expt(1e-4)
 	time.sleep(5)
 
-	bestflat = np.load(joindata(path.join("bestflats", "bestflat_{0}_{1}.npy".format(optics.name, optics.dmdims[0]))))
+	bestflat = optics.bestflat
 	optics.applydmc(bestflat)
 	ydim,xdim = optics.dmdims
 	grid=np.mgrid[0:ydim,0:xdim].astype(np.float32)
@@ -127,9 +127,9 @@ def align_alpao_fast(manual=True, view=True):
 	im_bestflat = optics.stackim(100)
 
 	dt = datetime.now().strftime("%d_%m_%Y_%H")
-	np.save(joindata(path.join("bestflats", "bestflat_{0}_{1}.npy".format(optics.name, optics.dmdims[0]))), bestflat)
-	np.save(joindata(path.join("bestflats", "bestflat_{0}_{1}_{2}.npy".format(optics.name, optics.dmdims[0], dt))), bestflat)
-	np.save(joindata(path.join("bestflats", "im_{0}_{1}_{2}.npy".format(optics.name, optics.dmdims[0], dt))), im_bestflat)
+	np.save(optics.bestflat_path, bestflat)
+	np.save(f"bestflat_{optics.name}_{optics.dmdims[0]}_{dt}.npy", bestflat)
+	np.save(optics.imflat_path, im_bestflat)
 	print("Saved best flat")
 
 	optics.set_expt(1e-5) #set exposure time to avoid saturation of non-coronagraphic PSF
@@ -153,17 +153,17 @@ def align_alpao_fast(manual=True, view=True):
 
 	y = [genv(inds[i], 0) for i in range(4)]
 	x = [genv(inds[i], 1) for i in range(4)]
-	ymean=np.mean(y)
-	xmean=np.mean(x)
+	ymean = np.mean(y)
+	xmean = np.mean(x)
 
-	np.save(joindata(path.join("bestflats", "imcen.npy")), np.array([xmean,ymean]))
+	np.save(joindata("bestflats", "imcen.npy"), np.array([xmean,ymean]))
 
 	optics.set_expt(expt_init)
 
 	#calibrate DM units to lambda/D
-	beam_ratio=np.load(joindata(path.join("bestflats", "beam_ratio.npy"))) #beam ratio is from the old system, but it is not too consequential though if it is off...
+	beam_ratio = np.load(joindata("bestflats", "beam_ratio.npy")) #beam ratio is from the old system, but it is not too consequential though if it is off...
 	cal1=np.sqrt((y[0]-y[1])**2+(x[0]-x[1])**2)/(np.max(aperture*(dmcs[0]-dmcs[1]))-np.min(aperture*(dmcs[0]-dmcs[1])))/beam_ratio
 	cal2=np.sqrt((y[2]-y[3])**2+(x[2]-x[3])**2)/(np.max(aperture*(dmcs[2]-dmcs[3]))-np.min(aperture*(dmcs[2]-dmcs[3])))/beam_ratio
 
 	dmc2wfe = (cal1 + cal2) * 0.633 / 2 #should be dm commands in volts to WFE in microns, but this is ~10x larger than the calibration I did by poking 1 actuator...?
-	np.save(joindata(path.join("bestflats", "lodmc2wfe.npy")), dmc2wfe)
+	np.save(joindata("bestflats", "lodmc2wfe.npy"), dmc2wfe)

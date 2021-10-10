@@ -28,8 +28,8 @@ def solve_dare(A, B, Q, R, verbose=True, max_iters=1000):
             iters += 1
         if verbose:
             if check_dare(A, B, Q, R, P):
-                print("Solved iteratively in {} iterations.".format(iters))
+                print(f"Solved iteratively in {iters} iterations.")
             else:
-                print("Iterative solve failed in {} iterations.".format(iters))
+                print(f"Iterative solve failed in {iters} iterations.")
     return P
     

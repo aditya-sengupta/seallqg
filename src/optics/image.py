@@ -1,52 +1,85 @@
 # authored by Benjamin Gerard and Aditya Sengupta (and Sylvain Cetre?)
 
-from abc import ABC, abstractmethod
-import numpy as np
-from copy import copy
-import time
 import warnings
+import time
+from abc import ABC, abstractmethod
+from copy import copy
 from os import path
+import numpy as np
 
 from .par_functions import propagate
 from ..utils import joindata
+from ..constants import dmdims, imdims, dt
 
 optics = None
 
-class Optics(ABC): 
+class Optics(ABC):
+	"""
+	Driver class for the DM-WFS-image loop.
+	Supports updating the DM command, viewing the image, getting slopes, images, and saving data.
+	"""
 	@property
 	def dmzero(self):
+		"""
+		The zero state for the DM.
+		"""
 		return np.zeros(self.dmdims, dtype=np.float32)
+
+	@property
+	def bestflat_path(self):
+		"""
+		The path to load/save the best flat.
+		"""
+		return joindata("bestflats", f"bestflat_{self.name}_{self.dmdims[0]}.npy")
+
+	@property
+	def imflat_path(self):
+		"""
+		The path to load/save the image generated from the best flat.
+		"""
+		return joindata("bestflats", f"imflat_{self.name}_{self.imdims[0]}.npy")
+
+	@property
+	def bestflat(self):
+		"""
+		The best-flat position from file.
+		"""
+		return np.load(self.bestflat_path)
+
+	def applybestflat(self):
+		self.dmChannel.set_data(self.bestflat)
 
 	def applyzero(self):
 		self.dmChannel.set_data(self.dmzero)
 
 	def refresh(self, verbose=True):
-		bestflat = np.load(joindata(path.join("bestflats", "bestflat_{0}_{1}.npy".format(self.name, self.dmdims[0]))))
-		dmc = self.getdmc()
-		self.applydmc(bestflat)
-		imflat = self.stack(100)
-		np.save(joindata(path.join("bestflats", "imflat_{0}_{1}.npy".format(self.name, self.imdims[0])), imflat), imflat)
+		self.applybestflat()
+		time.sleep(1)
+		imflat = self.stackim(100)
+		np.save(self.imflat_path, imflat)
 		if verbose:
 			print("Updated the flat image.")
-		self.applydmc(dmc)
-		return bestflat, imflat
+		return self.getdmc(), imflat
 
-	def stack(self, func, n):
+	def stack(self, func, num_frames):
+		"""
+		Average a measurement of some function over `num_frames` frames.
+		"""
 		ims = func()
-		for _ in range(n - 1):
+		for _ in range(num_frames - 1):
 			ims = ims + func()
 		
 		ims = np.nan_to_num(ims)
-		return ims / n
+		return ims / num_frames
 
-	def stackwf(self, n):
-		return self.stack(self.getwf, n)
+	def stackwf(self, num_frames):
+		return self.stack(self.getwf, num_frames)
 
-	def stackim(self, n):
-		return self.stack(self.getim, n)
+	def stackim(self, num_frames):
+		return self.stack(self.getim, num_frames)
 
-	def stackslopes(self, n):
-		return self.stack(self.getslopes, n)
+	def stackslopes(self, num_frames):
+		return self.stack(self.getslopes, num_frames)
 
 	@abstractmethod
 	def getim(self):
@@ -57,7 +90,7 @@ class Optics(ABC):
 		pass
 
 	@abstractmethod
-	def applydmc(self, cmd):
+	def applydmc(self, dmc, **kwargs):
 		pass
 
 	@abstractmethod
@@ -94,8 +127,8 @@ class FAST(Optics):
 		port = "5556"
 		context = zmq.Context()
 		self.socket = context.socket(zmq.REQ)
-		self.socket.connect("tcp://128.114.22.20:%s" % port)
-		self.socket.send_string("pupSize");
+		self.socket.connect(f"tcp://128.114.22.20:{port}")
+		self.socket.send_string("pupSize")
 		self.pup_size = np.frombuffer(self.socket.recv(), dtype=np.int32)[0]
 
 	def set_expt(self, t):
@@ -136,13 +169,15 @@ class FAST(Optics):
 		self.socket.send_string("slopes")
 		data = self.socket.recv()
 		slopes = np.frombuffer(data, dtype=np.float32).reshape(self.pup_size, 2*self.pup_size)
-		sx = slopes[:,:self.pup_size]
-		sy = slopes[:,self.pup_size:]
-		return np.array([sx, sy])
+		slopes_x = slopes[:,:self.pup_size]
+		slopes_y = slopes[:,self.pup_size:]
+		return np.array([slopes_x, slopes_y])
 
 class Sim(Optics):
+	"""
+	A simulated adaptive optics loop.
+	"""
 	def __init__(self):
-		from ..constants import dmdims, imdims, dt
 		self.dmdims = imdims # dmdims
 		self.imdims = imdims
 		self.expt = 1e-3

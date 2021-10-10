@@ -1,4 +1,5 @@
-from os import path
+# authored by Benjamin Gerard and Aditya Sengupta
+
 import numpy as np
 from numpy import float32
 from scipy import fft
@@ -11,7 +12,7 @@ from ..utils import joindata
 
 ydim, xdim = optics.dmdims
 grid = np.mgrid[0:ydim, 0:xdim].astype(float32)
-bestflat = np.load(joindata(path.join("bestflats", "bestflat_{0}_{1}.npy".format(optics.name, optics.dmdims[0]))))
+bestflat = optics.bestflat
 optics.applydmc(bestflat)
 
 optics.set_expt(1e-3) #set exposure time; for 0.15 mW

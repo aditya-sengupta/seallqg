@@ -16,9 +16,9 @@ def flatten_alpao_fast():
 	expt_init = optics.get_expt()
 	optics.set_expt(1e-4)
 
-	bestflat = np.load(joindata(path.join("bestflats", "bestflat_{0}_{1}.npy".format(optics.name, optics.dmdims[0]))))
-
+	bestflat = optics.bestflat
 	optics.applydmc(bestflat)
+	
 	dmcini = optics.getdmc()
 	grid = np.mgrid[0:dmcini.shape[0],0:dmcini.shape[1]]
 	xy = np.sqrt((grid[0]-dmcini.shape[0]/2+0.5)**2+(grid[1]-dmcini.shape[1]/2+0.5)**2)

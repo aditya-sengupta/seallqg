@@ -17,13 +17,12 @@ from tqdm.contrib.concurrent import process_map
 
 from .ao import * 
 from .par_functions import return_vars, propagate, scc, make_IM, make_cov, make_covinvrefj
-from ..utils import joindata
+from ..utils import joinsimdata
 
 imagepix, pupilpix, beam_ratio, e, no_phase_offset,xy_dh,grid,N_act,wav0,amp,aperture,indpup,ind_mask_dh,loopx,loopy,freq_loop,pa_loop,n,refdir,iter_arr=return_vars()
 
 def make_im_scc_howfs():
-	covinvcor_path = joindata(path.join("scc_sim", "covinvcor_{0}.npy".format(refdir)))
-	print(covinvcor_path)
+	covinvcor_path = joinsimdata(f"covinvcor_{refdir}.npy")
 	if path.isfile(covinvcor_path):
 		covinvcor = np.load(covinvcor_path)
 	else:

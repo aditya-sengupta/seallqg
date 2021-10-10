@@ -2,16 +2,10 @@
 demo code, using perfect SCC, to run closed-loop FAST control
 """
 
-import os
 from os import path
-import sys
 import itertools
 import numpy as np
 from scipy.ndimage.interpolation import rotate
-import matplotlib.pyplot as plt
-import matplotlib as mpl
-import multiprocessing as mp
-import warnings
 
 from .ao import * #utility functions to use throughout the simulation
 from ..utils import joindata, joinsimdata

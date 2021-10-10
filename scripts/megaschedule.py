@@ -1,4 +1,10 @@
+"""
+FAST System Identification Data Collection Mega-Schedule
+"""
+import sys
+sys.path.append("..")
 from src import *
+import numpy as np
 
 optics.set_expt(1e-3)
 
@@ -28,7 +34,7 @@ for (atm, vib) in zip([0, 0, 0, 1, 1, 1, 2, 6], [2, 3, 10, 0, 2, 3, 0, 0]):
 # integrators
 
 for gain in [0.1, 0.2]:
-    print("Integrator, gain = {0}".format(gain))
+    print(f"Integrator, gain = {gain}")
     print("No disturbance")
     record_intnone(t=100, verbose=False)
 
