@@ -54,6 +54,7 @@ def tt_from_queued_image(in_q, out_q, cmd_mtx, timestamp=get_timestamp()):
 			img = in_q.get()
 			in_q.task_done()
 			if img is not None:
+				assert not np.allclose(img - imflat, 0), "not seeing any pixel noise"
 				ttval = measure_tt(img - imflat, cmd_mtx).flatten()
 				out_q.put(ttval)
 				ttvals.append(ttval)
@@ -92,7 +93,7 @@ def record_experiment(record_path, control_schedule, dist_schedule, t=1, verbose
 
 	i = 0
 	imax = 10
-	while np.any(np.abs(baseline_ttvals) > 0.03):
+	while np.any(np.abs(baseline_ttvals) > 0.01):
 		warnings.warn(f"The system may not be aligned: baseline TT is {baseline_ttvals.flatten()}.")
 		align_alpao_fast(manual=False, view=False)
 		_, cmd_mtx = make_im_cm()

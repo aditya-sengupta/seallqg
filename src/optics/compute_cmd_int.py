@@ -61,7 +61,7 @@ rim = np.sqrt((gridim[0]-imycen)**2+(gridim[1]-imxcen)**2)
 
 ttmask = np.zeros(optics.imdims)
 rmask = 10
-indttmask = np.where(rim / beam_ratio<  rmask)
+indttmask = np.where(rim / beam_ratio < rmask)
 ttmask[indttmask] = 1
 IMamp = 0.001
 sweep_amp = 5 * IMamp
@@ -121,9 +121,9 @@ def linearity(nlin=20, plot=True, rcond=1e-3):
 	zernampout = np.zeros((len(nmarr),len(nmarr),nlin))
 	for nm in range(len(nmarr)):
 		for i in range(nlin):
-			zernamp=zernamparr[i]
-			coeffsout=genzerncoeffs(nm, zernamp, cmd_mtx, bestflat, imflat)
-			zernampout[nm,:,i]=coeffsout.flatten()
+			zernamp = zernamparr[i]
+			coeffsout = genzerncoeffs(nm, zernamp, cmd_mtx, bestflat, imflat)
+			zernampout[nm,:,i] = coeffsout.flatten()
 
 	optics.applybestflat()
 
