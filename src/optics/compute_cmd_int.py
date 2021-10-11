@@ -10,7 +10,6 @@ import time
 import numpy as np
 import matplotlib as mpl
 from matplotlib import pyplot as plt
-from scipy.optimize import newton
 
 from .image import optics
 from .tt import processim
@@ -67,7 +66,7 @@ ttmask[indttmask] = 1
 IMamp = 0.001
 sweep_amp = 5 * IMamp
 
-def make_im_cm(rcond=1e-3, verbose=True, ):
+def make_im_cm(rcond=1e-3, verbose=True):
 	"""
 	Make updated interaction and command matrices.
 	"""
@@ -124,7 +123,7 @@ def linearity(nlin=20, plot=True, rcond=1e-3):
 		for i in range(nlin):
 			zernamp=zernamparr[i]
 			coeffsout=genzerncoeffs(nm, zernamp, cmd_mtx, bestflat, imflat)
-			zernampout[nm,:,i]=coeffsout
+			zernampout[nm,:,i]=coeffsout.flatten()
 
 	optics.applybestflat()
 
