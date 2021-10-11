@@ -17,7 +17,7 @@ from ..optics import optics
 from ..optics import measure_tt, make_im_cm
 from ..optics import align_alpao_fast
 
-def record_im(out_q, duration=1, timestamp=get_timestamp()):
+def record_im(out_q, duration, timestamp):
 	"""
 	Get images from the optics system, put them in the output queue,
 	and record the times at which images are received.
@@ -38,12 +38,11 @@ def record_im(out_q, duration=1, timestamp=get_timestamp()):
 	np.save(fname, times)
 	return times
 	
-def tt_from_queued_image(in_q, out_q, cmd_mtx, timestamp=get_timestamp()):
+def tt_from_queued_image(in_q, out_q, imflat, cmd_mtx, timestamp):
 	"""
 	Takes in images from the queue `in_q`,
 	and converts them to tip-tilt values which get sent to the queue `out_q`.
 	"""
-	imflat = np.load(optics.imflat_path)
 	fname = joindata("recordings", f"rectt_stamp_{timestamp}.npy")
 	ttvals = []
 	while True:
@@ -54,8 +53,8 @@ def tt_from_queued_image(in_q, out_q, cmd_mtx, timestamp=get_timestamp()):
 			img = in_q.get()
 			in_q.task_done()
 			if img is not None:
-				assert not np.allclose(img - imflat, 0), "not seeing any pixel noise"
-				ttval = measure_tt(img - imflat, cmd_mtx).flatten()
+				imdiff = img - imflat
+				ttval = measure_tt(imdiff, cmd_mtx).flatten()
 				out_q.put(ttval)
 				ttvals.append(ttval)
 			else:
@@ -86,9 +85,9 @@ def control_schedule_from_law(q, control, t=1):
 			last_tt, dmc = control(tt, u=last_tt)
 			optics.applydmc(dmc)
 
-def record_experiment(record_path, control_schedule, dist_schedule, t=1, verbose=True):
-	_, cmd_mtx = make_im_cm(verbose)
-	bestflat, imflat = optics.refresh(verbose)
+def record_experiment(record_path, control_schedule, dist_schedule, t=1, rcond=1e-3, verbose=True):
+	_, cmd_mtx = make_im_cm(rcond=rcond, verbose=verbose)
+	bestflat, imflat = optics.refresh(verbose=False)
 	baseline_ttvals = measure_tt(optics.getim() - imflat, cmd_mtx=cmd_mtx)
 
 	i = 0
@@ -111,7 +110,7 @@ def record_experiment(record_path, control_schedule, dist_schedule, t=1, verbose
 	q_compute = Queue()
 	q_control = Queue()
 	record_thread = Thread(target=partial(record_im, duration=t, timestamp=timestamp), args=(q_compute,))
-	compute_thread = Thread(target=partial(tt_from_queued_image, timestamp=timestamp), args=(q_compute, q_control, cmd_mtx,))
+	compute_thread = Thread(target=partial(tt_from_queued_image, timestamp=timestamp), args=(q_compute, q_control, imflat, cmd_mtx,))
 	control_thread = Thread(target=partial(control_schedule, t=t), args=(q_control,))
 	command_thread = Thread(target=dist_schedule)
 

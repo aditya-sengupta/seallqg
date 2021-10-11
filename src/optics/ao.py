@@ -109,7 +109,7 @@ def zernike(n,m,rho,phi):
 	'''
 	make a zernike polynomial of specified n,m given input polar coordinate maps of rho (normalized to one; pupil coordinates only) and phi (radians)
 	'''
-	with np.errstate(divide="ignore"):
+	with np.errstate(divide="ignore", invalid="ignore"):
 		rad = gamma(n+1)*hyp2f1(-1./2.*(m+n),1./2.*(m-n),-n,rho**(-2))/gamma(1./2.*(2+n-m))/gamma(1./2.*(2+n+m))*rho**n
 	if m >= 0:
 		cos = np.cos(m*phi)
