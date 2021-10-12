@@ -155,4 +155,5 @@ def flatten_alpao_fast():
 	wfe=optics.stackwf(10)
 	print(np.nanstd(wfs[wf_ind])/np.nanstd(wfe[wf_ind]))
 	optics.set_expt(expt_init)
+	np.save(optics.bestflat_path, optics.getdmc())
 

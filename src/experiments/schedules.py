@@ -14,7 +14,7 @@ def noise_schedule(t, **kwargs):
     """
     time.sleep(t)
 
-def ustep_schedule(t, tip_amp=0.1, tilt_amp=0.0, **kwargs):
+def ustep_schedule(t, tip_amp=0.001, tilt_amp=0.0, **kwargs):
     """
     Put on a unit step.
     """
@@ -22,7 +22,7 @@ def ustep_schedule(t, tip_amp=0.1, tilt_amp=0.0, **kwargs):
     applytip(tip_amp)
     applytilt(tilt_amp)
 
-def step_train_schedule(t, n=5, tip_amp=0.1, tilt_amp=0.0, **kwargs):
+def step_train_schedule(t, n=5, tip_amp=0.01, tilt_amp=0.0, **kwargs):
     """
     Put on a train of unit steps.
     """

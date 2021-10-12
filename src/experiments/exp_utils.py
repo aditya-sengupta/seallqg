@@ -85,17 +85,17 @@ def control_schedule_from_law(q, control, t=1):
 			last_tt, dmc = control(tt, u=last_tt)
 			optics.applydmc(dmc)
 
-def record_experiment(record_path, control_schedule, dist_schedule, t=1, rcond=1e-3, verbose=True):
+def record_experiment(record_path, control_schedule, dist_schedule, t=1, rcond=1e-4, verbose=True):
 	_, cmd_mtx = make_im_cm(rcond=rcond, verbose=verbose)
 	bestflat, imflat = optics.refresh(verbose=False)
 	baseline_ttvals = measure_tt(optics.getim() - imflat, cmd_mtx=cmd_mtx)
 
 	i = 0
 	imax = 10
-	while np.any(np.abs(baseline_ttvals) > 0.01):
+	while np.any(np.abs(baseline_ttvals) > 1e-3):
 		warnings.warn(f"The system may not be aligned: baseline TT is {baseline_ttvals.flatten()}.")
 		align_alpao_fast(manual=False, view=False)
-		_, cmd_mtx = make_im_cm()
+		_, cmd_mtx = make_im_cm(rcond=rcond)
 		bestflat, imflat = optics.refresh(verbose)
 		baseline_ttvals = measure_tt(optics.getim() - imflat, cmd_mtx=cmd_mtx)
 		i += 1
