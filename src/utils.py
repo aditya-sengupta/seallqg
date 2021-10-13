@@ -13,7 +13,7 @@ from scipy.signal import welch, windows
 from .constants import dt
 
 host = gethostname()
-if host == "Adityas-Air.net" or host == "Adityas-MacBook-Air.local":
+if (host == "skaya.local") or ("cam.ac.uk" in host):
 	ROOTDIR = "/Users/adityasengupta/research/ao/set-tt-control/"
 elif host == "SEAL":
 	ROOTDIR = "/home/lab/asengupta/"

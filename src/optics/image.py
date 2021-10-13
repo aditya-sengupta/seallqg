@@ -2,10 +2,11 @@
 
 import warnings
 import time
-from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod, abstractproperty
 from copy import copy
 from os import path
 import numpy as np
+from socket import gethostname
 
 from .par_functions import propagate
 from ..utils import joindata
@@ -39,18 +40,18 @@ class Optics(ABC):
 		"""
 		return joindata("bestflats", f"imflat_{self.name}_{self.imdims[0]}.npy")
 
+	def applybestflat(self):
+		self.applydmc(self.bestflat)
+
+	def applyzero(self):
+		self.applydmc(self.dmzero)
+
 	@property
 	def bestflat(self):
 		"""
 		The best-flat position from file.
 		"""
 		return np.load(self.bestflat_path)
-
-	def applybestflat(self):
-		self.dmChannel.set_data(self.bestflat)
-
-	def applyzero(self):
-		self.dmChannel.set_data(self.dmzero)
 
 	def refresh(self, verbose=True):
 		self.applybestflat()
@@ -178,7 +179,7 @@ class Sim(Optics):
 	A simulated adaptive optics loop.
 	"""
 	def __init__(self):
-		self.dmdims = imdims # dmdims
+		self.dmdims = dmdims
 		self.imdims = imdims
 		self.expt = 1e-3
 		self.dt = dt
@@ -207,8 +208,8 @@ class Sim(Optics):
 	def getwf(self):
 		raise NotImplementedError()
 	
-try:
+if gethostname() == "SEAL":
 	optics = FAST()
-except (ModuleNotFoundError, OSError):
+else:
 	print("Running in simulation mode.")
 	optics = Sim()

@@ -4,7 +4,7 @@ import numpy as np
 from functools import partial
 
 from .observer import identity, make_kf_observer
-from ..optics import optics, tt_to_dmc
+from ..optics import optics, zcoeffs_to_dmc
 
 def control(measurement, observer, controller, **kwargs):
     """
@@ -59,7 +59,7 @@ def integrator(state, gain=0.1, leak=1.0, **kwargs):
     command : np.ndarray, (ydim, xdim)
     The command to be put on the DM.
     """
-    dmcn = tt_to_dmc(state)
+    dmcn = zcoeffs_to_dmc(state)
     return state, gain * dmcn + leak * optics.getdmc()
 
 def make_lqg_controller(klqg):
@@ -68,7 +68,7 @@ def make_lqg_controller(klqg):
         Linear-quadratic-Gaussian control.
         """
         u = klqg.control()
-        return u, optics.getdmc() + tt_to_dmc(u)
+        return u, optics.getdmc() + zcoeffs_to_dmc(u)
 
     return lqg_controller
 

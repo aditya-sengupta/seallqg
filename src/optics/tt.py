@@ -113,19 +113,19 @@ def processim(imin): #process SCC image, isolating the sidelobe in the FFT and I
 
 tiptiltarr = np.array([tilt.flatten(), tip.flatten()]).T
 
-def tt_to_dmc(tt):
-    """
-    Converts a measured tip-tilt value to an ideal DM command.
-    
-    Arguments
-    ---------
-    tt : np.ndarray, (2, 1)
-    The tip and tilt values.
+def zcoeffs_to_dmc(zcoeffs):
+	"""
+	Converts a measured coefficient value to an ideal DM command.
+	
+	Arguments
+	---------
+	zcoeffs : np.ndarray, (ncoeffs, 1)
+	The tip and tilt values.
 
-    Returns
-    -------
-    dmc : np.ndarray, (dm_x, dm_y)
-    The corresponding DM command.
-    """
-    return np.matmul(tiptiltarr, -tt).reshape((ydim, xdim))
+	Returns
+	-------
+	dmc : np.ndarray, (dm_x, dm_y)
+	The corresponding DM command.
+	"""
+	return None
 	
