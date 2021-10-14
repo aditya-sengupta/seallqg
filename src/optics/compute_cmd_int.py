@@ -12,8 +12,8 @@ import matplotlib as mpl
 from matplotlib import pyplot as plt
 
 from .image import optics
-from .tt import processim
-from .ao import polar_grid, zernike
+from .tt import processim, funz
+from .ao import polar_grid
 from ..utils import joindata
 
 dmc2wf = np.load(joindata("bestflats", "lodmc2wfe.npy"))
@@ -49,12 +49,6 @@ for n in range(1, norder):
 rho, phi = polar_grid(xdim, ydim)
 rho[int((xdim-1)/2),int((ydim-1)/2)] = 0.00001 #avoid numerical divide by zero issues
 
-def funz(n, m, amp, bestflat): #apply zernike to the DM
-	z = zernike(n, m, rho, phi)/2
-	zdm = amp*(z.astype(np.float32))
-	dmc = remove_piston(remove_piston(bestflat)+remove_piston(zdm))
-	optics.applydmc(dmc)
-	return zdm
 
 gridim = np.mgrid[0:imydim,0:imxdim]
 rim = np.sqrt((gridim[0]-imycen)**2+(gridim[1]-imxcen)**2)
@@ -65,6 +59,15 @@ indttmask = np.where(rim / beam_ratio < rmask)
 ttmask[indttmask] = 1
 IMamp = 0.001
 sweep_amp = 5 * IMamp
+
+def make_zernarr():
+	zernarr = np.zeros((len(nmarr), aperture[indap].shape[0])).astype(np.float32)
+	bestflat, _ = optics.refresh()
+	for (i, (n, m)) in enumerate(nmarr):
+		zern = funz(n, m, IMamp, bestflat)
+		zernarr[i] = zern[indap]
+	
+	return zernarr
 
 def make_im_cm(rcond=1e-3, verbose=True):
 	"""
@@ -92,9 +95,9 @@ def make_im_cm(rcond=1e-3, verbose=True):
 		print("Recomputed interaction matrix and command matrix")
 	return int_mtx, cmd_mtx
 
-def measure_tt(image, cmd_mtx):
+def measure_zcoeffs(image, cmd_mtx):
 	"""
-	Measures tip-tilt values from an image.
+	Measures Zernike coefficient values from an image.
 	"""
 	tar_ini = processim(image)
 	tar = np.array([np.real(tar_ini[indttmask]), np.imag(tar_ini[indttmask])])
@@ -112,7 +115,7 @@ def genzerncoeffs(i, zernamp, cmd_mtx, bestflat, imflat):
 	time.sleep(tsleep)
 	imzern = optics.stackim(10)
 	imdiff = imzern - imflat
-	return measure_tt(imdiff, cmd_mtx)
+	return measure_zcoeffs(imdiff, cmd_mtx)
 
 def linearity(nlin=20, plot=True, rcond=1e-3):
 	bestflat, imflat = optics.refresh()
@@ -161,3 +164,23 @@ def linearity(nlin=20, plot=True, rcond=1e-3):
 	return zernamparr, zernampout
 
 # fit_polynomial stuff removed on 2021-10-10, see git history before that to recover
+
+zernarr = make_zernarr()
+
+def zcoeffs_to_dmc(zcoeffs):
+	"""
+	Converts a measured coefficient value to an ideal DM command.
+	
+	Arguments
+	---------
+	zcoeffs : np.ndarray, (ncoeffs, 1)
+	The tip and tilt values.
+
+	Returns
+	-------
+	dmc : np.ndarray
+	The corresponding DM command.
+	"""
+	dmc = np.copy(optics.dmzero)
+	dmc[indap] = np.matmul(zernarr.T, -zcoeffs)
+	return dmc

@@ -32,7 +32,7 @@ def joinsimdata(*args):
 def joinplot(*args):
 	return path.join(PLOTDIR, *args)
 
-def rms(data, places=4):
+def rms(data, places=8):
 	"""
 	Computes the root-mean-square of `data` to `places` places.
 	"""
@@ -45,19 +45,19 @@ def rms(data, places=4):
 		places
 	)
 
+def rmsz0(data, places=8):
+	return rms(data[:,0], places)
+
+def rmsz1(data, places=8):
+	return rms(data[:,1], places)
+
+def ratio(function, data1, data2, **kwargs):
+	return function(data1, **kwargs) / function(data2, **kwargs)
+
 def get_timestamp():
 	return datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
 
-def get_keck_tts(num=128):
-	# gets the right keck TTs that have the wrong powerlaw.
-	# put in a number 128 through 132
-	filename = '../telemetry/n0' + str(num) + '_LGS_trs.sav'
-	telemetry = io.readsav(filename)['b']
-	commands = deepcopy(telemetry['DTTCOMMANDS'])[0]
-	commands = commands - np.mean(commands, axis=0)
-	residuals = telemetry['DTTCENTROIDS'][0]
-	pol = residuals[1:] + commands[:-1]
-	return residuals[1:], commands[:-1], pol
+# keck TTs deleted 2021-10-14
 
 def make_impulse_2(overshoot, rise_time, times=np.arange(0, 1, 0.001)):
 	"""

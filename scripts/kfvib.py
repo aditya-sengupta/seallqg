@@ -69,18 +69,18 @@ def run_experiment(klqg, t=10, i=1):
     # assert klqg.improvement() >= 1, "Kalman-LQG setup does not improve in simulation."
     exp = recompute_schedules(klqg)[i]
     klqg.x = np.zeros(klqg.state_size,)
-    times, ttvals = exp(t=t)
-    return times, ttvals, datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
+    times, zvals = exp(t=t)
+    return times, zvals, datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
 
 kint = partial(run_experiment, i=0)
 lqg = partial(run_experiment, i=1)
 
-def plot_cl_rtf(ttvals, mode, dt=datetime.now().strftime("%d_%m_%Y_%H_%M_%S"), save=True):
+def plot_cl_rtf(zvals, mode, dt=datetime.now().strftime("%d_%m_%Y_%H_%M_%S"), save=True):
     fig, axs = plt.subplots(2, figsize=(9,9))
     fig.tight_layout(pad=4.0)
     plt.suptitle("LQG rejection")
     for mode in range(2):
-        cl = ttvals[:,mode]
+        cl = zvals[:,mode]
         olc = ol[:len(cl),mode]
         f_ol, p_ol = genpsd(olc, dt=0.01)
         f_cl, p_cl = genpsd(cl, dt=0.01)
@@ -103,5 +103,5 @@ klqg.R *= 1e6
 # end modifications
 
 if __name__ == "__main__":
-    times, ttvals, dt = kint(klqg, t=10)
-    plot_cl_rtf(ttvals, dt)
+    times, zvals, dt = kint(klqg, t=10)
+    plot_cl_rtf(zvals, dt)

@@ -14,7 +14,7 @@ import numpy as np
 from ..constants import dt
 from ..utils import joindata, get_timestamp
 from ..optics import optics
-from ..optics import measure_tt, make_im_cm
+from ..optics import measure_zcoeffs, make_im_cm
 from ..optics import align_alpao_fast
 
 def record_im(out_q, duration, timestamp):
@@ -38,13 +38,14 @@ def record_im(out_q, duration, timestamp):
 	np.save(fname, times)
 	return times
 	
-def tt_from_queued_image(in_q, out_q, imflat, cmd_mtx, timestamp):
+def zcoeffs_from_queued_image(in_q, out_q, imflat, cmd_mtx, timestamp):
 	"""
 	Takes in images from the queue `in_q`,
-	and converts them to tip-tilt values which get sent to the queue `out_q`.
+	and converts them to Zernike coefficient values 
+	which get sent to the queue `out_q`.
 	"""
-	fname = joindata("recordings", f"rectt_stamp_{timestamp}.npy")
-	ttvals = []
+	fname = joindata("recordings", f"recz_stamp_{timestamp}.npy")
+	zvals = []
 	while True:
 		# if you don't have any work, take a nap!
 		if in_q.empty():
@@ -54,13 +55,13 @@ def tt_from_queued_image(in_q, out_q, imflat, cmd_mtx, timestamp):
 			in_q.task_done()
 			if img is not None:
 				imdiff = img - imflat
-				ttval = measure_tt(imdiff, cmd_mtx).flatten()
-				out_q.put(ttval)
-				ttvals.append(ttval)
+				zval = measure_zcoeffs(imdiff, cmd_mtx).flatten()
+				out_q.put(zval)
+				zvals.append(zval)
 			else:
-				ttvals = np.array(ttvals)
-				np.save(fname, ttvals)
-				return ttvals
+				zvals = np.array(zvals)
+				np.save(fname, zvals)
+				return zvals
 
 def control_schedule_from_law(q, control, t=1):
 	"""
@@ -69,35 +70,35 @@ def control_schedule_from_law(q, control, t=1):
 	Arguments
 	---------
 	q : Queue
-	The queue to poll for new tip-tilt values.
+	The queue to poll for new Zernike coefficient values.
 
 	control : callable
 	The function to execute control.
 	"""
-	last_tt = None # the most recently applied control command
+	last_z = None # the most recently applied control command
 	t1 = time.time()
 	while time.time() < t1 + t:
 		if q.empty():
 			time.sleep(dt/2)
 		else:
-			tt = q.get()
+			z = q.get()
 			q.task_done()
-			last_tt, dmc = control(tt, u=last_tt)
+			last_z, dmc = control(z, u=last_z)
 			optics.applydmc(dmc)
 
 def record_experiment(record_path, control_schedule, dist_schedule, t=1, rcond=1e-4, verbose=True):
 	_, cmd_mtx = make_im_cm(rcond=rcond, verbose=verbose)
 	bestflat, imflat = optics.refresh(verbose=False)
-	baseline_ttvals = measure_tt(optics.getim() - imflat, cmd_mtx=cmd_mtx)
+	baseline_zvals = measure_zcoeffs(optics.getim() - imflat, cmd_mtx=cmd_mtx)
 
 	i = 0
 	imax = 10
-	while np.any(np.abs(baseline_ttvals) > 1e-3):
-		warnings.warn(f"The system may not be aligned: baseline TT is {baseline_ttvals.flatten()}.")
+	while np.any(np.abs(baseline_zvals) > 1e-3):
+		warnings.warn(f"The system may not be aligned: baseline TT is {baseline_zvals.flatten()}.")
 		align_alpao_fast(manual=False, view=False)
 		_, cmd_mtx = make_im_cm(rcond=rcond)
 		bestflat, imflat = optics.refresh(verbose)
-		baseline_ttvals = measure_tt(optics.getim() - imflat, cmd_mtx=cmd_mtx)
+		baseline_zvals = measure_zcoeffs(optics.getim() - imflat, cmd_mtx=cmd_mtx)
 		i += 1
 		if i > imax:
 			print("Cannot align system: realign manually and try experiment again.")
@@ -110,7 +111,7 @@ def record_experiment(record_path, control_schedule, dist_schedule, t=1, rcond=1
 	q_compute = Queue()
 	q_control = Queue()
 	record_thread = Thread(target=partial(record_im, duration=t, timestamp=timestamp), args=(q_compute,))
-	compute_thread = Thread(target=partial(tt_from_queued_image, timestamp=timestamp), args=(q_compute, q_control, imflat, cmd_mtx,))
+	compute_thread = Thread(target=partial(zcoeffs_from_queued_image, timestamp=timestamp), args=(q_compute, q_control, imflat, cmd_mtx,))
 	control_thread = Thread(target=partial(control_schedule, t=t), args=(q_control,))
 	command_thread = Thread(target=dist_schedule)
 
@@ -135,12 +136,12 @@ def record_experiment(record_path, control_schedule, dist_schedule, t=1, rcond=1
 	optics.applydmc(bestflat)
 
 	timepath = joindata("recordings", f"rectime_stamp_{timestamp}.npy")
-	ttpath = joindata("recordings", f"rectt_stamp_{timestamp}.npy")
+	zpath = joindata("recordings", f"recz_stamp_{timestamp}.npy")
 	times = np.load(timepath)
-	ttvals = np.load(ttpath)
+	zvals = np.load(zpath)
 	np.save(record_path, times)
-	record_path = record_path.replace("time", "tt")
-	np.save(record_path, ttvals)
+	record_path = record_path.replace("time", "z")
+	np.save(record_path, zvals)
 	os.remove(timepath)
-	os.remove(ttpath)
-	return times, ttvals
+	os.remove(zpath)
+	return times, zvals
