@@ -60,22 +60,36 @@ ttmask[indttmask] = 1
 IMamp = 0.001
 sweep_amp = 5 * IMamp
 
-def make_zernarr():
-	zernarr = np.zeros((len(nmarr), aperture[indap].shape[0])).astype(np.float32)
+def maskflat(z, mask=True):
+	if mask:
+		return z[indap]
+	else:
+		return z.flatten()
+
+def make_zernarr(mask=True):
+	if mask:
+		s = aperture[indap].shape[0]
+	else:
+		s = aperture.size
+	zernarr = np.zeros((len(nmarr), s)).astype(np.float32)
 	bestflat, _ = optics.refresh()
 	for (i, (n, m)) in enumerate(nmarr):
 		zern = funz(n, m, IMamp, bestflat)
-		zernarr[i] = zern[indap]
+		zernarr[i] = maskflat(zern, mask)
 	
 	return zernarr
 
-def make_im_cm(rcond=1e-3, verbose=True):
+def make_im_cm(rcond=1e-3, verbose=True, mask=True):
 	"""
 	Make updated interaction and command matrices.
 	"""
+	if mask:
+		s = aperture[indap].shape[0]
+	else:
+		s = aperture.size
 	bestflat, imflat = optics.refresh()
 	refvec = np.zeros((len(nmarr), ttmask[indttmask].shape[0]*2))
-	zernarr = np.zeros((len(nmarr), aperture[indap].shape[0]))
+	zernarr = np.zeros((len(nmarr), s))
 	for (i, (n, m)) in enumerate(nmarr):
 		zern = funz(n, m, IMamp, bestflat)
 		time.sleep(tsleep)
@@ -86,7 +100,7 @@ def make_im_cm(rcond=1e-3, verbose=True):
 			np.real(processed_imdiff[indttmask]),
 			np.imag(processed_imdiff[indttmask])
 		]).flatten()
-		zernarr[i] = zern[indap]
+		zernarr[i] = maskflat(zern, mask)
 
 	int_mtx = np.dot(refvec, refvec.T) #interaction matrix
 	int_mtx_inv = np.linalg.pinv(int_mtx, rcond=rcond)
@@ -165,7 +179,8 @@ def linearity(nlin=20, plot=True, rcond=1e-3):
 
 # fit_polynomial stuff removed on 2021-10-10, see git history before that to recover
 
-zernarr = make_zernarr()
+mask = False
+zernarr = make_zernarr(mask)
 
 def zcoeffs_to_dmc(zcoeffs):
 	"""
@@ -181,6 +196,9 @@ def zcoeffs_to_dmc(zcoeffs):
 	dmc : np.ndarray
 	The corresponding DM command.
 	"""
-	dmc = np.copy(optics.dmzero)
-	dmc[indap] = np.matmul(zernarr.T, -zcoeffs)
-	return dmc
+	if not mask:
+		return np.dot(zernarr.T, -zcoeffs).reshape((ydim, xdim))
+	else:
+		dmc = np.copy(optics.dmzero)
+		dmc[indap] = np.dot(zernarr.T, -zcoeffs)
+		return dmc
