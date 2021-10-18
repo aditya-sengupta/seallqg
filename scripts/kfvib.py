@@ -4,6 +4,7 @@ More of this is in this script than I'd like, but I'll fix it later, I promise
 """
 import sys
 sys.path.append("..")
+from os import path
 
 from src import *
 from src.utils import joindata
@@ -27,12 +28,12 @@ def recompute_schedules(klqg):
     kalman_integrate, kalman_lqg = make_kalman_controllers(klqg)
 
     def record_kf_integ(dist_schedule, t=1, gain=0.1, leak=1.0, **kwargs):
-        path = "kfilter/kf"
+        record_path = path.join("kfilter", "kf")
         for k in kwargs:
             path = path + f"_{k}_{kwargs.get(k)}"
 
         return record_experiment(
-            path,
+            record_path,
             control_schedule=partial(control_schedule_from_law, control=partial(kalman_integrate, gain=gain, leak=leak)),
             dist_schedule=partial(dist_schedule, t, **kwargs),
             t=t
@@ -45,12 +46,12 @@ def recompute_schedules(klqg):
     record_kintatmvib = partial(record_kf_integ, atmvib_schedule)
 
     def record_lqg(dist_schedule, t=1, **kwargs):
-        path = "lqg/lqg"
+        record_path = path.join("lqg", "lqg")
         for k in kwargs:
             path = path + "_" + k + "_" + str(kwargs.get(k))
 
         return record_experiment(
-            path,
+            record_path,
             control_schedule=partial(control_schedule_from_law, control=kalman_lqg),
             dist_schedule=partial(dist_schedule, t, **kwargs),
             t=t
