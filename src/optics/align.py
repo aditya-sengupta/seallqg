@@ -10,32 +10,17 @@ from scipy.ndimage.filters import median_filter
 
 from ..utils import joindata
 from .image import optics
-from .tt import mtfgrid, sidemaskind
 from .ao import mtf
-from .tt import applytip, applytilt
+from .process_zern import mtfgrid, sidemaskind
+from .process_zern import applytip, applytilt, tip, tilt, aperture, grid, ydim, xdim, remove_piston
 
-def align_alpao_fast(manual=True, view=True):
+def align(manual=True, view=True):
 	expt_init = optics.get_expt()
 	optics.set_expt(1e-4)
 	time.sleep(5)
 
 	bestflat = optics.bestflat
 	optics.applydmc(bestflat)
-	ydim,xdim = optics.dmdims
-	grid=np.mgrid[0:ydim,0:xdim].astype(np.float32)
-
-	#DM aperture;
-	xy=np.sqrt((grid[0]-ydim/2+0.5)**2+(grid[1]-xdim/2+0.5)**2)
-	aperture=np.zeros(optics.dmdims).astype(np.float32)
-	aperture[np.where(xy<ydim/2)]=1 
-	indap=np.where(aperture==1)
-	indnap=np.where(aperture==0)
-	inddmuse=np.where(aperture.flatten()==1)[0]
-	nact=len(inddmuse)
-
-	remove_piston = lambda dmc: dmc-np.mean(dmc[indap]) #function to remove piston from dm command to have zero mean
-
-	tip,tilt=((grid[0]-ydim/2+0.5)/ydim*2).astype(np.float32),((grid[1]-xdim/2+0.5)/ydim*2).astype(np.float32)# DM tip/tilt 
 
 	if manual:
 		steer = -1
@@ -60,63 +45,55 @@ def align_alpao_fast(manual=True, view=True):
 		#applydmc(aperture*dmctiptilt)
 		optics.applydmc(dmctiptilt)
 
-	def optt(tsleep): #function to optimize how long to wait in between applying DM command and recording image
-		applytiptilt(-0.001,-0.001)
-		time.sleep(tsleep)
-		im1=optics.stackim(10)
-		optics.applydmc(bestflat)
-		time.sleep(tsleep)
-		imf=optics.stackim(10)
-		#ds9.view(im1-imf)
-	#tsleep=0.005 #on really good days
-	tsleep=0.02 #optimized from above function
-	#tsleep=0.4 #on bad days
+	from ..constants import tsleep
 
-	cenmaskrho=np.sqrt((mtfgrid[0]-mtfgrid[0].shape[0]/2)**2+(mtfgrid[1]-mtfgrid[0].shape[0]/2)**2) #radial grid for central MTF lobe
-	cenmask=np.zeros(optics.imdims)
-	cenmaskradmax,cenmaskradmin=49,10 #mask radii for central lobe, ignoring central part where the pinhole PSF is (if not ignored, this would bias the alignment algorithm)   
-	cenmaskind=np.where(np.logical_and(cenmaskrho<cenmaskradmax,cenmaskrho>cenmaskradmin))
-	cenmask[cenmaskind]=1
+	cenmaskrho = np.sqrt((mtfgrid[0]-mtfgrid[0].shape[0]/2)**2+(mtfgrid[1]-mtfgrid[0].shape[0]/2)**2) #radial grid for central MTF lobe
+	cenmask = np.zeros(optics.imdims)
+	cenmaskradmax, cenmaskradmin = 49, 10 #mask radii for central lobe, ignoring central part where the pinhole PSF is (if not ignored, this would bias the alignment algorithm)   
+	cenmaskind = np.where(
+		np.logical_and(
+			cenmaskrho < cenmaskradmax,cenmaskrho > cenmaskradmin
+		)
+	)
+	cenmask[cenmaskind] = 1
 
 	#grid tip/tilt search 
-	namp=10
-	amparr=np.linspace(-0.005,0.005,namp) #note the range of this grid search is can be small, assuming day to day drifts are minimal and so you don't need to search far from the previous day to find the new optimal alignment; for larger offsets the range may need to be increases (manimum search range is -1 to 1); but, without spanning the full -1 to 1 range this requires manual tuning of the limits to ensure that the minimum is not at the edge
-	ttoptarr=np.zeros((namp,namp))
+	namp = 10
+	amparr = np.linspace(-0.005, 0.005, namp) #note the range of this grid search is can be small, assuming day to day drifts are minimal and so you don't need to search far from the previous day to find the new optimal alignment; for larger offsets the range may need to be increases (manimum search range is -1 to 1); but, without spanning the full -1 to 1 range this requires manual tuning of the limits to ensure that the minimum is not at the edge
+	ttoptarr = np.zeros((namp,namp))
 	for i in range(namp):
 		for j in range(namp):
-			applytiptilt(amparr[i],amparr[j])
+			applytiptilt(amparr[i], amparr[j])
 			time.sleep(tsleep)
-			imopt=optics.stackim(10)
-			mtfopt=mtf(imopt)
-			sidefraction=np.sum(mtfopt[sidemaskind])/np.sum(mtfopt)
+			imopt = optics.stackim(10)
+			mtfopt = mtf(imopt)
+			sidefraction = np.sum(mtfopt[sidemaskind])/np.sum(mtfopt)
 			cenfraction=np.sum(mtfopt[cenmaskind])/np.sum(mtfopt)
 			ttoptarr[i,j]=sidefraction+0.1/cenfraction #the factor of 0.01 is a relative weight; because we only expect the fringe visibility to max out at a few %, this attempts to give equal weight to both terms 
 
-	medttoptarr=median_filter(ttoptarr,3) #smooth out hot pizels, attenuating noise issues
-	indopttip,indopttilt=np.where(medttoptarr==np.max(medttoptarr))
-	indopttip,indopttilt=indopttip[0],indopttilt[0]
-	applytiptilt(amparr[indopttip],amparr[indopttilt])
-
-	if view:
-		plt.imshow(medttoptarr)
-		plt.show()
+	medttoptarr = median_filter(ttoptarr, 3) #smooth out hot pizels, attenuating noise issues
+	indopttip, indopttilt = np.where(
+		medttoptarr == np.max(medttoptarr)
+	)
+	indopttip, indopttilt = indopttip[0],indopttilt[0]
+	applytiptilt(amparr[indopttip], amparr[indopttilt])
 
 	ampdiff=amparr[2]-amparr[0] #how many discretized points to zoom in to from the previous iteration
 	tipamparr=np.linspace(amparr[indopttip]-ampdiff,amparr[indopttip]+ampdiff,namp)
 	tiltamparr=np.linspace(amparr[indopttilt]-ampdiff,amparr[indopttilt]+ampdiff,namp)
-	ttoptarr1=np.zeros((namp,namp))
+	ttoptarr1=np.zeros((namp, namp))
 	for i in range(namp):
 		for j in range(namp):
 			applytiptilt(tipamparr[i],tiltamparr[j])
 			time.sleep(tsleep)
-			imopt=optics.stackim(10)
-			mtfopt=mtf(imopt)
-			sidefraction=np.sum(mtfopt[sidemaskind])/np.sum(mtfopt)
-			cenfraction=np.sum(mtfopt[cenmaskind])/np.sum(mtfopt)
-			ttoptarr1[i,j]=sidefraction+0.1/cenfraction 
+			imopt = optics.stackim(10)
+			mtfopt = mtf(imopt)
+			sidefraction = np.sum(mtfopt[sidemaskind])/np.sum(mtfopt)
+			cenfraction = np.sum(mtfopt[cenmaskind])/np.sum(mtfopt)
+			ttoptarr1[i,j] = sidefraction+0.1/cenfraction 
 
-	medttoptarr1=median_filter(ttoptarr1,3) #smooth out hot pizels, attenuating noise issues
-	indopttip1,indopttilt1=np.where(medttoptarr1==np.max(medttoptarr1))
+	medttoptarr1 = median_filter(ttoptarr1, 3) #smooth out hot pizels, attenuating noise issues
+	indopttip1, indopttilt1 = np.where(medttoptarr1 == np.max(medttoptarr1))
 	applytiptilt(tipamparr[indopttip1][0],tiltamparr[indopttilt1][0])
 
 	if view:
