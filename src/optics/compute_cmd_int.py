@@ -12,28 +12,18 @@ import matplotlib as mpl
 from matplotlib import pyplot as plt
 
 from .image import optics
-from .tt import processim, funz
+from .process_zern import processim, funz
+from .process_zern import aperture, indap, remove_piston, tip, tilt
 from .ao import polar_grid
 from ..utils import joindata
+from ..constants import tsleep
 
 dmc2wf = np.load(joindata("bestflats", "lodmc2wfe.npy"))
-tsleep = 0.02
 
 ydim, xdim = optics.dmdims
 grid = np.mgrid[0:ydim, 0:xdim].astype(np.float32)
-optics.set_expt(1e-3)
 imydim, imxdim = optics.imdims
-
-#DM aperture;
-xy=np.sqrt((grid[0]-ydim/2+0.5)**2+(grid[1]-xdim/2+0.5)**2)
-aperture=np.zeros(optics.dmdims).astype(np.float32)
-aperture[np.where(xy<ydim/2)]=1
-indap=np.where(aperture==1)
-indnap=np.where(aperture==0)
-
-remove_piston = lambda dmc: dmc-np.mean(dmc[indap]) #function to remove piston from dm command to have zero mean
-tip = ((grid[0]-ydim/2+0.5)/ydim*2).astype(np.float32)
-tilt = ((grid[1]-xdim/2+0.5)/ydim*2).astype(np.float32)
+optics.set_expt(1e-3)
 
 #calibrated image center and beam ratio from genDH.py
 imxcen, imycen = np.load(joindata("bestflats", "imcen.npy"))
@@ -49,7 +39,6 @@ for n in range(1, norder):
 rho, phi = polar_grid(xdim, ydim)
 rho[int((xdim-1)/2),int((ydim-1)/2)] = 0.00001 #avoid numerical divide by zero issues
 
-
 gridim = np.mgrid[0:imydim,0:imxdim]
 rim = np.sqrt((gridim[0]-imycen)**2+(gridim[1]-imxcen)**2)
 
@@ -60,24 +49,20 @@ ttmask[indttmask] = 1
 IMamp = 0.001
 sweep_amp = 5 * IMamp
 
-def make_zernarr():
-	zernarr = np.zeros((len(nmarr), aperture[indap].shape[0])).astype(np.float32)
-	bestflat, _ = optics.refresh()
-	for (i, (n, m)) in enumerate(nmarr):
-		zern = funz(n, m, IMamp, bestflat)
-		zernarr[i] = zern[indap]
+zernarr = np.zeros((len(nmarr), aperture[indap].shape[0])).astype(np.float32)
+bestflat, _ = optics.refresh()
+for (i, (n, m)) in enumerate(nmarr):
+	zern = funz(n, m, IMamp, bestflat)
+	zernarr[i] = zern[indap]
 	
-	return zernarr
-
 def make_im_cm(rcond=1e-3, verbose=True):
 	"""
 	Make updated interaction and command matrices.
 	"""
 	bestflat, imflat = optics.refresh()
 	refvec = np.zeros((len(nmarr), ttmask[indttmask].shape[0]*2))
-	zernarr = np.zeros((len(nmarr), aperture[indap].shape[0]))
 	for (i, (n, m)) in enumerate(nmarr):
-		zern = funz(n, m, IMamp, bestflat)
+		_ = funz(n, m, IMamp, bestflat)
 		time.sleep(tsleep)
 		imzern = optics.stackim(10)
 		imdiff = imzern - imflat
@@ -86,7 +71,6 @@ def make_im_cm(rcond=1e-3, verbose=True):
 			np.real(processed_imdiff[indttmask]),
 			np.imag(processed_imdiff[indttmask])
 		]).flatten()
-		zernarr[i] = zern[indap]
 
 	int_mtx = np.dot(refvec, refvec.T) #interaction matrix
 	int_mtx_inv = np.linalg.pinv(int_mtx, rcond=rcond)
@@ -104,6 +88,14 @@ def measure_zcoeffs(image, cmd_mtx):
 	tar = tar.reshape((tar.size, 1))
 	coeffs = np.dot(cmd_mtx, tar)
 	return coeffs * IMamp
+
+def mz(cmd_mtx=None):
+	"""
+	A quick IPython shortcut.
+	"""
+	if cmd_mtx is None:
+		_, cmd_mtx = make_im_cm()
+	return measure_zcoeffs(optics.getim(), cmd_mtx)
 
 def genzerncoeffs(i, zernamp, cmd_mtx, bestflat, imflat):
 	"""
@@ -164,8 +156,6 @@ def linearity(nlin=20, plot=True, rcond=1e-3):
 	return zernamparr, zernampout
 
 # fit_polynomial stuff removed on 2021-10-10, see git history before that to recover
-
-zernarr = make_zernarr()
 
 def zcoeffs_to_dmc(zcoeffs):
 	"""

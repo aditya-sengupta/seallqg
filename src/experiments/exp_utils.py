@@ -95,7 +95,7 @@ def record_experiment(record_path, control_schedule, dist_schedule, t=1, rcond=1
 	imax = 10
 	while np.any(np.abs(baseline_zvals) > 1e-3):
 		warnings.warn(f"The system may not be aligned: baseline TT is {baseline_zvals.flatten()}.")
-		align_alpao_fast(manual=False, view=False)
+		align(manual=False, view=False)
 		_, cmd_mtx = make_im_cm(rcond=rcond)
 		bestflat, imflat = optics.refresh(verbose)
 		baseline_zvals = measure_zcoeffs(optics.getim() - imflat, cmd_mtx=cmd_mtx)

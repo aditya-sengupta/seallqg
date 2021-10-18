@@ -12,7 +12,7 @@ from ..utils import joindata
 from .image import optics
 from .ao import image_to_pupil, complex_amplitude, pupil_to_image
 
-def flatten_alpao_fast():
+def flatten():
 	expt_init = optics.get_expt()
 	optics.set_expt(1e-4)
 

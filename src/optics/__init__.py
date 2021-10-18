@@ -1,9 +1,9 @@
 from .ao import zernike, polar_grid
 from .image import optics
-from .tt import applytip, applytilt, applytiptilt, aperture, funz, tip, tilt, xdim, ydim
-from .flatten import flatten_alpao_fast
-from .align import align_alpao_fast
-from .compute_cmd_int import make_im_cm, measure_zcoeffs, make_zernarr, linearity, zcoeffs_to_dmc
+from .process_zern import applytip, applytilt, applytiptilt, aperture, funz, tip, tilt, xdim, ydim
+from .flatten import flatten
+from .align import align
+from .compute_cmd_int import make_im_cm, measure_zcoeffs, linearity, zcoeffs_to_dmc, mz
 #from .demo_scc import genim
 
 __all__ = [
@@ -15,8 +15,8 @@ __all__ = [
     "xdim",
     "ydim",
     "zcoeffs_to_dmc",
-    "flatten_alpao_fast",
-    "align_alpao_fast",
+    "flatten",
+    "align",
     "applytip",
     "applytilt",
     "applytiptilt",
@@ -24,6 +24,6 @@ __all__ = [
     "funz",
     "make_im_cm",
     "measure_zcoeffs",
-    "make_zernarr",
     "linearity",
+    "mz"
 ]
