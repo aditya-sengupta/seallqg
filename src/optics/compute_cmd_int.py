@@ -59,7 +59,6 @@ def make_im_cm(rcond=1e-3, verbose=True):
 	"""
 	Make updated interaction and command matrices.
 	"""
-	s = aperture[indap].shape[0]
 	bestflat, imflat = optics.refresh()
 	refvec = np.zeros((len(nmarr), ttmask[indttmask].shape[0]*2))
 	for (i, (n, m)) in enumerate(nmarr):
@@ -172,9 +171,6 @@ def zcoeffs_to_dmc(zcoeffs):
 	dmc : np.ndarray
 	The corresponding DM command.
 	"""
-	if not mask:
-		return np.dot(zernarr.T, -zcoeffs).reshape((ydim, xdim))
-	else:
-		dmc = np.copy(optics.dmzero)
-		dmc[indap] = np.dot(zernarr.T, -zcoeffs)
-		return dmc
+	dmc = np.copy(optics.dmzero)
+	dmc[indap] = np.dot(zernarr.T, -zcoeffs)
+	return dmc
