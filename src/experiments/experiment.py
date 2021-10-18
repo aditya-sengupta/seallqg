@@ -76,15 +76,20 @@ def record_integrator(dist_schedule, t=1, gain=0.1, leak=1.0, **kwargs):
 	"""
 	record_path = path.join("closedloop", f"cl_gain_{gain}_leak_{leak}")
 	v = True
+	hc = False
 	for k in kwargs:
 		if k == "verbose":
 			v = v and kwargs.get(k)
 		else:
 			record_path += f"_{k}_{kwargs.get(k)}"
+			if k == "hc":
+				hc = kwargs.get(k)
+				if hc:
+					print("Closing the loop halfway into the experiment.")
 
 	return record_experiment(
 		record_path, 
-		control_schedule=partial(control_schedule_from_law, control=partial(integrate, gain=gain, leak=leak)),
+		control_schedule=partial(control_schedule_from_law, control=partial(integrate, gain=gain, leak=leak), half_close=hc),
 		dist_schedule=partial(dist_schedule, t, **kwargs),
 		t=t,
 		verbose=v

@@ -63,7 +63,7 @@ def zcoeffs_from_queued_image(in_q, out_q, imflat, cmd_mtx, timestamp):
 				np.save(fname, zvals)
 				return zvals
 
-def control_schedule_from_law(q, control, t=1):
+def control_schedule_from_law(q, control, t=1, half_close=False):
 	"""
 	The SEAL schedule for a controller.
 
@@ -77,16 +77,18 @@ def control_schedule_from_law(q, control, t=1):
 	"""
 	last_z = None # the most recently applied control command
 	t1 = time.time()
+
 	while time.time() < t1 + t:
 		if q.empty():
 			time.sleep(dt/2)
 		else:
 			z = q.get()
 			q.task_done()
-			last_z, dmc = control(z, u=last_z)
-			optics.applydmc(dmc)
+			if (not half_close) or (time.time() >= t1 + t / 2):
+				last_z, dmc = control(z, u=last_z)
+				optics.applydmc(dmc)
 
-def record_experiment(record_path, control_schedule, dist_schedule, t=1, rcond=1e-4, verbose=True):
+def record_experiment(record_path, control_schedule, dist_schedule, t=1, rcond=1e-4, half_close=False, verbose=True):
 	_, cmd_mtx = make_im_cm(rcond=rcond, verbose=verbose)
 	bestflat, imflat = optics.refresh(verbose=False)
 	baseline_zvals = measure_zcoeffs(optics.getim() - imflat, cmd_mtx=cmd_mtx)

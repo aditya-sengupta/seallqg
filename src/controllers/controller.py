@@ -61,7 +61,7 @@ def integrator(state, gain=0.1, leak=1.0, **kwargs):
     """
     dmcn = zcoeffs_to_dmc(state)
     return state, gain * dmcn + leak * optics.getdmc()
-
+    
 def make_lqg_controller(klqg):
     def lqg_controller(state, **kwargs):
         """

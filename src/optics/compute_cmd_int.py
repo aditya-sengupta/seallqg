@@ -179,7 +179,7 @@ def linearity(nlin=20, plot=True, rcond=1e-3):
 
 # fit_polynomial stuff removed on 2021-10-10, see git history before that to recover
 
-mask = False
+mask = True
 zernarr = make_zernarr(mask)
 
 def zcoeffs_to_dmc(zcoeffs):
