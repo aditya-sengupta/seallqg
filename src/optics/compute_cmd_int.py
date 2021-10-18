@@ -59,10 +59,7 @@ def make_im_cm(rcond=1e-3, verbose=True):
 	"""
 	Make updated interaction and command matrices.
 	"""
-	if mask:
-		s = aperture[indap].shape[0]
-	else:
-		s = aperture.size
+	s = aperture[indap].shape[0]
 	bestflat, imflat = optics.refresh()
 	refvec = np.zeros((len(nmarr), ttmask[indttmask].shape[0]*2))
 	for (i, (n, m)) in enumerate(nmarr):
