@@ -21,7 +21,7 @@ class SystemIdentifier:
         ol,
         fs=fs, 
         f1=None, f2=None, fw=None, 
-        N_vib_max=10, energy_cutoff=1e-8, 
+        N_vib_max=10, energy_cutoff=1e-10, 
         max_ar_coef=5, 
     ):
 
@@ -174,7 +174,7 @@ class SystemIdentifier:
         R = 0.01 * np.eye(1)
         return (A, B, C, W, V, Q, R)
 
-    def make_2d_klqg_ar(self, ar_len=2):
+    def make_2d_klqg_ar(self, ar_len=1):
         matrices = [np.zeros((0,0)) for _ in range(7)]
         for mode in range(2):
             matrices = combine_matrices_for_klqg(matrices, self.make_klqg_ar(mode, ar_len))

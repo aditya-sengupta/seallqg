@@ -11,7 +11,9 @@ def check_dare(A, B, Q, R, P):
         dare_iterative_update(A, B, Q, R, P)
     )
 
+
 def solve_dare(A, B, Q, R, verbose=True, max_iters=1000):
+    #print([[np.linalg.matrix_rank(X), np.shape(X)] for X in [A, B, Q, R]])
     try:
         P = la.solve_discrete_are(A, B, Q, R)
         if verbose:

@@ -68,6 +68,8 @@ def make_lqg_controller(klqg):
         Linear-quadratic-Gaussian control.
         """
         u = klqg.control()
+        # correct for KLQG built for only tip-tilt
+        u = np.pad(u, (0,3))
         return u, optics.getdmc() + zcoeffs_to_dmc(u)
 
     return lqg_controller

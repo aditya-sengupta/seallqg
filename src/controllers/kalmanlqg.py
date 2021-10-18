@@ -2,7 +2,6 @@
 
 import numpy as np
 from copy import copy
-from scipy import linalg
 from scipy.stats import multivariate_normal as mvn
 
 from .dare import solve_dare

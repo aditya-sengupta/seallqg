@@ -11,8 +11,7 @@ def make_kf_observer(klqg):
         u = kwargs.get("u")
         if u is None:
             u = uzero
-        klqg.update(measurement)
-        print(measurement - klqg.measure()) # innovation
+        klqg.update(measurement[:2]) # adjustment for the # of zern modes
         klqg.predict(u)
         return klqg.measure()
 

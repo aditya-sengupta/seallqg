@@ -105,7 +105,6 @@ def align(manual=True, view=True):
 
 	dt = datetime.now().strftime("%d_%m_%Y_%H")
 	np.save(optics.bestflat_path, bestflat)
-	np.save(joindata(f"bestflat_{optics.name}_{optics.dmdims[0]}_{dt}.npy"), bestflat)
 	np.save(optics.imflat_path, im_bestflat)
 	print("Saved best flat")
 

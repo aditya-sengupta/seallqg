@@ -9,14 +9,14 @@ from src import *
 from src.utils import joindata
 from src.controllers import make_kalman_controllers
 from src.experiments.schedules import *
-from src.experiments.exp_utils import record_experiment, control_schedule
+from src.experiments.exp_utils import record_experiment, control_schedule_from_law
 
 import numpy as np
 from matplotlib import pyplot as plt
 from functools import partial
 from datetime import datetime
 
-ol = np.load(joindata("openloop/ol_tt_stamp_21_08_2021_08_56_31.npy"))
+ol = np.load(joindata("openloop", "ol_z_stamp_18_10_2021_08_40_07.npy"))
 # update this with the latest 100-second openloop
 
 ol_spectra = [genpsd(ol[:,i], dt=0.01) for i in range(2)]
@@ -29,11 +29,11 @@ def recompute_schedules(klqg):
     def record_kf_integ(dist_schedule, t=1, gain=0.1, leak=1.0, **kwargs):
         path = "kfilter/kf"
         for k in kwargs:
-            path = path + "_" + k + "_" + str(kwargs.get(k))
+            path = path + f"_{k}_{kwargs.get(k)}"
 
         return record_experiment(
             path,
-            control_schedule=partial(control_schedule, control=partial(kalman_integrate, gain=gain, leak=leak)),
+            control_schedule=partial(control_schedule_from_law, control=partial(kalman_integrate, gain=gain, leak=leak)),
             dist_schedule=partial(dist_schedule, t, **kwargs),
             t=t
         )
@@ -51,7 +51,7 @@ def recompute_schedules(klqg):
 
         return record_experiment(
             path,
-            control_schedule=partial(control_schedule, control=kalman_lqg),
+            control_schedule=partial(control_schedule_from_law, control=kalman_lqg),
             dist_schedule=partial(dist_schedule, t, **kwargs),
             t=t
         )
@@ -66,7 +66,7 @@ def recompute_schedules(klqg):
 
 def run_experiment(klqg, t=10, i=1):
     klqg.recompute()
-    # assert klqg.improvement() >= 1, "Kalman-LQG setup does not improve in simulation."
+    assert klqg.improvement() >= 1, "Kalman-LQG setup does not improve in simulation."
     exp = recompute_schedules(klqg)[i]
     klqg.x = np.zeros(klqg.state_size,)
     times, zvals = exp(t=t)
@@ -103,5 +103,5 @@ klqg.R *= 1e6
 # end modifications
 
 if __name__ == "__main__":
-    times, zvals, dt = kint(klqg, t=10)
+    times, zvals, dt = lqg(klqg, t=10)
     plot_cl_rtf(zvals, dt)

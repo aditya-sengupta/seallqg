@@ -174,3 +174,4 @@ def zcoeffs_to_dmc(zcoeffs):
 	dmc = np.copy(optics.dmzero)
 	dmc[indap] = np.dot(zernarr.T, -zcoeffs)
 	return dmc
+
