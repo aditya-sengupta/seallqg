@@ -157,12 +157,6 @@ def linearity(nlin=20, plot=True, rcond=1e-3):
 
 # fit_polynomial stuff removed on 2021-10-10, see git history before that to recover
 
-<<<<<<< HEAD
-mask = True
-zernarr = make_zernarr(mask)
-
-=======
->>>>>>> 699bd15b5161289d805e21b22685898d8ab0f619
 def zcoeffs_to_dmc(zcoeffs):
 	"""
 	Converts a measured coefficient value to an ideal DM command.
