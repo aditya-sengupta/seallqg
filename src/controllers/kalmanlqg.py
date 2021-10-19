@@ -3,6 +3,7 @@
 import numpy as np
 from copy import copy
 from scipy.stats import multivariate_normal as mvn
+from tqdm import trange, tqdm
 
 from .dare import solve_dare
 from ..utils import rms
@@ -33,6 +34,8 @@ class KalmanLQG:
         self.Pcon = solve_dare(self.A, self.B, self.Q, self.R)
         self.K = self.Pobs @ self.C.T @ np.linalg.pinv(self.C @ self.Pobs @ self.C.T + self.V)
         self.L = -np.linalg.pinv(self.R + self.B.T @ self.Pcon @ self.B) @ self.B.T @ self.Pcon @ self.A
+        self.process_dist = mvn(cov=self.W, allow_singular=True)
+        self.measure_dist = mvn(cov=self.V, allow_singular=True)
 
     @property
     def state_size(self):
@@ -68,7 +71,7 @@ class KalmanLQG:
         self.x = x0
         uzero = np.zeros((self.input_size,))
 
-        for (i, m) in enumerate(measurements):
+        for (i, m) in enumerate(tqdm(measurements)):
             self.predict(uzero)
             self.update(m)
             states[i] = self.x
@@ -76,20 +79,18 @@ class KalmanLQG:
         return states
 
     def sim_control(self, nsteps=1000, x0=None):
-        process_dist = mvn(cov=self.W, allow_singular=True)
-        measure_dist = mvn(cov=self.V, allow_singular=True)
         x_init = copy(self.x)
         if x0 is None:
-            self.x = process_dist.rvs()
+            self.x = self.process_dist.rvs()
         else:
             self.x = x0
         states = np.zeros((nsteps, self.state_size))
         states[0] = self.x
-        for i in range(1, nsteps):
+        for i in trange(1, nsteps):
             u = self.control()
             self.predict(u)
-            x = self.A @ states[i-1] + self.B @ u + process_dist.rvs()
-            y = self.C @ x + measure_dist.rvs()
+            x = self.A @ states[i-1] + self.B @ u + self.process_dist.rvs()
+            y = self.C @ x + self.measure_dist.rvs()
             self.update(y)
             states[i] = x
     
@@ -97,33 +98,31 @@ class KalmanLQG:
         return states @ self.C.T
 
     def sim_process(self, nsteps=1000, x0=None):
-        process_dist = mvn(cov=self.W, allow_singular=True)
         states = np.zeros((nsteps, self.state_size))
         if x0 is None:
-            states[0] = process_dist.rvs()
+            states[0] = self.process_dist.rvs()
         else:
             states[0] = x0
-        states[0] = process_dist.rvs()
-        for i in range(1, nsteps):
-            states[i] = self.A @ states[i-1] + process_dist.rvs()
+        states[0] = self.process_dist.rvs()
+        for i in trange(1, nsteps):
+            states[i] = self.A @ states[i-1] + self.process_dist.rvs()
             
         return states @ self.C.T
 
     def sim_control_nokf(self, nsteps=1000, x0=None):
-        process_dist = mvn(cov=self.W, allow_singular=True)
         states = np.zeros((nsteps, self.state_size))
         if x0 is None:
-            states[0] = process_dist.rvs()
+            states[0] = self.process_dist.rvs()
         else:
             states[0] = x0
-        for i in range(1, nsteps):
-            states[i] = (self.A + self.B @ self.L) @ states[i-1] + process_dist.rvs()
+        for i in trange(1, nsteps):
+            states[i] = (self.A + self.B @ self.L) @ states[i-1] + self.process_dist.rvs()
             
         return states @ self.C.T
 
-    def improvement(self, x0=None, kfilter=True):
+    def improvement(self, kfilter=True, **kwargs):
         if kfilter:
-            return rms(self.sim_process(x0=x0)) / rms(self.sim_control(x0=x0))
+            return rms(self.sim_process(**kwargs)) / rms(self.sim_control(**kwargs))
         else:
-            return rms(self.sim_process(x0=x0)) / rms(self.sim_control_nokf(x0=x0))
+            return rms(self.sim_process(**kwargs)) / rms(self.sim_control_nokf(**kwargs))
             

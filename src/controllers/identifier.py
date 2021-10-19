@@ -55,7 +55,6 @@ class SystemIdentifier:
 
     def damped_harmonic(self, pars_model):
         A, f, k, p = pars_model
-        times = np.arange(0, )
         return A * np.exp(-k * 2 * np.pi * f * self.times) * np.cos(2 * np.pi * f * np.sqrt(1 - k**2) * self.times - p)
 
     def make_psd(self, pars_model):
@@ -135,7 +134,7 @@ class SystemIdentifier:
         V = self.est_measurenoise(mode)**2 * np.identity(1)
         
         Q = 10 * C.T @ C # only penalize the observables
-        R = 0.1 * np.eye(1)
+        R = 0.01 * np.eye(1)
         return (A, B, C, W, V, Q, R)
 
     def make_2d_klqg_vibe(self):
@@ -146,7 +145,7 @@ class SystemIdentifier:
 
         return matrices
 
-    def make_klqg_ar(self, mode=0, ar_len=2):
+    def make_klqg_ar(self, mode=0, ar_len=1):
         n = len(self.ol[:,mode])
         TTs_mat = np.empty((n - ar_len, ar_len))
         for i in range(ar_len):
@@ -174,7 +173,7 @@ class SystemIdentifier:
         R = 0.01 * np.eye(1)
         return (A, B, C, W, V, Q, R)
 
-    def make_2d_klqg_ar(self, ar_len=1):
+    def make_2d_klqg_ar(self, ar_len=5):
         matrices = [np.zeros((0,0)) for _ in range(7)]
         for mode in range(2):
             matrices = combine_matrices_for_klqg(matrices, self.make_klqg_ar(mode, ar_len))
@@ -221,6 +220,7 @@ class SystemIdentifier:
 
         # matrices[1] /= (np.abs(np.sum(matrices[1])))
         # steering + delay model here
+        
         matrices = combine_matrices_for_klqg(matrices, [
             np.zeros((2,2)),
             -np.eye(2),
