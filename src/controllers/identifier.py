@@ -173,7 +173,7 @@ class SystemIdentifier:
         R = 0.01 * np.eye(1)
         return (A, B, C, W, V, Q, R)
 
-    def make_2d_klqg_ar(self, ar_len=5):
+    def make_2d_klqg_ar(self, ar_len=2):
         matrices = [np.zeros((0,0)) for _ in range(7)]
         for mode in range(2):
             matrices = combine_matrices_for_klqg(matrices, self.make_klqg_ar(mode, ar_len))
