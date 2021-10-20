@@ -82,6 +82,8 @@ class KalmanLQG:
         x_init = copy(self.x)
         if x0 is None:
             self.x = process_dist.rvs()
+            if not isinstance(self.x, np.ndarray):
+                self.x = np.asarray(self.x).reshape((self.state_size, 1))
         else:
             self.x = x0
         states = np.zeros((nsteps, self.state_size))
@@ -89,6 +91,7 @@ class KalmanLQG:
         for i in range(1, nsteps):
             u = self.control()
             self.predict(u)
+            u = self.control()
             x = self.A @ states[i-1] + self.B @ u + process_dist.rvs()
             y = self.C @ x + measure_dist.rvs()
             self.update(y)
