@@ -23,12 +23,20 @@ V = Vr @ Vr.T
 
 Ppr = solve_dare(A.T, C.T * 0, W, V)
 
-nsteps = 1000
-states = np.zeros((nsteps, s))
-states[0] = process()
-for i in trange(1, nsteps):
-    states[i] = A @ states[i-1] + process()
+nruns = 10
+means = np.zeros((nruns,))
+for j in trange(nruns):
+    nsteps = 500
+    half_nsteps = nsteps // 2
+    states = np.zeros((nsteps, s))
+    #variances = np.zeros((nsteps, s, s))
+    for i in range(1, nsteps):
+        states[i] = A @ states[i-1] + process()
+        #variances[i] = A @ variances[i-1] @ A.T + W
+    means[j] = np.mean(states ** 2)
 
 print(f"Predicted covariance: {Ppr}")
 print(f"Naively-calculated covariance: {W / (1 - A ** 2)}")
-print(f"Actual covariance: {np.cov(states[500:].T)}")
+print(f"Actual mean-square: {np.mean(means)}")
+print(f"Estimator for mean-square: {W / (1 - A ** 2) * (1 - (A ** 2) / (nsteps) * (1 - A ** (2 * nsteps))/(1 - A ** 2))}")
+#print(f"Tracked variances: {np.mean(variances[half_nsteps:])} +/- {np.std(variances[half_nsteps:])}")
