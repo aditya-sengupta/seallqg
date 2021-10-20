@@ -12,6 +12,7 @@ def check_dare(A, B, Q, R, P):
     )
 
 def solve_dare(A, B, Q, R, verbose=True, max_iters=1000):
+    #print([[np.linalg.matrix_rank(X), np.shape(X)] for X in [A, B, Q, R]])
     try:
         P = la.solve_discrete_are(A, B, Q, R)
         if verbose:
@@ -19,17 +20,20 @@ def solve_dare(A, B, Q, R, verbose=True, max_iters=1000):
     except (ValueError, np.linalg.LinAlgError):
         if verbose:
             print("Discrete ARE solve failed, falling back to iterative solution.")
-        newP = copy(Q)
-        P = np.zeros_like(A)
-        iters = 0
-        while (not np.allclose(P, newP)) and iters < max_iters:
-            P = newP
-            newP = dare_iterative_update(A, B, Q, R, P)
-            iters += 1
-        if verbose:
-            if check_dare(A, B, Q, R, P):
-                print("Solved iteratively in {} iterations.".format(iters))
-            else:
-                print("Iterative solve failed in {} iterations.".format(iters))
+        P, _ = solve_dare_iter(A, B, Q, R, verbose, max_iters)
     return P
     
+def solve_dare_iter(A, B, Q, R, verbose=True, max_iters=1000):
+    newP = copy(Q)
+    P = np.zeros_like(A)
+    iters = 0
+    while (not np.allclose(P, newP)) and iters < max_iters:
+        P = newP
+        newP = dare_iterative_update(A, B, Q, R, P)
+        iters += 1
+    if verbose:
+        if check_dare(A, B, Q, R, P):
+            print(f"Solved iteratively in {iters} iterations.")
+        else:
+            print(f"Iterative solve failed in {iters} iterations.")
+    return P, iters

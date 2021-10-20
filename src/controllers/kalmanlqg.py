@@ -91,7 +91,6 @@ class KalmanLQG:
         for i in range(1, nsteps):
             u = self.control()
             self.predict(u)
-            u = self.control()
             x = self.A @ states[i-1] + self.B @ u + process_dist.rvs()
             y = self.C @ x + measure_dist.rvs()
             self.update(y)
