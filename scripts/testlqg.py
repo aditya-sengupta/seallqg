@@ -7,7 +7,7 @@ from src.controllers.kalmanlqg import KalmanLQG
 
 #np.random.seed(5)
 
-s, m, p = 2, 1, 1
+s, m, p = 5, 1, 1
 
 M = np.random.randn(s,s)
 eigvals = np.random.uniform(-1, 1, s)
@@ -26,4 +26,4 @@ Pcon_true, iter = solve_dare_iter(A + B @ klqg.L, B, Q, R)
 
 print(f"Improvement: {klqg.improvement()}")
 print(f"Controlled process covariance: {C @ Pcon_true @ C.T}")
-print(f"Controlled process actual cov: {np.cov(klqg.sim_control(nsteps=10000)[iter:].T)}")
+print(f"Controlled process actual cov: {np.cov(klqg.sim_control(nsteps=100)[iter:].T)}")
