@@ -126,7 +126,7 @@ class SystemIdentifier:
         A = self.make_state_transition_vibe(params)
         STATE_SIZE = 2 * params.shape[0]
         B = np.zeros((STATE_SIZE, 1))
-        #B[0,0] = -1 / (2 * STATE_SIZE)
+        B[0,0] = -1 / (2 * STATE_SIZE)
         C = np.array([[1, 0] * (STATE_SIZE // 2)])
         W = np.zeros((STATE_SIZE, STATE_SIZE))
         for i in range(variances.size):
@@ -145,7 +145,7 @@ class SystemIdentifier:
 
         return matrices
 
-    def make_klqg_ar(self, mode=0, ar_len=1):
+    def make_klqg_ar(self, mode=0, ar_len=2):
         n = len(self.ol[:,mode])
         TTs_mat = np.empty((n - ar_len, ar_len))
         for i in range(ar_len):
@@ -218,10 +218,10 @@ class SystemIdentifier:
             atm_matrices = self.make_2d_klqg_ar()
             matrices = combine_matrices_for_klqg(matrices, atm_matrices, measure_once=True)
 
-        # matrices[1] /= (np.abs(np.sum(matrices[1])))
+        matrices[1] /= (np.abs(np.sum(matrices[1])))
         # steering + delay model here
         
-        matrices = combine_matrices_for_klqg(matrices, [
+        """matrices = combine_matrices_for_klqg(matrices, [
             np.zeros((2,2)),
             -np.eye(2),
             np.eye(2),
@@ -230,6 +230,6 @@ class SystemIdentifier:
             1e-6 * np.eye(2),
             np.eye(2)
             ],
-        measure_once=True)
+        measure_once=True)"""
 
         return KalmanLQG(*matrices)
