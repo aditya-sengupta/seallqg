@@ -1,6 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 from src import joindata, SystemIdentifier, genpsd
+np.random.seed(5)
 
 ol = np.load(joindata("openloop", "ol_z_stamp_18_10_2021_08_40_07.npy"))
 ol = np.load(joindata("openloop", "ol_tt_stamp_21_08_2021_08_56_31.npy"))
@@ -12,7 +13,7 @@ klqg = ident.make_klqg_from_openloop()
 x0 = np.array([1.0, 0.0] * (klqg.state_size // 2))
 improvement = klqg.improvement(x0=x0)
 print(f"Improvement: {improvement}")
-if improvement > 1.0:
+if improvement > 1.0 and False:
     states_un = klqg.sim_process(nsteps=nsteps, x0=x0)
     f_un, p_un = genpsd(states_un[:,0], dt=1/fs)
     states = klqg.sim_control(nsteps=nsteps, x0=x0)

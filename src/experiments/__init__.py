@@ -1,3 +1,7 @@
+"""
+Module containing all the possible experiments, and how to run them.
+"""
+
 from .exp_utils import *
 from .experiment import *
 

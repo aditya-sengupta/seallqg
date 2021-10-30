@@ -5,184 +5,173 @@
 Compute command matrix and interaction matrix.
 """
 
-import numpy as np
 import time
-import tqdm
-# import pysao
+
+import numpy as np
+import matplotlib as mpl
 from matplotlib import pyplot as plt
-from scipy.optimize import newton
 
 from .image import optics
-from .tt import rhoap, phiap, processim
-from .ao import polar_grid, zernike
+from .process_zern import processim, funz
+from .process_zern import aperture, indap, remove_piston, tip, tilt
+from .ao import polar_grid
 from ..utils import joindata
+from ..constants import tsleep
 
-#initial setup: apply best flat, generate DM grid to apply future shapes
-dmcini = optics.getdmc()
-ydim, xdim = dmcini.shape
+dmc2wf = np.load(joindata("bestflats", "lodmc2wfe.npy"))
+
+ydim, xdim = optics.dmdims
 grid = np.mgrid[0:ydim, 0:xdim].astype(np.float32)
-bestflat = np.load(joindata("bestflats/bestflat.npy")) #load bestflat, which should be an aligned FPM
-optics.applydmc(bestflat)
-imflat = optics.stack(100)
+imydim, imxdim = optics.imdims
+optics.set_expt(1e-3)
 
-# expt(1e-3) #set exposure time
-imini = optics.getim()
-imydim, imxdim = imini.shape
-
-tsleep = 0.01 #should be the same values from align_fpm.py and genDH.py
-
-#DM aperture:
-undersize = 29/32 #29 of the 32 actuators are illuminated
-rho,phi = polar_grid(xdim,xdim*undersize)
-aperture = np.zeros(rho.shape).astype(np.float32)
-indap = np.where(rho > 0)
-indnap = np.where(rho == 0)
-aperture[indap] = 1
-
-def remove_piston(dmc):  #function to remove piston from dm command to have zero mean (must be intermediate) 
-	dmcout = dmc - np.median(dmc[indap]) + 0.5 #remove piston in the pupil
-	dmcout[indnap] = bestflat[indnap] #set the non-illuminated regions to the best flat values
-	return dmcout
+#calibrated image center and beam ratio from genDH.py
+imxcen, imycen = np.load(joindata("bestflats", "imcen.npy"))
+beam_ratio = np.load(joindata("bestflats", "beam_ratio.npy"))
 
 #setup Zernike polynomials
 nmarr = []
-norder = 2 #how many radial Zernike orders to look at; just start with tip/tilt
+norder = 3 #how many radial Zernike orders to look at; just start with tip/tilt
 for n in range(1, norder):
 	for m in range(-n, n+1, 2):
 		nmarr.append([n,m])
 
-def funz(n, m, amp, bestflat=bestflat): #apply zernike to the DM
-	z = zernike(n, m, rhoap, phiap)/2
-	zdm = amp*(z.astype(np.float32))
-	dmc = remove_piston(remove_piston(bestflat)+remove_piston(zdm))
-	optics.applydmc(dmc)
-	return dmc
+rho, phi = polar_grid(xdim, ydim)
+rho[int((xdim-1)/2),int((ydim-1)/2)] = 0.00001 #avoid numerical divide by zero issues
 
-#calibrated image center and beam ratio from genDH.py
-imxcen, imycen = np.load(joindata("bestflats/imcen.npy"))
-beam_ratio = np.load(joindata("bestflats/beam_ratio.npy"))
 gridim = np.mgrid[0:imydim,0:imxdim]
 rim = np.sqrt((gridim[0]-imycen)**2+(gridim[1]-imxcen)**2)
 
-#algorithmic LOWFS mask (centered around the core, for light less than 6 lambda/D)
-ttmask = np.zeros(imini.shape)
-indttmask = np.where(rim/beam_ratio<6)
+ttmask = np.zeros(optics.imdims)
+rmask = 10
+indttmask = np.where(rim / beam_ratio < rmask)
 ttmask[indttmask] = 1
+IMamp = 0.001
+sweep_amp = 5 * IMamp
 
-def vz(n, m, IMamp): #determine the minimum IMamp (interaction matrix amplitude) to be visible in differential images
-	# ds9 = pysao.ds9()
-	zern = funz(n, m, IMamp)
-	time.sleep(tsleep)
-	imzern = optics.stack(10)
-	optics.applydmc(bestflat)
-	time.sleep(tsleep)
-	imflat = optics.stack(10)
-	return imflat
-	# ds9.view((imzern-imflat)*ttmask)
-
-IMamp = 0.1 #from above function
-
-def make_im_cm(verbose=True):
-	#make interaction matrix
+zernarr = np.zeros((len(nmarr), aperture[indap].shape[0])).astype(np.float32)
+bestflat, _ = optics.refresh()
+for (i, (n, m)) in enumerate(nmarr):
+	zern = funz(n, m, IMamp, bestflat)
+	zernarr[i] = zern[indap]
+	
+def make_im_cm(rcond=1e-3, verbose=True):
+	"""
+	Make updated interaction and command matrices.
+	"""
+	bestflat, imflat = optics.refresh()
 	refvec = np.zeros((len(nmarr), ttmask[indttmask].shape[0]*2))
-	zernarr = np.zeros((len(nmarr), aperture[indap].shape[0]))
-	for i in range(len(nmarr)):
-		n, m = nmarr[i]
-		zern = funz(n, m, IMamp)
+	for (i, (n, m)) in enumerate(nmarr):
+		_ = funz(n, m, IMamp, bestflat)
 		time.sleep(tsleep)
-		imzern = optics.stack(10)
-		optics.applydmc(bestflat)
-		time.sleep(tsleep)
-		imflat = optics.stack(10)
+		imzern = optics.stackim(10)
 		imdiff = imzern - imflat
-		Im_diff = processim(imdiff)
-		refvec[i] = np.array([np.real(Im_diff[indttmask]), np.imag(Im_diff[indttmask])]).flatten()
-		zernarr[i] = zern[indap]
+		processed_imdiff = processim(imdiff)
+		refvec[i] = np.array([
+			np.real(processed_imdiff[indttmask]),
+			np.imag(processed_imdiff[indttmask])
+		]).flatten()
 
-	IM = np.dot(refvec, refvec.T) #interaction matrix
-	IMinv = np.linalg.pinv(IM, rcond=1e-6)
-	cmd_mtx = np.dot(IMinv, refvec).astype(np.float32)
+	int_mtx = np.dot(refvec, refvec.T) #interaction matrix
+	int_mtx_inv = np.linalg.pinv(int_mtx, rcond=rcond)
+	cmd_mtx = np.dot(int_mtx_inv, refvec).astype(np.float32)
 	if verbose:
 		print("Recomputed interaction matrix and command matrix")
-	return IM, cmd_mtx
+	return int_mtx, cmd_mtx
 
-IM, cmd_mtx = make_im_cm()
-optics.applydmc(bestflat)
-
-def measure_tt(image, cmd_mtx=cmd_mtx):
+def measure_zcoeffs(image, cmd_mtx):
+	"""
+	Measures Zernike coefficient values from an image.
+	"""
 	tar_ini = processim(image)
 	tar = np.array([np.real(tar_ini[indttmask]), np.imag(tar_ini[indttmask])])
 	tar = tar.reshape((tar.size, 1))
 	coeffs = np.dot(cmd_mtx, tar)
 	return coeffs * IMamp
 
-def linearity(mode=0, nlin=20, amp=IMamp, plot=True):
-	def genzerncoeffs(i, zernamp):
-		'''
-		i: zernike mode
-		zernamp: Zernike amplitude in DM units to apply
-		'''
-		n, m = nmarr[i]
-		zern = funz(n,m,zernamp)
-		time.sleep(tsleep)
-		imzern = optics.stack(10)
-		imdiff = (imzern-imflat)
-		tar_ini = processim(imdiff)
-		tar = np.array([np.real(tar_ini[indttmask]), np.imag(tar_ini[indttmask])]).flatten()	
-		coeffs = np.dot(cmd_mtx, tar)
-		return coeffs*IMamp
+def mz(cmd_mtx=None):
+	"""
+	A quick IPython shortcut.
+	"""
+	if cmd_mtx is None:
+		_, cmd_mtx = make_im_cm()
+	return measure_zcoeffs(optics.getim(), cmd_mtx)
 
-	nlin = 20 #number of data points to scan through linearity measurements
-	zernamparr = np.linspace(-1.5*amp, 1.5*amp, nlin)
-	#try linearity measurement for Zernike mode 'mode'
-	zernampout=np.zeros((len(nmarr), nlin))
-	for i in tqdm.trange(nlin):
-		zernamp=zernamparr[i]
-		coeffsout = genzerncoeffs(mode, zernamp)
-		zernampout[:,i] = coeffsout
-	
-	optics.applydmc(bestflat)
+def genzerncoeffs(i, zernamp, cmd_mtx, bestflat, imflat):
+	"""
+	i: zernike mode
+	zernamp: Zernike amplitude in DM units to apply
+	"""
+	n, m = nmarr[i]
+	_ = funz(n, m, zernamp, bestflat)
+	time.sleep(tsleep)
+	imzern = optics.stackim(10)
+	imdiff = imzern - imflat
+	return measure_zcoeffs(imdiff, cmd_mtx)
+
+def linearity(nlin=20, plot=True, rcond=1e-3):
+	bestflat, imflat = optics.refresh()
+	_, cmd_mtx = make_im_cm(rcond=rcond)
+	zernamparr = sweep_amp * np.linspace(-1.5,1.5,nlin)
+	zernampout = np.zeros((len(nmarr),len(nmarr),nlin))
+	for nm in range(len(nmarr)):
+		for i in range(nlin):
+			zernamp = zernamparr[i]
+			coeffsout = genzerncoeffs(nm, zernamp, cmd_mtx, bestflat, imflat)
+			zernampout[nm,:,i] = coeffsout.flatten()
+
+	optics.applybestflat()
 
 	if plot:
-		plt.figure()
-		plt.plot(zernamparr,zernamparr,lw=1,color='k',ls='--',label='y=x')
-		plt.plot(zernamparr,zernampout[0,:],lw=2,color='k',label='i=0')
-		plt.plot(zernamparr,zernampout[1,:],lw=2,color='blue',label='i=1')
-		plt.legend(loc='best')
-		plt.xlabel("Applied command")
-		plt.ylabel("System response")
-		plt.show()
+		fig, axs=plt.subplots(ncols=3,nrows=2,figsize=(12,10),sharex=True,sharey=True)
+		fig.suptitle(f"rcond = {rcond}")
+
+		colors = mpl.cm.viridis(np.linspace(0,1,len(nmarr)))
+		axarr=[axs[0,0],axs[0,1],axs[0,2],axs[1,0],axs[1,1],axs[1,2]]
+		fig.delaxes(axarr[-1])
+		for i in range(len(nmarr)):
+			ax=axarr[i]
+			ax.set_title('n,m='+str(nmarr[i][0])+','+str(nmarr[i][1]))
+			if i==4:
+				ax.plot(zernamparr*dmc2wf,zernamparr*dmc2wf,lw=1,color='k',ls='--',label='y=x')
+				for j in range(len(nmarr)):
+					if j==i:
+						ax.plot(zernamparr*dmc2wf,zernampout[i,i,:]*dmc2wf,lw=2,color=colors[j],label='n,m='+str(nmarr[i][0])+','+str(nmarr[i][1]))
+					else:
+						ax.plot(zernamparr*dmc2wf,zernampout[i,j,:]*dmc2wf,lw=1,color=colors[j],label='n,m='+str(nmarr[j][0])+','+str(nmarr[j][1]))
+			else:
+				ax.plot(zernamparr*dmc2wf,zernamparr*dmc2wf,lw=1,color='k',ls='--')
+				for j in range(len(nmarr)):
+					if j==i:
+						ax.plot(zernamparr*dmc2wf,zernampout[i,i,:]*dmc2wf,lw=2,color=colors[j])
+					else:
+						ax.plot(zernamparr*dmc2wf,zernampout[i,j,:]*dmc2wf,lw=1,color=colors[j])
+
+		axarr[4].legend(bbox_to_anchor=(1.05,0.9))
+		axarr[4].set_xlabel('input ($\\mu$m WFE, PV)')
+		axarr[3].set_xlabel('input ($\\mu$m WFE, PV)')
+		axarr[3].set_ylabel('reconstructed output ($\\mu$m WFE, PV)')
+		axarr[0].set_ylabel('reconstructed output ($\\mu$m WFE, PV)')
 
 	return zernamparr, zernampout
 
-def fit_polynomial(x, y, maxdeg=10, abstol=1e-4):
-	"""
-	Slight extension to np.polyfit that varies the degree.
-	"""
-	for deg in range(maxdeg):
-		p = np.polyfit(x, y, deg=deg)
-		errs = np.polyval(p, x) - y
-		err = np.sum(errs ** 2)
-		if err <= abstol:
-			return p, err
-	return p, err
+# fit_polynomial stuff removed on 2021-10-10, see git history before that to recover
 
-def fit_linearity_curves():
-	ps = []
-	for mode in range(2):
-		zin, zout = linearity(mode=mode, plot=False)
-		ps.append(fit_polynomial(zin, zout[mode])[0])
-	return ps
-
-def command_for_actual(act, p):
+def zcoeffs_to_dmc(zcoeffs):
 	"""
-	Uses Newton's method and a polynomial fit to the linearity curve 
-	to calculate the command you should send to get an actual response of 'act'.
-	"""
-	d = len(p)
-	obj = lambda x: np.dot(p, x ** np.arange(d-1, -1, -1)) - act
-	dobj = lambda x: np.dot(np.arange(d-1, -1, -1), x ** np.arange(d-2, -2, -1))
-	return newton(obj, act, fprime=dobj)
+	Converts a measured coefficient value to an ideal DM command.
+	
+	Arguments
+	---------
+	zcoeffs : np.ndarray, (ncoeffs, 1)
+	The tip and tilt values.
 
-if __name__ == "__main__":
-	linearity()
+	Returns
+	-------
+	dmc : np.ndarray
+	The corresponding DM command.
+	"""
+	dmc = np.copy(optics.dmzero)
+	dmc[indap] = np.dot(zernarr.T, -zcoeffs)
+	return dmc
+

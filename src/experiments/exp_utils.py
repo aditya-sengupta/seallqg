@@ -12,8 +12,8 @@ from functools import partial
 from ..constants import dt
 from ..utils import joindata
 from ..optics import optics
-from ..optics import measure_tt, make_im_cm
-from ..optics import align_fast2
+from ..optics import measure_zcoeffs, make_im_cm
+from ..optics import align
 
 bestflat = np.load(joindata("bestflats/bestflat.npy"))
 
@@ -46,7 +46,7 @@ def tt_from_queued_image(in_q, out_q, cmd_mtx, timestamp=datetime.now().strftime
             v = in_q.get()
             in_q.task_done()
             if v is not None:
-                ttval = measure_tt(v - imflat, cmd_mtx=cmd_mtx).flatten()
+                ttval = measure_zcoeffs(v - imflat, cmd_mtx=cmd_mtx).flatten()
                 out_q.put(ttval)
                 ttvals.append(ttval)
             else:
