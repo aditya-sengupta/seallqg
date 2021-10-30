@@ -4,19 +4,20 @@ More of this is in this script than I'd like, but I'll fix it later, I promise
 """
 import sys
 sys.path.append("..")
+from os import path
 
 from src import *
 from src.utils import joindata
 from src.controllers import make_kalman_controllers
 from src.experiments.schedules import *
-from src.experiments.exp_utils import record_experiment, control_schedule
+from src.experiments.exp_utils import record_experiment, control_schedule_from_law
 
 import numpy as np
 from matplotlib import pyplot as plt
 from functools import partial
 from datetime import datetime
 
-ol = np.load(joindata("openloop/ol_tt_stamp_20_08_2021_12_51_53.npy"))
+ol = np.load(joindata("openloop", "ol_z_stamp_18_10_2021_08_40_07.npy"))
 # update this with the latest 100-second openloop
 
 ol_spectra = [genpsd(ol[:,i], dt=0.01) for i in range(2)]
@@ -27,13 +28,13 @@ def recompute_schedules(klqg):
     kalman_integrate, kalman_lqg = make_kalman_controllers(klqg)
 
     def record_kf_integ(dist_schedule, t=1, gain=0.1, leak=1.0, **kwargs):
-        path = "kfilter/kf"
+        record_path = path.join("kfilter", "kf")
         for k in kwargs:
-            path = path + "_" + k + "_" + str(kwargs.get(k))
+            path = path + f"_{k}_{kwargs.get(k)}"
 
         return record_experiment(
-            path,
-            control_schedule=partial(control_schedule, control=partial(kalman_integrate, gain=gain, leak=leak)),
+            record_path,
+            control_schedule=partial(control_schedule_from_law, control=partial(kalman_integrate, gain=gain, leak=leak)),
             dist_schedule=partial(dist_schedule, t, **kwargs),
             t=t
         )
@@ -45,13 +46,13 @@ def recompute_schedules(klqg):
     record_kintatmvib = partial(record_kf_integ, atmvib_schedule)
 
     def record_lqg(dist_schedule, t=1, **kwargs):
-        path = "lqg/lqg"
+        record_path = path.join("lqg", "lqg")
         for k in kwargs:
             path = path + "_" + k + "_" + str(kwargs.get(k))
 
         return record_experiment(
-            path,
-            control_schedule=partial(control_schedule, control=kalman_lqg),
+            record_path,
+            control_schedule=partial(control_schedule_from_law, control=kalman_lqg),
             dist_schedule=partial(dist_schedule, t, **kwargs),
             t=t
         )
@@ -64,48 +65,44 @@ def recompute_schedules(klqg):
 
     return record_kintnone, record_lqgnone
 
-def kint(klqg):
+def run_experiment(klqg, t=10, i=1):
     klqg.recompute()
-    record_kintnone, record_lqgnone = recompute_schedules(klqg)
+    assert klqg.improvement() >= 1, "Kalman-LQG setup does not improve in simulation."
+    exp = recompute_schedules(klqg)[i]
     klqg.x = np.zeros(klqg.state_size,)
-    times, ttvals = record_kintnone(t=10)
-    return times, ttvals, datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
+    times, zvals = exp(t=t)
+    return times, zvals, datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
 
-def lqg(klqg):
-    klqg.recompute()
-    record_kintnone, record_lqgnone = recompute_schedules(klqg)
-    klqg.x = np.zeros(klqg.state_size,)
-    times, ttvals = record_lqgnone(t=10)
-    return times, ttvals, datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
+kint = partial(run_experiment, i=0)
+lqg = partial(run_experiment, i=1)
 
-def plot_cl_rtf(ttvals, mode, dt=datetime.now().strftime("%d_%m_%Y_%H_%M_%S")):
+def plot_cl_rtf(zvals, mode, dt=datetime.now().strftime("%d_%m_%Y_%H_%M_%S"), save=True):
     fig, axs = plt.subplots(2, figsize=(9,9))
-    fig.tight_layout()
+    fig.tight_layout(pad=4.0)
     plt.suptitle("LQG rejection")
     for mode in range(2):
-        cl = ttvals[:,mode]
+        cl = zvals[:,mode]
         olc = ol[:len(cl),mode]
         f_ol, p_ol = genpsd(olc, dt=0.01)
         f_cl, p_cl = genpsd(cl, dt=0.01)
         rms_ratio = rms(cl) / rms(olc)
-        rms_ratio = np.round(rms_ratio, 4)
+        rms_ratio = str(np.round(rms_ratio, 4))[:7]
         axs[mode].loglog(f_ol, p_ol, label="Open-loop")
         axs[mode].loglog(f_cl, p_cl, label="Closed-loop")
         axs[mode].loglog(f_cl, p_cl / p_ol, label="Rejection TF")
         axs[mode].legend()
         axs[mode].set_xlabel("Frequency (Hz)")
         axs[mode].set_ylabel(r"Power (DM $units^2/Hz$)")
-        axs[mode].set_title("Mode {0}, CL/OL RMS {1}".format(mode, rms_ratio))
-        fname = "../plots/cl_lqg" + dt
-        plt.savefig(joindata(fname))
+        axs[mode].set_title(f"Mode {mode}, CL/OL RMS {rms_ratio}")
+        fname = "../plots/cl_lqg_" + dt + ".pdf"
+        if save:
+            plt.savefig(joindata(fname))
     plt.show()
 
 # start ad hoc modifications to the observe/control matrices
 klqg.R *= 1e6
-#klqg.Q[:2,:2] *= 1e2
-klqg.W[:2,:2] *= 1e4
 # end modifications
 
 if __name__ == "__main__":
-    times, ttvals, dt = lqg(klqg)
-    plot_cl_rtf(ttvals, dt)
+    times, zvals, dt = lqg(klqg, t=10)
+    plot_cl_rtf(zvals, dt)

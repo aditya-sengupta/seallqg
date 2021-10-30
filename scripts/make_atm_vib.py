@@ -95,7 +95,7 @@ def make_atm_data(steps, wf=None, layers=layers, zerotime=0):
     return tt_cms
 
 def make_atm_vib_data(atm=1, vib=0, nsteps=10000):
-    fname = "ol_atm_{0}_vib_{1}.npy".format(atm, vib)
+    fname = f"ol_atm_{atm}_vib_{vib}.npy"
     ol = make_atm_data(nsteps, layers=layers[:atm])
     if vib > 0:
         ol += make_2D_vibe_data(nsteps, vib)
