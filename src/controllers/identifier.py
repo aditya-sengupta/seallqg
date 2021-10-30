@@ -21,7 +21,7 @@ class SystemIdentifier:
         ol,
         fs=fs, 
         f1=None, f2=None, fw=None, 
-        N_vib_max=10, energy_cutoff=1e-10, 
+        N_vib_max=10, energy_cutoff=1e-8, 
         max_ar_coef=5, 
     ):
 
@@ -160,7 +160,7 @@ class SystemIdentifier:
             A[i,i-1] += 1.0
 
         B = np.zeros((ar_len, 1))
-        B[0,0] = -1
+        #B[0,0] = -1
         C = np.zeros((1, ar_len))
         C[0,0] = 1
 
@@ -210,7 +210,7 @@ class SystemIdentifier:
 
         matrices = [A, B, C, W, V, Q, R]
         
-        # self.energy_cutoff = np.mean(p[f > self.fw])
+        self.energy_cutoff = np.mean(self.psds[0][self.freqs > self.fw])
 
         if model_vib:
             vib_matrices = self.make_2d_klqg_vibe()
