@@ -67,7 +67,7 @@ def make_lqg_controller(klqg):
         Linear-quadratic-Gaussian control.
         """
         u = klqg.control()
-        return u, optics.getdmc() + tt_to_dmc(u)
+        return u, optics.getdmc() + zcoeffs_to_dmc(u)
 
     return lqg_controller
 

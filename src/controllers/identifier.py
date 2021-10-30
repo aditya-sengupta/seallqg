@@ -21,7 +21,7 @@ class SystemIdentifier:
         ol,
         fs=fs, 
         f1=None, f2=None, fw=None, 
-        N_vib_max=10, energy_cutoff=1e-8, 
+        N_vib_max=10, energy_cutoff=1e-10, 
         max_ar_coef=5, 
     ):
 
@@ -55,7 +55,6 @@ class SystemIdentifier:
 
     def damped_harmonic(self, pars_model):
         A, f, k, p = pars_model
-        times = np.arange(0, )
         return A * np.exp(-k * 2 * np.pi * f * self.times) * np.cos(2 * np.pi * f * np.sqrt(1 - k**2) * self.times - p)
 
     def make_psd(self, pars_model):
