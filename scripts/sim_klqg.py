@@ -12,11 +12,9 @@ nsteps = 10000
 ident = SystemIdentifier(ol, fs=fs)
 klqg = ident.make_klqg_from_openloop()
 x0 = None #np.array([1.0, 0.0] * (klqg.state_size // 2))
-Ppr = solve_dare(A.T, C.T * 0, W, V)
-print(f"Uncontrolled process covariance: {C @ Ppr @ C.T}")
-print(f"Controlled process covariance: {C @ klqg.Pcon @ C.T}")
-improvement = klqg.improvement(x0=x0)
-print(f"Improvement: {improvement}")
+for _ in range(5):
+    improvement = klqg.improvement(x0=x0)
+    print(f"Improvement: {improvement}")
 if improvement > 1.0 and False:
     states_un = klqg.sim_process(nsteps=nsteps, x0=x0)
     f_un, p_un = genpsd(states_un[:,0], dt=1/fs)
