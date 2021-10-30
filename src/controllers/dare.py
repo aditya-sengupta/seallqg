@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.linalg as la
+from slycot.synthesis import sg02ad
 from copy import copy
 
 def dare_iterative_update(A, B, Q, R, P):
@@ -12,9 +13,15 @@ def check_dare(A, B, Q, R, P):
     )
 
 def solve_dare(A, B, Q, R, verbose=True, max_iters=1000):
-    #print([[np.linalg.matrix_rank(X), np.shape(X)] for X in [A, B, Q, R]])
     try:
-        P = la.solve_discrete_are(A, B, Q, R)
+        try:
+            n = A.shape[0]
+            m = B.shape[1]
+            E = np.eye(n)
+            L = np.zeros_like(B)
+            P = sg02ad('D', 'B', 'N', 'U', 'Z', 'N', 'S', 'R', n, m, 1, A, E, B, Q, R, L)[1]
+        except (ValueError, np.linalg.LinAlgError):
+            P = la.solve_discrete_are(A, B, Q, R)
         if verbose:
             print("Solved discrete ARE.")
     except (ValueError, np.linalg.LinAlgError):
