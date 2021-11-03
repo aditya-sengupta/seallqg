@@ -193,7 +193,7 @@ class Sim(Optics):
 		return self.expt
 
 	def getim(self):
-		return propagate(self.dmc, ph=True, t_int=self.expt)
+		return propagate(self.dmc, ph=True, t_int=self.expt) + np.random.normal(0, 1e-3, self.imdims)
 
 	def getdmc(self):
 		return self.dmc
