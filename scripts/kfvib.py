@@ -17,7 +17,8 @@ from matplotlib import pyplot as plt
 from functools import partial
 from datetime import datetime
 
-ol = np.load(joindata("openloop", "ol_z_stamp_18_10_2021_08_40_07.npy"))
+dmc2wf = np.load(joindata("bestflats", "lodmc2wfe.npy"))
+ol = np.load(joindata("openloop", "ol_z_stamp_03_11_2021_07_33_16.npy")) * dmc2wf
 # update this with the latest 100-second openloop
 
 ol_spectra = [genpsd(ol[:,i], dt=0.01) for i in range(2)]
@@ -48,7 +49,7 @@ def recompute_schedules(klqg):
     def record_lqg(dist_schedule, t=1, **kwargs):
         record_path = path.join("lqg", "lqg")
         for k in kwargs:
-            path = path + "_" + k + "_" + str(kwargs.get(k))
+            record_path += f"_{k}_{kwargs.get(k)}"
 
         return record_experiment(
             record_path,
@@ -67,7 +68,9 @@ def recompute_schedules(klqg):
 
 def run_experiment(klqg, t=10, i=1):
     klqg.recompute()
-    assert klqg.improvement() >= 1, "Kalman-LQG setup does not improve in simulation."
+    improvement = klqg.improvement()
+    print(f"{improvement = }")
+    assert improvement >= 1, f"Kalman-LQG setup does not improve in simulation"
     exp = recompute_schedules(klqg)[i]
     klqg.x = np.zeros(klqg.state_size,)
     times, zvals = exp(t=t)
@@ -76,17 +79,24 @@ def run_experiment(klqg, t=10, i=1):
 kint = partial(run_experiment, i=0)
 lqg = partial(run_experiment, i=1)
 
-def plot_cl_rtf(zvals, mode, dt=datetime.now().strftime("%d_%m_%Y_%H_%M_%S"), save=True):
+def get_ol_cl_rms(zvals):
+    data = []
+    for mode in range(2):
+        cl = zvals[:,mode]
+        olc = ol[:len(cl),mode]
+        rms_ratio = rms(cl) / rms(olc)
+        rms_ratio = str(np.round(rms_ratio, 4))[:7]
+        data.append([olc, cl, rms_ratio])
+    return data
+
+def plot_cl_rtf(data, dt=datetime.now().strftime("%d_%m_%Y_%H_%M_%S"), save=True):
     fig, axs = plt.subplots(2, figsize=(9,9))
     fig.tight_layout(pad=4.0)
     plt.suptitle("LQG rejection")
     for mode in range(2):
-        cl = zvals[:,mode]
-        olc = ol[:len(cl),mode]
+        olc, cl, rms_ratio = data[mode]
         f_ol, p_ol = genpsd(olc, dt=0.01)
         f_cl, p_cl = genpsd(cl, dt=0.01)
-        rms_ratio = rms(cl) / rms(olc)
-        rms_ratio = str(np.round(rms_ratio, 4))[:7]
         axs[mode].loglog(f_ol, p_ol, label="Open-loop")
         axs[mode].loglog(f_cl, p_cl, label="Closed-loop")
         axs[mode].loglog(f_cl, p_cl / p_ol, label="Rejection TF")
@@ -94,15 +104,18 @@ def plot_cl_rtf(zvals, mode, dt=datetime.now().strftime("%d_%m_%Y_%H_%M_%S"), sa
         axs[mode].set_xlabel("Frequency (Hz)")
         axs[mode].set_ylabel(r"Power (DM $units^2/Hz$)")
         axs[mode].set_title(f"Mode {mode}, CL/OL RMS {rms_ratio}")
-        fname = "../plots/cl_lqg_" + dt + ".pdf"
+        fname = f"../plots/cl_lqg_{dt}.pdf"
         if save:
             plt.savefig(joindata(fname))
     plt.show()
 
 # start ad hoc modifications to the observe/control matrices
-klqg.R *= 1e6
+klqg.R *= 1e2
 # end modifications
 
 if __name__ == "__main__":
     times, zvals, dt = lqg(klqg, t=10)
-    plot_cl_rtf(zvals, dt)
+    data = get_ol_cl_rms(zvals * dmc2wf)
+    print(f"RMS ratios: {[float(x[2]) for x in data]}")
+    if input("Plot? (y/n) ") == 'y':
+        plot_cl_rtf(data, dt)

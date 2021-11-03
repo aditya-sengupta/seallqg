@@ -146,4 +146,7 @@ def record_experiment(record_path, control_schedule, dist_schedule, t=1, rcond=1
 	np.save(record_path, zvals)
 	os.remove(timepath)
 	os.remove(zpath)
+	if verbose:
+		print(f"Times  saved to {timepath}")
+		print(f"Coeffs saved to {zpath}")
 	return times, zvals
