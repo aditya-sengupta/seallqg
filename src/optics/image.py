@@ -150,7 +150,7 @@ class FAST(Optics):
 	def getdmc(self): # read current command applied to the DM
 		return self.dmChannel.get_data()
 
-	def applydmc(self, dmc, min_cmd=-1.0, max_cmd=1.0): #apply command to the DM
+	def applydmc(self, dmc, min_cmd=-0.2, max_cmd=0.2): #apply command to the DM
 		"""
 		Applies the DM command `dmc`, with safeguards
 		"""
@@ -193,7 +193,7 @@ class Sim(Optics):
 		return self.expt
 
 	def getim(self):
-		return propagate(self.dmc, ph=True, t_int=self.expt)
+		return propagate(self.dmc, ph=True, t_int=self.expt) + np.random.normal(0, 1e-3, self.imdims)
 
 	def getdmc(self):
 		return self.dmc

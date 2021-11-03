@@ -27,7 +27,7 @@ def control(measurement, observer, controller, **kwargs):
     command : np.ndarray, (ydim, xdim)
     The command to be put on the DM.
     """
-    state = observer(measurement, **kwargs)
+    state = observer(measurement[:2], **kwargs) # hacky workaround
     u = controller(state, **kwargs)
     return u
 

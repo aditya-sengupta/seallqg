@@ -11,8 +11,9 @@ def make_kf_observer(klqg):
         u = kwargs.get("u")
         if u is None:
             u = uzero
+        # biryani
         klqg.update(measurement[:2]) # adjustment for the # of zern modes
-        klqg.predict(u)
+        klqg.predict(u[:2])
         return klqg.measure()
 
     return kfilter
