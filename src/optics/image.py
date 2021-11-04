@@ -125,12 +125,12 @@ class FAST(Optics):
 		self.dmdims = self.getdmc().shape
 		self.imdims = self.getim().shape
 		self.name = "FAST_LODM"
-		port = "5556"
+		"""port = "5556"
 		context = zmq.Context()
 		self.socket = context.socket(zmq.REQ)
 		self.socket.connect(f"tcp://128.114.22.20:{port}")
 		self.socket.send_string("pupSize")
-		self.pup_size = np.frombuffer(self.socket.recv(), dtype=np.int32)[0]
+		self.pup_size = np.frombuffer(self.socket.recv(), dtype=np.int32)[0]"""
 
 	def set_expt(self, t):
 		'''
@@ -159,6 +159,7 @@ class FAST(Optics):
 		if np.any(dmc > max_cmd):
 			warnings.warn("saturating DM ones!")
 		dmc = np.maximum(min_cmd, np.minimum(max_cmd, dmc))
+		dmc = np.nan_to_num(dmc)
 		self.dmChannel.set_data(dmc.astype(np.float32))
 
 	def getwf(self):
@@ -193,7 +194,7 @@ class Sim(Optics):
 		return self.expt
 
 	def getim(self):
-		return propagate(self.dmc, ph=True, t_int=self.expt) + np.random.normal(0, 1e-3, self.imdims)
+		return propagate(self.dmc, ph=True, t_int=self.expt)
 
 	def getdmc(self):
 		return self.dmc
@@ -207,8 +208,9 @@ class Sim(Optics):
 
 	def getwf(self):
 		raise NotImplementedError()
-	
-if gethostname() == "SEAL":
+
+sim_mode = False
+if gethostname() == "SEAL" and not sim_mode:
 	optics = FAST()
 else:
 	print("Running in simulation mode.")

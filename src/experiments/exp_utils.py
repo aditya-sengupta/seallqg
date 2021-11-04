@@ -63,7 +63,7 @@ def zcoeffs_from_queued_image(in_q, out_q, imflat, cmd_mtx, timestamp):
 				np.save(fname, zvals)
 				return zvals
 
-def control_schedule_from_law(q, control, t=1, half_close=False):
+def control_schedule_from_law(q, control, timestamp, t=1, half_close=False):
 	"""
 	The SEAL schedule for a controller.
 
@@ -75,8 +75,10 @@ def control_schedule_from_law(q, control, t=1, half_close=False):
 	control : callable
 	The function to execute control.
 	"""
+	fname = joindata("recordings", f"recc_stamp_{timestamp}.npy")
 	last_z = None # the most recently applied control command
 	t1 = time.time()
+	cvals = []
 
 	while time.time() < t1 + t:
 		if q.empty():
@@ -84,9 +86,14 @@ def control_schedule_from_law(q, control, t=1, half_close=False):
 		else:
 			z = q.get()
 			q.task_done()
+			last_z, dmc = control(z, u=last_z)
 			if (not half_close) or (time.time() >= t1 + t / 2):
-				last_z, dmc = control(z, u=last_z)
 				optics.applydmc(dmc)
+			else:
+				last_z *= 0
+			cvals.append(last_z)
+
+	np.save(fname, np.array(cvals))
 
 def record_experiment(record_path, control_schedule, dist_schedule, t=1, rcond=1e-4, half_close=False, verbose=True):
 	_, cmd_mtx = make_im_cm(rcond=rcond, verbose=verbose)
@@ -114,7 +121,7 @@ def record_experiment(record_path, control_schedule, dist_schedule, t=1, rcond=1
 	q_control = Queue()
 	record_thread = Thread(target=partial(record_im, duration=t, timestamp=timestamp), args=(q_compute,))
 	compute_thread = Thread(target=partial(zcoeffs_from_queued_image, timestamp=timestamp), args=(q_compute, q_control, imflat, cmd_mtx,))
-	control_thread = Thread(target=partial(control_schedule, t=t), args=(q_control,))
+	control_thread = Thread(target=partial(control_schedule, t=t, timestamp=timestamp), args=(q_control,))
 	command_thread = Thread(target=dist_schedule)
 
 	if verbose:
@@ -139,14 +146,22 @@ def record_experiment(record_path, control_schedule, dist_schedule, t=1, rcond=1
 
 	timepath = joindata("recordings", f"rectime_stamp_{timestamp}.npy")
 	zpath = joindata("recordings", f"recz_stamp_{timestamp}.npy")
+	cpath = joindata("recordings", f"recc_stamp_{timestamp}.npy")
 	times = np.load(timepath)
 	zvals = np.load(zpath)
+	cvals = np.load(cpath)
 	np.save(record_path, times)
-	record_path = record_path.replace("time", "z")
+	if verbose:
+		print(f"Times    saved to {record_path}")
+	record_path = record_path.replace("time", "cmd")
+	np.save(record_path, cvals)
+	if verbose:
+		print(f"Commands saved to {record_path}")
+	record_path = record_path.replace("cmd", "z")
 	np.save(record_path, zvals)
+	if verbose:
+		print(f"Coeffs   saved to {record_path}")
 	os.remove(timepath)
 	os.remove(zpath)
-	if verbose:
-		print(f"Times  saved to {timepath}")
-		print(f"Coeffs saved to {zpath}")
+	os.remove(cpath)
 	return times, zvals

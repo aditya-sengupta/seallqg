@@ -27,7 +27,7 @@ def control(measurement, observer, controller, **kwargs):
     command : np.ndarray, (ydim, xdim)
     The command to be put on the DM.
     """
-    state = observer(measurement[:2], **kwargs) # hacky workaround
+    state = observer(measurement[:2], **kwargs) # biryani
     u = controller(state, **kwargs)
     return u
 
@@ -70,7 +70,7 @@ def make_lqg_controller(klqg):
         u = klqg.control()
         # correct for KLQG built for only tip-tilt
         u = np.pad(u, (0,3))
-        return u, optics.getdmc() + zcoeffs_to_dmc(u)
+        return u, optics.getdmc() + zcoeffs_to_dmc(-u)
 
     return lqg_controller
 

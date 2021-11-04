@@ -18,8 +18,11 @@ from functools import partial
 from datetime import datetime
 
 dmc2wf = np.load(joindata("bestflats", "lodmc2wfe.npy"))
-ol = np.load(joindata("openloop", "ol_z_stamp_03_11_2021_07_33_16.npy")) * dmc2wf
-# update this with the latest 100-second openloop
+f = 5
+if f == 5:
+    ol = np.load(joindata("openloop", "ol_f_5_z_stamp_03_11_2021_14_02_00.npy")) * dmc2wf
+elif f == 1:
+    ol = np.load(joindata("openloop", "ol_f_1_z_stamp_03_11_2021_13_58_53.npy")) * dmc2wf
 
 ol_spectra = [genpsd(ol[:,i], dt=0.01) for i in range(2)]
 
@@ -31,7 +34,7 @@ def recompute_schedules(klqg):
     def record_kf_integ(dist_schedule, t=1, gain=0.1, leak=1.0, **kwargs):
         record_path = path.join("kfilter", "kf")
         for k in kwargs:
-            path = path + f"_{k}_{kwargs.get(k)}"
+            record_path = record_path + f"_{k}_{kwargs.get(k)}"
 
         return record_experiment(
             record_path,
@@ -61,10 +64,10 @@ def recompute_schedules(klqg):
     record_lqgtrain = partial(record_lqg, step_train_schedule)
     record_lqgnone = partial(record_lqg, noise_schedule)
     record_lqgustep = partial(record_lqg, ustep_schedule)
-    record_lqgsin = partial(record_lqg, sine_schedule)
+    record_lqgsin = partial(record_lqg, lambda t: sine_schedule(t, f=f))
     record_lqgatmvib = partial(record_lqg, atmvib_schedule)
 
-    return record_kintnone, record_lqgnone
+    return record_kintnone, record_lqgsin
 
 def run_experiment(klqg, t=10, i=1):
     klqg.recompute()
@@ -110,11 +113,11 @@ def plot_cl_rtf(data, dt=datetime.now().strftime("%d_%m_%Y_%H_%M_%S"), save=True
     plt.show()
 
 # start ad hoc modifications to the observe/control matrices
-klqg.R *= 1e2
+klqg.R *= 1e4
 # end modifications
 
 if __name__ == "__main__":
-    times, zvals, dt = lqg(klqg, t=10)
+    times, zvals, dt = lqg(klqg, t=100)
     data = get_ol_cl_rms(zvals * dmc2wf)
     print(f"RMS ratios: {[float(x[2]) for x in data]}")
     if input("Plot? (y/n) ") == 'y':

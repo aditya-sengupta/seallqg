@@ -32,7 +32,7 @@ def step_train_schedule(t, n=5, tip_amp=0.01, tilt_amp=0.0, **kwargs):
         applytip(tip_amp)
         applytilt(tilt_amp)
 
-def sine_schedule(t, amp=0.1, ang=np.pi, f=0.2, **kwargs):
+def sine_schedule(t, amp=0.005, ang=np.pi/4, f=1, **kwargs):
     """
     Put on a sine wave.
     """

@@ -2,8 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from src import joindata, SystemIdentifier, genpsd
 
-ol = np.load(joindata("openloop", "ol_z_stamp_03_11_2021_07_33_16.npy"))
-#ol = np.load(joindata("openloop", "ol_tt_stamp_21_08_2021_08_56_31.npy"))
+ol = np.load(joindata("openloop", "ol_f_1_z_stamp_03_11_2021_13_58_53.npy"))
 dmc2wf = np.load(joindata("bestflats", "lodmc2wfe.npy"))
 ol *= dmc2wf
 fs = 100
