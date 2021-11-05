@@ -28,6 +28,7 @@ def control(measurement, observer, controller, **kwargs):
     The command to be put on the DM.
     """
     state = observer(measurement[:2], **kwargs) # biryani
+    print(f"{state = }")
     u = controller(state, **kwargs)
     return u
 

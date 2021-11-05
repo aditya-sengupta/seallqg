@@ -66,7 +66,7 @@ class KalmanLQG:
 
     def filter(self, measurements, x0):
         steps = len(measurements)
-        assert len(measurements.shape) == 2 and measurements.shape[1] == self.measure_size, "incorrect size for measurements in Kalman filter."
+        assert len(measurements.shape) == 2 and measurements.shape[1] == self.measure_size, f"incorrect size for measurements in Kalman filter: expected (nsteps, {self.measure_size}) but got {measurements.shape}"
         states = np.empty((steps, self.state_size))
         self.x = x0
         uzero = np.zeros((self.input_size,))

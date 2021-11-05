@@ -21,14 +21,14 @@ class SystemIdentifier:
         ol,
         fs=fs, 
         f1=None, f2=None, fw=None, 
-        N_vib_max=10, energy_cutoff=1e-10, 
-        max_ar_coef=5, 
+        N_vib_max=4, energy_cutoff=1e-6, 
+        max_ar_coef=2, 
     ):
 
         self.ol = ol
         self.fs = fs # Hz
         if f1 is None:
-            self.f1 = fs / 60 # lowest possible frequency of a vibration mode
+            self.f1 = fs / 120 # lowest possible frequency of a vibration mode
         else:
             self.f1 = f1
 
@@ -84,13 +84,20 @@ class SystemIdentifier:
 
         peaks = []
         psd = copy(self.psds[mode])
+        # indices where the PSD peaks
         unsorted_peaks = signal.find_peaks(psd, height=self.energy_cutoff)[0]
-        freqs_energy = np.flip(np.argsort(psd)) # frequencies ordered by their energy
-        for f in freqs_energy:
-            if f in unsorted_peaks and self.f1 <= self.freqs[f] <= self.f2:
-                peaks.append(f)
+        # indices in range ordered by energy
+        freqs_energy = np.flip(np.argsort(psd))
+        # we also want them to be in the range f1-f2
+        freqs_energy = freqs_energy[np.logical_and(
+            self.freqs[freqs_energy] >= self.f1, 
+            self.freqs[freqs_energy] <= self.f2)
+        ]
+        # for our peaks we want unsorted_peaks, in the order in freqs_energy
+        # or phrased differently, we want the subset of freqs_energy that's in unsorted_peaks
+        peaks = freqs_energy[np.in1d(freqs_energy, unsorted_peaks)]
 
-        params = np.zeros((self.N_vib_max, PARAMS_SIZE))
+        params = -np.ones((self.N_vib_max, PARAMS_SIZE))
         variances = np.zeros(self.N_vib_max)
 
         i = 0
@@ -99,12 +106,14 @@ class SystemIdentifier:
                 break
             if not(np.any(np.abs(params[:,0] - self.freqs[peak_ind]) <= width * df)): 
                 # this is to prevent peak overlapping/fitting to the same thing twice
-                l, r = peak_ind - width, peak_ind + width
+                l, r = max(0, peak_ind - width), min(len(psd), peak_ind + width)
                 windowed = psd[l:r]
                 objective = lambda pars: self.psd_f(self.freqs[peak_ind])(pars)[l:r]
                 psd_ll = log_likelihood(objective, windowed)
-                k, sd = optimize.minimize(psd_ll, par0, method='Nelder-Mead').x
-                params[i] = [self.freqs[peak_ind], k]
+                res = optimize.minimize(psd_ll, par0, method='Nelder-Mead')
+                k, sd = res.x
+                params[i] = [(self.freqs[peak_ind] + self.freqs[peak_ind + 1])/2, k]
+                # slight hack because i'm noticing the frequencies are getting underestimated
                 variances[i] = sd ** 2
                 i += 1
 
@@ -134,7 +143,7 @@ class SystemIdentifier:
         V = self.est_measurenoise(mode)**2 * np.identity(1)
         
         Q = 10 * C.T @ C # only penalize the observables
-        R = 0.01 * np.eye(1)
+        R = 100 * np.eye(1)
         return (A, B, C, W, V, Q, R)
 
     def make_2d_klqg_vibe(self):
@@ -170,10 +179,12 @@ class SystemIdentifier:
         V = np.array([[self.est_measurenoise(mode) ** 2]])
 
         Q = C.T @ C
-        R = 0.01 * np.eye(1)
+        R = 100 * np.eye(1)
         return (A, B, C, W, V, Q, R)
 
-    def make_2d_klqg_ar(self, ar_len=2):
+    def make_2d_klqg_ar(self, ar_len=0):
+        if ar_len == 0:
+            ar_len = self.max_ar_coef
         matrices = [np.zeros((0,0)) for _ in range(7)]
         for mode in range(2):
             matrices = combine_matrices_for_klqg(matrices, self.make_klqg_ar(mode, ar_len))
@@ -198,8 +209,6 @@ class SystemIdentifier:
         klqg : KalmanLQG
         A Kalman-LQG object that controls either tip or tilt.
         """
-        self.N_vib_max = 1 # just for now
-
         A = np.zeros((0,0))
         B = np.zeros((0,2))
         C = np.zeros((2,0))

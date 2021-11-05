@@ -150,17 +150,18 @@ def record_experiment(record_path, control_schedule, dist_schedule, t=1, rcond=1
 	times = np.load(timepath)
 	zvals = np.load(zpath)
 	cvals = np.load(cpath)
-	np.save(record_path, times)
-	if verbose:
-		print(f"Times    saved to {record_path}")
-	record_path = record_path.replace("time", "cmd")
-	np.save(record_path, cvals)
-	if verbose:
-		print(f"Commands saved to {record_path}")
-	record_path = record_path.replace("cmd", "z")
-	np.save(record_path, zvals)
-	if verbose:
-		print(f"Coeffs   saved to {record_path}")
+	if optics.name != "Sim":
+		np.save(record_path, times)
+		if verbose:
+			print(f"Times    saved to {record_path}")
+		record_path = record_path.replace("time", "cmd")
+		np.save(record_path, cvals)
+		if verbose:
+			print(f"Commands saved to {record_path}")
+		record_path = record_path.replace("cmd", "z")
+		np.save(record_path, zvals)
+		if verbose:
+			print(f"Coeffs   saved to {record_path}")
 	os.remove(timepath)
 	os.remove(zpath)
 	os.remove(cpath)

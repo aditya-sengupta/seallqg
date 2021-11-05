@@ -18,7 +18,7 @@ from functools import partial
 from datetime import datetime
 
 dmc2wf = np.load(joindata("bestflats", "lodmc2wfe.npy"))
-f = 5
+f = 1
 if f == 5:
     ol = np.load(joindata("openloop", "ol_f_5_z_stamp_03_11_2021_14_02_00.npy")) * dmc2wf
 elif f == 1:
@@ -113,11 +113,10 @@ def plot_cl_rtf(data, dt=datetime.now().strftime("%d_%m_%Y_%H_%M_%S"), save=True
     plt.show()
 
 # start ad hoc modifications to the observe/control matrices
-klqg.R *= 1e4
 # end modifications
 
 if __name__ == "__main__":
-    times, zvals, dt = lqg(klqg, t=100)
+    times, zvals, dt = lqg(klqg, t=10)
     data = get_ol_cl_rms(zvals * dmc2wf)
     print(f"RMS ratios: {[float(x[2]) for x in data]}")
     if input("Plot? (y/n) ") == 'y':
