@@ -117,12 +117,21 @@ def linearity(nlin=20, plot=True, rcond=1e-3):
 	for nm in range(len(nmarr)):
 		for i in range(nlin):
 			zernamp = zernamparr[i]
-			coeffsout = genzerncoeffs(nm, zernamp, cmd_mtx, bestflat, imflat)
-			zernampout[nm,:,i] = coeffsout.flatten()
+			coeffsout = genzerncoeffs(nm, zernamp, cmd_mtx, bestflat, imflat).flatten()
+			zernampout[nm,:,i] = coeffsout
+		for j in range(2):
+			print(f"Percentage deviation for {nm}, mode {j}: {100 * (zernampout[nm,j,:] - zernamp) / zernamp}")
 
 	optics.applybestflat()
 
 	if plot:
+		wfe_in_microns = False
+		if wfe_in_microns:
+			conv = dmc2wf
+			unit = "$\\mu$m"
+		else:
+			conv = 1
+			unit = "DM units"
 		fig, axs=plt.subplots(ncols=3,nrows=2,figsize=(12,10),sharex=True,sharey=True)
 		fig.suptitle(f"rcond = {rcond}")
 
@@ -133,25 +142,25 @@ def linearity(nlin=20, plot=True, rcond=1e-3):
 			ax=axarr[i]
 			ax.set_title('n,m='+str(nmarr[i][0])+','+str(nmarr[i][1]))
 			if i==4:
-				ax.plot(zernamparr*dmc2wf,zernamparr*dmc2wf,lw=1,color='k',ls='--',label='y=x')
+				ax.plot(zernamparr*conv,zernamparr*conv,lw=1,color='k',ls='--',label='y=x')
 				for j in range(len(nmarr)):
 					if j==i:
-						ax.plot(zernamparr*dmc2wf,zernampout[i,i,:]*dmc2wf,lw=2,color=colors[j],label='n,m='+str(nmarr[i][0])+','+str(nmarr[i][1]))
+						ax.plot(zernamparr*conv,zernampout[i,i,:]*conv,lw=2,color=colors[j],label='n,m='+str(nmarr[i][0])+','+str(nmarr[i][1]))
 					else:
-						ax.plot(zernamparr*dmc2wf,zernampout[i,j,:]*dmc2wf,lw=1,color=colors[j],label='n,m='+str(nmarr[j][0])+','+str(nmarr[j][1]))
+						ax.plot(zernamparr*conv,zernampout[i,j,:]*conv,lw=1,color=colors[j],label='n,m='+str(nmarr[j][0])+','+str(nmarr[j][1]))
 			else:
-				ax.plot(zernamparr*dmc2wf,zernamparr*dmc2wf,lw=1,color='k',ls='--')
+				ax.plot(zernamparr*conv,zernamparr*conv,lw=1,color='k',ls='--')
 				for j in range(len(nmarr)):
 					if j==i:
-						ax.plot(zernamparr*dmc2wf,zernampout[i,i,:]*dmc2wf,lw=2,color=colors[j])
+						ax.plot(zernamparr*conv,zernampout[i,i,:]*conv,lw=2,color=colors[j])
 					else:
-						ax.plot(zernamparr*dmc2wf,zernampout[i,j,:]*dmc2wf,lw=1,color=colors[j])
+						ax.plot(zernamparr*conv,zernampout[i,j,:]*conv,lw=1,color=colors[j])
 
 		axarr[4].legend(bbox_to_anchor=(1.05,0.9))
-		axarr[4].set_xlabel('input ($\\mu$m WFE, PV)')
-		axarr[3].set_xlabel('input ($\\mu$m WFE, PV)')
-		axarr[3].set_ylabel('reconstructed output ($\\mu$m WFE, PV)')
-		axarr[0].set_ylabel('reconstructed output ($\\mu$m WFE, PV)')
+		axarr[4].set_xlabel(f'input ({unit} WFE, PV)')
+		axarr[3].set_xlabel(f'input ({unit} WFE, PV)')
+		axarr[3].set_ylabel(f'reconstructed output ({unit} WFE, PV)')
+		axarr[0].set_ylabel(f'reconstructed output ({unit} WFE, PV)')
 
 	return zernamparr, zernampout
 

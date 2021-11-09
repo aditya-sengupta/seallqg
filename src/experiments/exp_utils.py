@@ -27,7 +27,9 @@ def record_im(out_q, duration, timestamp):
 
 	while time.time() < t_start + duration:
 		imval = optics.getim()
-		times.append(time.time())
+		t = time.time()
+		print(f"Time at exposure, {t}")
+		times.append(t)
 		out_q.put(imval)
 
 	out_q.put(None)
@@ -87,8 +89,10 @@ def control_schedule_from_law(q, control, timestamp, t=1, half_close=False):
 			z = q.get()
 			q.task_done()
 			last_z, dmc = control(z, u=last_z)
-			if (not half_close) or (time.time() >= t1 + t / 2):
+			t = time.time()
+			if (not half_close) or (t >= t1 + t / 2):
 				optics.applydmc(dmc)
+				print(f"Time at DMC, {t}")
 			else:
 				last_z *= 0
 			cvals.append(last_z)
