@@ -5,6 +5,8 @@ Written by Aditya Sengupta
 
 import time
 import os
+import logging
+import sys
 import warnings
 from threading import Thread
 from queue import Queue
@@ -17,7 +19,7 @@ from ..optics import optics
 from ..optics import measure_zcoeffs, make_im_cm
 from ..optics import align
 
-def record_im(out_q, duration, timestamp):
+def record_im(out_q, duration, timestamp, logger):
 	"""
 	Get images from the optics system, put them in the output queue,
 	and record the times at which images are received.
@@ -28,7 +30,7 @@ def record_im(out_q, duration, timestamp):
 	while time.time() < t_start + duration:
 		imval = optics.getim()
 		t = time.time()
-		print(f"Time at exposure, {t}")
+		logger.info("Exposure")
 		times.append(t)
 		out_q.put(imval)
 
@@ -40,7 +42,7 @@ def record_im(out_q, duration, timestamp):
 	np.save(fname, times)
 	return times
 	
-def zcoeffs_from_queued_image(in_q, out_q, imflat, cmd_mtx, timestamp):
+def zcoeffs_from_queued_image(in_q, out_q, imflat, cmd_mtx, timestamp, logger):
 	"""
 	Takes in images from the queue `in_q`,
 	and converts them to Zernike coefficient values 
@@ -48,7 +50,8 @@ def zcoeffs_from_queued_image(in_q, out_q, imflat, cmd_mtx, timestamp):
 	"""
 	fname = joindata("recordings", f"recz_stamp_{timestamp}.npy")
 	zvals = []
-	while True:
+	img = 0 # non-None start value
+	while img is not None:
 		# if you don't have any work, take a nap!
 		if in_q.empty():
 			time.sleep(dt)
@@ -60,12 +63,11 @@ def zcoeffs_from_queued_image(in_q, out_q, imflat, cmd_mtx, timestamp):
 				zval = measure_zcoeffs(imdiff, cmd_mtx).flatten()
 				out_q.put(zval)
 				zvals.append(zval)
-			else:
-				zvals = np.array(zvals)
-				np.save(fname, zvals)
-				return zvals
+	zvals = np.array(zvals)
+	np.save(fname, zvals)
+	return zvals
 
-def control_schedule_from_law(q, control, timestamp, t=1, half_close=False):
+def control_schedule_from_law(q, control, timestamp, logger, duration=1, half_close=False):
 	"""
 	The SEAL schedule for a controller.
 
@@ -80,19 +82,20 @@ def control_schedule_from_law(q, control, timestamp, t=1, half_close=False):
 	fname = joindata("recordings", f"recc_stamp_{timestamp}.npy")
 	last_z = None # the most recently applied control command
 	t1 = time.time()
+	t = t1
 	cvals = []
 
-	while time.time() < t1 + t:
+	while t < t1 + duration:
 		if q.empty():
 			time.sleep(dt/2)
 		else:
 			z = q.get()
 			q.task_done()
-			last_z, dmc = control(z, u=last_z)
+			last_z, dmc = control(z, logger, u=last_z)
 			t = time.time()
 			if (not half_close) or (t >= t1 + t / 2):
 				optics.applydmc(dmc)
-				print(f"Time at DMC, {t}")
+				logger.info("DMC")
 			else:
 				last_z *= 0
 			cvals.append(last_z)
@@ -107,7 +110,7 @@ def record_experiment(record_path, control_schedule, dist_schedule, t=1, rcond=1
 	i = 0
 	imax = 10
 	while np.any(np.abs(baseline_zvals) > 1e-3):
-		warnings.warn(f"The system may not be aligned: baseline TT is {baseline_zvals.flatten()}.")
+		warnings.warn(f"The system may not be aligned: baseline Zernikes is {baseline_zvals.flatten()}.")
 		align(manual=False, view=False)
 		_, cmd_mtx = make_im_cm(rcond=rcond)
 		bestflat, imflat = optics.refresh(verbose)
@@ -117,19 +120,31 @@ def record_experiment(record_path, control_schedule, dist_schedule, t=1, rcond=1
 			print("Cannot align system: realign manually and try experiment again.")
 			return [], []
 	
-
 	timestamp = get_timestamp()
 	record_path = joindata(record_path) + f"_time_stamp_{timestamp}.npy"
 
+	logger = logging.getLogger()
+	logger.setLevel(logging.INFO)
+	formatter = logging.Formatter('%(asctime)s | %(levelname)s | %(message)s')
+	stdout_handler = logging.StreamHandler(sys.stdout)
+	stdout_handler.setLevel(logging.DEBUG)
+	stdout_handler.setFormatter(formatter)
+
+	file_handler = logging.FileHandler(joindata("log", f"log_{timestamp}.log"))
+	file_handler.setLevel(logging.DEBUG)
+	file_handler.setFormatter(formatter)
+	logger.addHandler(file_handler)
+	logger.addHandler(stdout_handler)
+	
 	q_compute = Queue()
 	q_control = Queue()
-	record_thread = Thread(target=partial(record_im, duration=t, timestamp=timestamp), args=(q_compute,))
-	compute_thread = Thread(target=partial(zcoeffs_from_queued_image, timestamp=timestamp), args=(q_compute, q_control, imflat, cmd_mtx,))
-	control_thread = Thread(target=partial(control_schedule, t=t, timestamp=timestamp), args=(q_control,))
+	record_thread = Thread(target=partial(record_im, duration=t, timestamp=timestamp, logger=logger), args=(q_compute,))
+	compute_thread = Thread(target=partial(zcoeffs_from_queued_image, timestamp=timestamp, logger=logger), args=(q_compute, q_control, imflat, cmd_mtx,))
+	control_thread = Thread(target=partial(control_schedule, duration=t, timestamp=timestamp, logger=logger), args=(q_control,))
 	command_thread = Thread(target=dist_schedule)
 
 	if verbose:
-		print("Starting recording and commands...")
+		logger.info("Starting recording and commands...")
 
 	record_thread.start()
 	compute_thread.start()
@@ -144,7 +159,7 @@ def record_experiment(record_path, control_schedule, dist_schedule, t=1, rcond=1
 	command_thread.join(t)
 
 	if verbose:
-		print("Done with experiment.")
+		logger.info("Done with experiment.")
 
 	optics.applydmc(bestflat)
 
@@ -157,15 +172,15 @@ def record_experiment(record_path, control_schedule, dist_schedule, t=1, rcond=1
 	if optics.name != "Sim":
 		np.save(record_path, times)
 		if verbose:
-			print(f"Times    saved to {record_path}")
+			logger.info(f"Times    saved to {record_path}")
 		record_path = record_path.replace("time", "cmd")
 		np.save(record_path, cvals)
 		if verbose:
-			print(f"Commands saved to {record_path}")
+			logger.info(f"Commands saved to {record_path}")
 		record_path = record_path.replace("cmd", "z")
 		np.save(record_path, zvals)
 		if verbose:
-			print(f"Coeffs   saved to {record_path}")
+			logger.info(f"Coeffs   saved to {record_path}")
 	os.remove(timepath)
 	os.remove(zpath)
 	os.remove(cpath)

@@ -62,7 +62,7 @@ class KalmanLQG:
         return self.C @ self.x
 
     def control(self):
-        return self.L @ self.x
+        return self.L @ np.linalg.matrix_power(self.A, 1) @ self.x
 
     def filter(self, measurements, x0):
         steps = len(measurements)
