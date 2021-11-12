@@ -6,9 +6,9 @@ import tqdm
 from ..utils import joindata
 
 N_vib_app = 10
-f_sampling = 1000  # Hz
-f_1 = f_sampling / 60  # lowest possible frequency of a vibration mode
-f_2 = f_sampling / 10  # highest possible frequency of a vibration mode
+f_sampling = 100  # Hz
+f_1 = f_sampling / 120  # lowest possible frequency of a vibration mode
+f_2 = f_sampling / 3  # highest possible frequency of a vibration mode
 f_w = f_sampling / 3  # frequency above which measurement noise dominates
 measurement_noise = 0.06  # milliarcseconds; pulled from previous notebook
 D = 10.95

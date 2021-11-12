@@ -6,7 +6,7 @@ from functools import partial
 from .observer import identity, make_kf_observer
 from ..optics import optics, zcoeffs_to_dmc
 
-def control(measurement, observer, controller, **kwargs):
+def control(measurement, observer, controller, logger, **kwargs):
     """
     Arguments
     ---------
@@ -28,7 +28,7 @@ def control(measurement, observer, controller, **kwargs):
     The command to be put on the DM.
     """
     state = observer(measurement[:2], **kwargs) # biryani
-    print(f"{state = }")
+    logger.info(f"{state = }")
     u = controller(state, **kwargs)
     return u
 

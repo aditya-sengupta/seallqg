@@ -17,6 +17,8 @@ from matplotlib import pyplot as plt
 from functools import partial
 from datetime import datetime
 
+np.random.seed(5)
+
 dmc2wf = np.load(joindata("bestflats", "lodmc2wfe.npy"))
 f = 1
 if f == 5:
@@ -116,7 +118,8 @@ def plot_cl_rtf(data, dt=datetime.now().strftime("%d_%m_%Y_%H_%M_%S"), save=True
 # end modifications
 
 if __name__ == "__main__":
-    times, zvals, dt = lqg(klqg, t=10)
+    times, zvals = record_olnone(t=10)
+    #times, zvals, dt = lqg(klqg, t=10)
     data = get_ol_cl_rms(zvals * dmc2wf)
     print(f"RMS ratios: {[float(x[2]) for x in data]}")
     if input("Plot? (y/n) ") == 'y':

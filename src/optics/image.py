@@ -196,6 +196,9 @@ class Sim(Optics):
 	def getim(self):
 		return propagate(self.dmc, ph=True, t_int=self.expt)
 
+	def stackim(self, n):
+		return self.getim()
+
 	def getdmc(self):
 		return self.dmc
 
@@ -209,7 +212,7 @@ class Sim(Optics):
 	def getwf(self):
 		raise NotImplementedError()
 
-sim_mode = False
+sim_mode = True
 if gethostname() == "SEAL" and not sim_mode:
 	optics = FAST()
 else:
