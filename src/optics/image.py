@@ -186,6 +186,15 @@ class Sim(Optics):
 		self.dt = dt
 		self.dmc = copy(self.dmzero)
 		self.name = "Sim"
+		self.wait = 0
+		self.set_wait()
+	
+	def set_wait(self):
+		t0 = time.time()
+		for _ in range(10):
+			self.getim()
+		t1 = time.time()
+		self.wait = max(0, self.dt - (t1 - t0)/10)
 
 	def set_expt(self, t):
 		self.expt = t
@@ -194,6 +203,7 @@ class Sim(Optics):
 		return self.expt
 
 	def getim(self):
+		time.sleep(self.wait)
 		return propagate(self.dmc, ph=True, t_int=self.expt)
 
 	def stackim(self, n):

@@ -57,13 +57,11 @@ def zcoeffs_from_queued_image(in_q, out_q, imflat, cmd_mtx, timestamp, logger):
 			time.sleep(dt)
 		else:
 			img = in_q.get()
-			print("got image")
 			in_q.task_done()
 			if img is not None:
 				imdiff = img - imflat
 				zval = measure_zcoeffs(imdiff, cmd_mtx).flatten()
 				out_q.put(zval)
-				print("put image")
 				zvals.append(zval)
 	zvals = np.array(zvals)
 	np.save(fname, zvals)
@@ -92,9 +90,8 @@ def control_schedule_from_law(q, control, timestamp, logger, duration=1, half_cl
 			time.sleep(dt/2)
 		else:
 			z = q.get()
-			print("got Zern")
 			q.task_done()
-			last_z, dmc = control(z, logger, u=last_z)
+			last_z, dmc = control(z, logger=logger, u=last_z)
 			t = time.time()
 			if (not half_close) or (t >= t1 + t / 2):
 				optics.applydmc(dmc)
@@ -127,6 +124,7 @@ def record_experiment(record_path, control_schedule, dist_schedule, t=1, rcond=1
 	record_path = joindata(record_path) + f"_time_stamp_{timestamp}.npy"
 
 	logger = logging.getLogger()
+	logger.handlers.clear()
 	logger.setLevel(logging.INFO)
 	formatter = logging.Formatter('%(asctime)s | %(levelname)s | %(message)s')
 	stdout_handler = logging.StreamHandler(sys.stdout)
