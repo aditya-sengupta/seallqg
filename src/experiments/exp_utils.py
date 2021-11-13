@@ -55,16 +55,13 @@ def zcoeffs_from_queued_image(in_q, out_q, imflat, cmd_mtx, timestamp, logger):
 		# if you don't have any work, take a nap!
 		if in_q.empty():
 			#print("you're taking too many naps")
-			#time.sleep(dt)
+			time.sleep(dt/2)
 		else:
 			img = in_q.get()
 			in_q.task_done()
 			if img is not None:
 				imdiff = img - imflat
-				t0 = time.time()
 				zval = measure_zcoeffs(imdiff, cmd_mtx).flatten()
-				t1 = time.time()
-				logging.info(f"measure duration {t1 - t0}")
 				out_q.put(zval)
 				zvals.append(zval)
 	zvals = np.array(zvals)
@@ -91,7 +88,7 @@ def control_schedule_from_law(q, control, timestamp, logger, duration=1, half_cl
 
 	while t < t1 + duration:
 		if q.empty():
-			time.sleep(dt/2)
+			time.sleep(dt/100)
 		else:
 			z = q.get()
 			q.task_done()
@@ -111,7 +108,7 @@ def record_experiment(record_path, control_schedule, dist_schedule, t=1, rcond=1
 	#bestflat, imflat = optics.refresh(verbose=False)
 	bestflat = np.load(optics.bestflat_path)
 	imflat = np.load(optics.imflat_path)
-	baseline_zvals = measure_zcoeffs(optics.getim() - imflat, cmd_mtx=cmd_mtx)
+	baseline_zvals = 0 * measure_zcoeffs(optics.getim() - imflat, cmd_mtx=cmd_mtx)
 
 	i = 0
 	imax = 10
@@ -160,22 +157,26 @@ def record_experiment(record_path, control_schedule, dist_schedule, t=1, rcond=1
 
 	q_compute.join()
 	q_control.join()
-	record_thread.join(t)
-	compute_thread.join(t)
-	control_thread.join(t)
-	command_thread.join(t)
+	record_thread.join(t*1.1)
+	compute_thread.join(t*1.1)
+	control_thread.join(t*1.1)
+	command_thread.join(t*1.1)
 
 	if verbose:
 		logger.info("Done with experiment.")
 
-	optics.applydmc(bestflat * 0)
+	optics.applydmc(bestflat)
 
 	timepath = joindata("recordings", f"rectime_stamp_{timestamp}.npy")
 	zpath = joindata("recordings", f"recz_stamp_{timestamp}.npy")
 	cpath = joindata("recordings", f"recc_stamp_{timestamp}.npy")
 	times = np.load(timepath)
 	zvals = np.load(zpath)
-	cvals = np.load(cpath)
+	try:
+		cvals = np.load(cpath)
+	except FileNotFoundError:
+		logger.error("Control loop schedule too far out of sync and did not complete.")
+		raise
 	if optics.name != "Sim":
 		np.save(record_path, times)
 		if verbose:
