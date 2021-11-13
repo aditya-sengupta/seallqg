@@ -52,10 +52,9 @@ def zcoeffs_from_queued_image(in_q, out_q, imflat, cmd_mtx, timestamp, logger):
 	zvals = []
 	img = 0 # non-None start value
 	while img is not None:
-		# if you don't have any work, take a nap!
+		# if you don't have any work, take a (short) nap!
 		if in_q.empty():
-			#print("you're taking too many naps")
-			time.sleep(dt/2)
+			time.sleep(0)
 		else:
 			img = in_q.get()
 			in_q.task_done()
