@@ -104,7 +104,9 @@ def control_schedule_from_law(q, control, timestamp, logger, duration=1, half_cl
 
 def record_experiment(record_path, control_schedule, dist_schedule, t=1, rcond=1e-4, half_close=False, verbose=True):
 	_, cmd_mtx = make_im_cm(rcond=rcond, verbose=verbose)
-	bestflat, imflat = optics.refresh(verbose=False)
+	#bestflat, imflat = optics.refresh(verbose=False)
+	bestflat = np.load(optics.bestflat_path)
+	imflat = np.load(optics.imflat_path)
 	baseline_zvals = measure_zcoeffs(optics.getim() - imflat, cmd_mtx=cmd_mtx)
 
 	i = 0
@@ -162,7 +164,7 @@ def record_experiment(record_path, control_schedule, dist_schedule, t=1, rcond=1
 	if verbose:
 		logger.info("Done with experiment.")
 
-	optics.applydmc(bestflat)
+	optics.applydmc(bestflat * 0)
 
 	timepath = joindata("recordings", f"rectime_stamp_{timestamp}.npy")
 	zpath = joindata("recordings", f"recz_stamp_{timestamp}.npy")
