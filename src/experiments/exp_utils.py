@@ -31,12 +31,12 @@ def record_im(out_q, duration, timestamp, logger):
 	while time.time() < t_start + duration:
 		imval = optics.getim()
 		t = time.time()
-		logger.info(f"Exposure {num_exposures}")
+		logger.info(f"Exposure    {num_exposures}")
 		times.append(t)
 		out_q.put((num_exposures, imval))
 		num_exposures += 1
 
-	out_q.put(None)
+	out_q.put((0, None))
 	# this is a placeholder to tell the queue that there's no more images coming
 	
 	times = np.array(times) - t_start
@@ -63,6 +63,8 @@ def zcoeffs_from_queued_image(in_q, out_q, imflat, cmd_mtx, timestamp, logger):
 				logger.info(f"Measurement {i}")
 				out_q.put((i, zval))
 				zvals.append(zval)
+		else:
+			time.sleep(dt * 0)
 	zvals = np.array(zvals)
 	np.save(fname, zvals)
 	return zvals
@@ -88,6 +90,7 @@ def control_schedule_from_law(q, control, timestamp, logger, duration=1, half_cl
 	while t < t1 + duration:
 		if q.empty():
 			time.sleep(dt/100)
+			t = time.time()
 		else:
 			i, z = q.get()
 			q.task_done()
@@ -95,7 +98,7 @@ def control_schedule_from_law(q, control, timestamp, logger, duration=1, half_cl
 			t = time.time()
 			if (not half_close) or (t >= t1 + t / 2):
 				optics.applydmc(dmc)
-				logger.info(f"DMC {i}")
+				logger.info(f"DMC         {i}")
 			else:
 				last_z *= 0
 			cvals.append(last_z)
@@ -160,6 +163,10 @@ def record_experiment(record_path, control_schedule, dist_schedule, t=1, rcond=1
 	compute_thread.join(t*1.1)
 	control_thread.join(t*1.1)
 	command_thread.join(t*1.1)
+
+	if control_thread.is_alive():
+		warnings.warn("Control not terminating, waiting an additional 10 seconds...")
+		time.sleep(10)
 
 	if verbose:
 		logger.info("Done with experiment.")

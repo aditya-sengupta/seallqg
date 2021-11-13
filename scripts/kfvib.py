@@ -126,5 +126,5 @@ if __name__ == "__main__":
     times, zvals, timestamp = lqg(klqg, t=10)
     data = get_ol_cl_rms(zvals * dmc2wf)
     print(f"RMS ratios: {[float(x[2]) for x in data]}")
-    if input("Plot? (y/n) ") == 'y':
+    if False and input("Plot? (y/n) ") == 'y':
         plot_cl_rtf(data, timestamp)
