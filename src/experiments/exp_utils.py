@@ -54,13 +54,17 @@ def zcoeffs_from_queued_image(in_q, out_q, imflat, cmd_mtx, timestamp, logger):
 	while img is not None:
 		# if you don't have any work, take a nap!
 		if in_q.empty():
-			time.sleep(dt)
+			#print("you're taking too many naps")
+			#time.sleep(dt)
 		else:
 			img = in_q.get()
 			in_q.task_done()
 			if img is not None:
 				imdiff = img - imflat
+				t0 = time.time()
 				zval = measure_zcoeffs(imdiff, cmd_mtx).flatten()
+				t1 = time.time()
+				logging.info(f"measure duration {t1 - t0}")
 				out_q.put(zval)
 				zvals.append(zval)
 	zvals = np.array(zvals)
