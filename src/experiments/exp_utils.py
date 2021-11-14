@@ -63,8 +63,6 @@ def zcoeffs_from_queued_image(in_q, out_q, imflat, cmd_mtx, timestamp, logger):
 				logger.info(f"Measurement {i}")
 				out_q.put((i, zval))
 				zvals.append(zval)
-		else:
-			time.sleep(dt * 0)
 	zvals = np.array(zvals)
 	np.save(fname, zvals)
 	return zvals
@@ -88,20 +86,16 @@ def control_schedule_from_law(q, control, timestamp, logger, duration=1, half_cl
 	cvals = []
 
 	while t < t1 + duration:
-		if q.empty():
-			time.sleep(dt/100)
-			t = time.time()
+		i, z = q.get()
+		q.task_done()
+		last_z, dmc = control(z, logger=logger, u=last_z)
+		t = time.time()
+		if (not half_close) or (t >= t1 + t / 2):
+			optics.applydmc(dmc)
+			logger.info(f"DMC         {i}")
 		else:
-			i, z = q.get()
-			q.task_done()
-			last_z, dmc = control(z, logger=logger, u=last_z)
-			t = time.time()
-			if (not half_close) or (t >= t1 + t / 2):
-				optics.applydmc(dmc)
-				logger.info(f"DMC         {i}")
-			else:
-				last_z *= 0
-			cvals.append(last_z)
+			last_z *= 0
+		cvals.append(last_z)
 
 	np.save(fname, np.array(cvals))
 
@@ -110,7 +104,7 @@ def record_experiment(record_path, control_schedule, dist_schedule, t=1, rcond=1
 	#bestflat, imflat = optics.refresh(verbose=False)
 	bestflat = np.load(optics.bestflat_path)
 	imflat = np.load(optics.imflat_path)
-	baseline_zvals = 0 * measure_zcoeffs(optics.getim() - imflat, cmd_mtx=cmd_mtx)
+	baseline_zvals = measure_zcoeffs(optics.getim() - imflat, cmd_mtx=cmd_mtx)
 
 	i = 0
 	imax = 10
