@@ -16,7 +16,7 @@ host = gethostname()
 if (host == "skaya.local") or ("cam.ac.uk" in host):
 	ROOTDIR = "/Users/adityasengupta/research/ao/set-tt-control/"
 elif host == "SEAL":
-	ROOTDIR = "/home/lab/asengupta/"
+	ROOTDIR = "/home/lab/asengupta/set-tt-control"
 else:
 	ROOTDIR = path.dirname(path.abspath("__file__"))
 	

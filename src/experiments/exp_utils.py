@@ -29,12 +29,13 @@ def record_im(out_q, duration, timestamp, logger):
 
 	num_exposures = 0
 	while time.time() < t_start + duration:
+		t0 = time.time()
 		imval = optics.getim()
-		t = time.time()
 		logger.info(f"Exposure    {num_exposures}")
-		times.append(t)
+		times.append(t0)
 		out_q.put((num_exposures, imval))
 		num_exposures += 1
+		#time.sleep(max(0, dt - (time.time() - t0)))
 
 	out_q.put((0, None))
 	# this is a placeholder to tell the queue that there's no more images coming
@@ -63,6 +64,8 @@ def zcoeffs_from_queued_image(in_q, out_q, imflat, cmd_mtx, timestamp, logger):
 				logger.info(f"Measurement {i}")
 				out_q.put((i, zval))
 				zvals.append(zval)
+			else:
+				time.sleep(dt * 0)
 	zvals = np.array(zvals)
 	np.save(fname, zvals)
 	return zvals
@@ -86,16 +89,20 @@ def control_schedule_from_law(q, control, timestamp, logger, duration=1, half_cl
 	cvals = []
 
 	while t < t1 + duration:
-		i, z = q.get()
-		q.task_done()
-		last_z, dmc = control(z, logger=logger, u=last_z)
-		t = time.time()
-		if (not half_close) or (t >= t1 + t / 2):
-			optics.applydmc(dmc)
-			logger.info(f"DMC         {i}")
+		if q.empty():
+			time.sleep(dt/100)
+			t = time.time()
 		else:
-			last_z *= 0
-		cvals.append(last_z)
+			i, z = q.get()
+			q.task_done()
+			last_z, dmc = control(z, logger=logger, u=last_z)
+			t = time.time()
+			if (not half_close) or (t >= t1 + t / 2):
+				optics.applydmc(dmc)
+				logger.info(f"DMC         {i}")
+			else:
+				last_z *= 0
+			cvals.append(last_z)
 
 	np.save(fname, np.array(cvals))
 
@@ -113,7 +120,7 @@ def record_experiment(record_path, control_schedule, dist_schedule, t=1, rcond=1
 		align(manual=False, view=False)
 		_, cmd_mtx = make_im_cm(rcond=rcond)
 		bestflat, imflat = optics.refresh(verbose)
-		baseline_zvals = measure_zcoeffs(optics.getim() - imflat, cmd_mtx=cmd_mtx)
+		baseline_zvals = 0 * measure_zcoeffs(optics.getim() - imflat, cmd_mtx=cmd_mtx)
 		i += 1
 		if i > imax:
 			print("Cannot align system: realign manually and try experiment again.")
@@ -122,10 +129,29 @@ def record_experiment(record_path, control_schedule, dist_schedule, t=1, rcond=1
 	timestamp = get_timestamp()
 	record_path = joindata(record_path) + f"_time_stamp_{timestamp}.npy"
 
+	# TODO split the logging handling into a separate function or file
+	# from https://stackoverflow.com/questions/31328300/python-logging-module-logging-timestamp-to-include-microsecond
+	class LogRecord_ns(logging.LogRecord):
+		def __init__(self, *args, **kwargs):
+			self.created_ns = time.time_ns() # Fetch precise timestamp
+			super().__init__(*args, **kwargs)
+
+	class Formatter_ns(logging.Formatter):
+		default_nsec_format = '%s,%09d'
+		def formatTime(self, record, datefmt=None):
+			if datefmt is not None: # Do not handle custom formats here ...
+				return super().formatTime(record, datefmt) # ... leave to original implementation
+			ct = self.converter(record.created_ns / 1e9)
+			t = time.strftime(self.default_time_format, ct)
+			s = self.default_nsec_format % (t, record.created_ns - (record.created_ns // 10**9) * 10**9)
+			return s
+
+	logging.setLogRecordFactory(LogRecord_ns)
+
 	logger = logging.getLogger()
 	logger.handlers.clear()
 	logger.setLevel(logging.INFO)
-	formatter = logging.Formatter('%(asctime)s | %(levelname)s | %(message)s')
+	formatter = Formatter_ns('%(asctime)s | %(levelname)s | %(message)s')
 	stdout_handler = logging.StreamHandler(sys.stdout)
 	stdout_handler.setLevel(logging.DEBUG)
 	stdout_handler.setFormatter(formatter)

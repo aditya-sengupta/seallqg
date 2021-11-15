@@ -119,6 +119,7 @@ def plot_cl_rtf(data, timestamp=datetime.now().strftime("%d_%m_%Y_%H_%M_%S"), sa
     plt.show()
 
 # start ad hoc modifications to the observe/control matrices
+klqg.R *= 1000
 # end modifications
 
 if __name__ == "__main__":

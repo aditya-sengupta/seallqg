@@ -9,4 +9,4 @@ fs = 100.0 # Hz
 dt = 1 / fs
 wav0 = 1.65e-6 #assumed wav0 for sine amplitude input in meters
 beam_ratio = 5.361256544502618 #pixels/resel
-tsleep = 0.02
+tsleep = 0.01

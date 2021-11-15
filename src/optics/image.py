@@ -125,12 +125,12 @@ class FAST(Optics):
 		self.dmdims = self.getdmc().shape
 		self.imdims = self.getim().shape
 		self.name = "FAST_LODM"
-		"""port = "5556"
+		port = "5556"
 		context = zmq.Context()
 		self.socket = context.socket(zmq.REQ)
 		self.socket.connect(f"tcp://128.114.22.20:{port}")
 		self.socket.send_string("pupSize")
-		self.pup_size = np.frombuffer(self.socket.recv(), dtype=np.int32)[0]"""
+		self.pup_size = np.frombuffer(self.socket.recv(), dtype=np.int32)[0]
 
 	def set_expt(self, t):
 		'''
@@ -150,7 +150,7 @@ class FAST(Optics):
 	def getdmc(self): # read current command applied to the DM
 		return self.dmChannel.get_data()
 
-	def applydmc(self, dmc, min_cmd=-0.0, max_cmd=0.0): #apply command to the DM
+	def applydmc(self, dmc, min_cmd=-0.2, max_cmd=0.2): #apply command to the DM
 		"""
 		Applies the DM command `dmc`, with safeguards
 		"""
