@@ -31,12 +31,12 @@ def record_im(out_q, duration, timestamp, logger):
 	while time.time() < t_start + duration:
 		imval = optics.getim()
 		t = time.time()
+		out_q.put((num_exposures, t, imval))
 		logger.info(f"Exposure    {num_exposures}")
 		times.append(t)
-		out_q.put((num_exposures, imval))
 		num_exposures += 1
 
-	out_q.put((0, None))
+	out_q.put((0, 0, None))
 	# this is a placeholder to tell the queue that there's no more images coming
 	
 	times = np.array(times) - t_start
@@ -55,13 +55,13 @@ def zcoeffs_from_queued_image(in_q, out_q, imflat, cmd_mtx, timestamp, logger):
 	img = 0 # non-None start value
 	while img is not None:
 		if not in_q.empty():
-			i, img = in_q.get()
+			i, t, img = in_q.get()
 			in_q.task_done()
 			if img is not None:
 				imdiff = img - imflat
 				zval = measure_zcoeffs(imdiff, cmd_mtx).flatten()
 				logger.info(f"Measurement {i}")
-				out_q.put((i, zval))
+				out_q.put((i, t, zval))
 				zvals.append(zval)
 	zvals = np.array(zvals)
 	np.save(fname, zvals)
@@ -86,7 +86,7 @@ def control_schedule_from_law(q, control, timestamp, logger, duration=1, half_cl
 	cvals = []
 
 	while t < t1 + duration:
-		i, z = q.get()
+		i, t_exp, z = q.get()
 		q.task_done()
 		last_z, dmc = control(z, logger=logger, u=last_z)
 		t = time.time()
