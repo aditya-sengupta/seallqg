@@ -56,7 +56,7 @@ def processim(imin): #process SCC image, isolating the sidelobe in the FFT and I
 	otf_masked = otf * sidemask #(2) multiply by binary mask to isolate side lobe
 	Iminus = fft.ifft2(otf_masked, norm='ortho') #(3) IFFT back to the image plane, now generating a complex-valued image
 	return Iminus
-	
+
 def applytiptilt(amptip, amptilt): #amp is the P2V in DM units
 	dmctip = amptip*tip
 	dmctilt = amptilt*tilt

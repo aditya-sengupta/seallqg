@@ -1,6 +1,6 @@
 # authored by Aditya Sengupta and Benjamin Gerard
 
-
+import time
 from copy import deepcopy
 from datetime import datetime
 from os import path
@@ -56,6 +56,15 @@ def ratio(function, data1, data2, **kwargs):
 
 def get_timestamp():
 	return datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
+
+"""
+Applies Zeno's paradox to "precisely" sleep for time 'duration'
+"""
+def zeno(duration):
+	t0 = time.time()
+	while time.time() < t0 + duration:
+		time.sleep(max(0, (time.time() - t0 - duration)/2))
+	return time.time() - t0
 
 # keck TTs deleted 2021-10-14
 
