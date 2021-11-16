@@ -123,5 +123,6 @@ def loadres(record_path):
     data.append(df[measure_cols].to_numpy())
     control_cols = filter(lambda x: x.startswith("cmd"), df.columns)
     data.append(df[control_cols].to_numpy())
+    print("random change to appease the git merge gods")
 
     return ExperimentResult(data)
