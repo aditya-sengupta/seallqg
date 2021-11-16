@@ -55,7 +55,7 @@ def ratio(function, data1, data2, **kwargs):
 	return function(data1, **kwargs) / function(data2, **kwargs)
 
 def get_timestamp():
-	return datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
+	return datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 
 """
 Applies Zeno's paradox to "precisely" sleep for time 'duration'

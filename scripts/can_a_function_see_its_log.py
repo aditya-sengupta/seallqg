@@ -20,9 +20,6 @@ def main():
 	for i in range(10):
 		logger.info(i)
 
-	logging.shutdown()
-	logger.handlers.clear()
-
 	with open("test.log") as file:
 		for line in file:
 			print(line)

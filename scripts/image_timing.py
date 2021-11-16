@@ -9,7 +9,7 @@ from queue import Queue
 import logging
 
 from src import *
-from src.experiments.exp_utils import record_im
+from src.experiments.exp_runner import record_im
 
 q = Queue()
 

@@ -2,7 +2,7 @@
 Module containing all the possible experiments, and how to run them.
 """
 
-from .exp_utils import *
+from .exp_runner import *
 from .experiment import *
 
 __all__ = [

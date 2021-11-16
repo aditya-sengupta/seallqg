@@ -10,7 +10,7 @@ from src import *
 from src.utils import joindata
 from src.controllers import make_kalman_controllers
 from src.experiments.schedules import *
-from src.experiments.exp_utils import record_experiment, control_schedule_from_law
+from src.experiments.exp_runner import run_experiment, control_schedule_from_law
 from src.constants import fs, dt
 
 import numpy as np
@@ -42,7 +42,7 @@ def recompute_schedules(klqg):
         for k in kwargs:
             record_path = record_path + f"_{k}_{kwargs.get(k)}"
 
-        return record_experiment(
+        return run_experiment(
             record_path,
             control_schedule=partial(control_schedule_from_law, control=partial(kalman_integrate, gain=gain, leak=leak)),
             dist_schedule=partial(dist_schedule, t, **kwargs),
@@ -60,7 +60,7 @@ def recompute_schedules(klqg):
         for k in kwargs:
             record_path += f"_{k}_{kwargs.get(k)}"
 
-        return record_experiment(
+        return run_experiment(
             record_path,
             control_schedule=partial(control_schedule_from_law, control=kalman_lqg),
             dist_schedule=partial(dist_schedule, t, **kwargs),

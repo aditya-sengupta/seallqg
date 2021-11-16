@@ -6,7 +6,7 @@ from os import path
 from functools import partial
 
 from .schedules import noise_schedule, ustep_schedule, step_train_schedule, sine_schedule, atmvib_schedule
-from .exp_utils import record_experiment, control_schedule_from_law
+from .exp_runner import run_experiment, control_schedule_from_law
 from ..optics import optics
 from ..optics import applytip, applytilt, aperture
 from ..controllers import openloop, integrate
@@ -45,7 +45,7 @@ def uconvert_ratio(amp=1.0):
 # "record" functions: a bunch of combinations of a control_schedule and dist_schedule
 # with specific handling for parameters like amplitudes
 
-def record_openloop(dist_schedule, t=10, **kwargs):
+def record_openloop(dist_schedule, duration=10, **kwargs):
 	record_path = path.join("openloop", "ol")
 	v = True
 	for k in kwargs:
@@ -54,11 +54,11 @@ def record_openloop(dist_schedule, t=10, **kwargs):
 		else:
 			record_path += f"_{k}_{kwargs.get(k)}"
 
-	return record_experiment(
+	return run_experiment(
 		record_path,
 		partial(control_schedule_from_law, control=openloop),
-		partial(dist_schedule, t, **kwargs),
-		t=t,
+		partial(dist_schedule, duration, **kwargs),
+		duration=duration,
 		verbose=v
 	)
 
@@ -70,7 +70,7 @@ record_olatmvib = partial(record_openloop, atmvib_schedule)
 # deleted record OL usteps in circle as it didn't seem too useful
 # can add it back in to schedules.py later if desired
 
-def record_integrator(dist_schedule, t=1, gain=0.1, leak=1.0, **kwargs):
+def record_integrator(dist_schedule, duration=1, gain=0.1, leak=1.0, **kwargs):
 	"""
 	Record experiments with an integrator.
 	"""
@@ -87,11 +87,11 @@ def record_integrator(dist_schedule, t=1, gain=0.1, leak=1.0, **kwargs):
 				if hc:
 					print("Closing the loop halfway into the experiment.")
 
-	return record_experiment(
+	return run_experiment(
 		record_path, 
 		control_schedule=partial(control_schedule_from_law, control=partial(integrate, gain=gain, leak=leak), half_close=hc),
-		dist_schedule=partial(dist_schedule, t, **kwargs),
-		t=t,
+		dist_schedule=partial(dist_schedule, duration, **kwargs),
+		duration=duration,
 		verbose=v
 	)
 
