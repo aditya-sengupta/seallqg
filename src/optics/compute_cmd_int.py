@@ -75,8 +75,6 @@ def make_im_cm(rcond=1e-3, verbose=True):
 	int_mtx = np.dot(refvec, refvec.T) #interaction matrix
 	int_mtx_inv = np.linalg.pinv(int_mtx, rcond=rcond)
 	cmd_mtx = np.dot(int_mtx_inv, refvec).astype(np.float32)
-	if verbose:
-		print("Recomputed interaction matrix and command matrix")
 	return int_mtx, cmd_mtx
 
 def measure_zcoeffs(image, cmd_mtx):

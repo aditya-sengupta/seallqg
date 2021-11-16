@@ -16,7 +16,7 @@ import numpy as np
 from .exp_logger import experiment_logger
 from .exp_result import ExperimentResult, result_from_log
 from ..constants import dt
-from ..utils import joindata, get_timestamp, zeno
+from ..utils import get_timestamp, zeno
 from ..optics import optics
 from ..optics import measure_zcoeffs, make_im_cm
 from ..optics import align
@@ -46,7 +46,6 @@ def zcoeffs_from_queued_image(in_q, out_q, imflat, cmd_mtx, timestamp, logger):
 	and converts them to Zernike coefficient values 
 	which get sent to the queue `out_q`.
 	"""
-	fname = joindata("recordings", f"recz_stamp_{timestamp}.npy")
 	img = 0 # non-None start value
 	while img is not None:
 		if not in_q.empty():
@@ -108,9 +107,10 @@ def check_alignment(logger, rcond, verbose, imax=10):
 	logger.info("System aligned and command matrix updated.")
 	return bestflat, imflat, cmd_mtx
 
-def run_experiment(record_path, control_schedule, dist_schedule, duration=1, rcond=1e-4, half_close=False, verbose=True):
+def run_experiment(record_path, control_schedule, dist_schedule, duration=1, rcond=1e-4, verbose=True):
 	timestamp = get_timestamp()
 	logger, log_path = experiment_logger(timestamp)
+	record_path += f"_tstamp_{timestamp}.csv"
 
 	bestflat, imflat, cmd_mtx = check_alignment(logger, rcond, verbose)
 	
@@ -146,6 +146,6 @@ def run_experiment(record_path, control_schedule, dist_schedule, duration=1, rco
 	result = result_from_log(log_path)
 
 	if optics.name != "Sim":
-		result.save(record_path)
+		result.to_csv(record_path)
 
 	return result

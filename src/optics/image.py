@@ -58,8 +58,6 @@ class Optics(ABC):
 		time.sleep(1)
 		imflat = self.stackim(100)
 		np.save(self.imflat_path, imflat)
-		if verbose:
-			print("Updated the flat image.")
 		return self.getdmc(), imflat
 
 	def stack(self, func, num_frames):

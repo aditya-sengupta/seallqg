@@ -3,9 +3,12 @@ Module containing all the possible experiments, and how to run them.
 """
 
 from .exp_runner import *
+from .exp_result import *
 from .experiment import *
 
 __all__ = [
+    "ExperimentResult",
+    "loadres",
     "uconvert_ratio",
     "record_openloop",
     "record_olnone",

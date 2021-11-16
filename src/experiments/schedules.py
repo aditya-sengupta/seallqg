@@ -2,50 +2,74 @@ import numpy as np
 import time
 import warnings
 
+from functools import partial
+
 from ..constants import dt
-from ..utils import joindata
-from ..optics import applytip, applytilt, applytiptilt
+from ..utils import joindata, zeno
+from ..optics import applytip, applytilt
 
-# disturbance schedules go here
+def schedule(duration, logger, times, disturbances):
+    """
+    Base function for disturbance schedules.
 
-def noise_schedule(t, **kwargs):
-    """
-    Do nothing (profile bench noise.)
-    """
-    time.sleep(t)
+    duration : scalar
+        The duration in seconds; "times" must all be less than this duration.
 
-def ustep_schedule(t, tip_amp=0.001, tilt_amp=0.0, **kwargs):
-    """
-    Put on a unit step.
-    """
-    time.sleep(t/2)
-    applytip(tip_amp)
-    applytilt(tilt_amp)
+    logger : logging.Logger
+        The logger, to document when disturbances were applied.
 
-def step_train_schedule(t, n=5, tip_amp=0.01, tilt_amp=0.0, **kwargs):
-    """
-    Put on a train of unit steps.
-    """
-    print(f"Putting on {n} impulses over {t} seconds")
-    for _ in range(n):
-        time.sleep(t/(n+1))
-        applytip(tip_amp)
-        applytilt(tilt_amp)
+    times : array_like (N,)
+        Times at which commands are to be sent, normalized to the interval [0, duration].
 
-def sine_schedule(t, amp=0.005, ang=np.pi/4, f=1, **kwargs):
+    disturbances : array_like (N, 2)
+        The (tilt, tip) disturbance to be sent.
     """
-    Put on a sine wave.
-    """
-    times = np.arange(0.0, t, dt)
+    times = np.array(times) / duration
+    t0 = time.time()
+    logger.info("init from command_thread")
+    for (t, (z0, z1)) in zip(times, disturbances):
+        zeno((t0 + t) - time.time())
+        logger.info(f"Disturbance  : {[z0, z1]}")
+        applytilt(z0)
+        applytip(z1)
+
+def make_noise():
+    return partial(schedule, times=[], disturbances=[[]])
+
+def make_ustep(tilt_amp, tip_amp):
+    return partial(
+        schedule, 
+        times = [0.5], 
+        disturbances = [[tilt_amp, tip_amp]]
+    )
+
+def make_train(n, tilt_amp, tip_amp):
+    return partial(
+        schedule,
+        times = np.linspace(0, 1, n + 2)[1:-1],
+        disturbances = [[tilt_amp, tip_amp] * n]
+    )
+
+def make_sine(amp, ang, f):
+    times = np.arange(0, 1, dt)
     sinusoid = np.diff(amp * np.sin(2 * np.pi * f * times))
     cosang, sinang = np.cos(ang), np.sin(ang)
-    for s in sinusoid:
-        t2 = time.time()
-        applytip(cosang * s)
-        applytilt(sinang * s)
-        time.sleep(max(0, dt - (time.time() - t2)))
+    return partial(
+        schedule,
+        times,
+        disturbances = [[cosang * s, sinang * s] for s in sinusoid]
+    )
 
-def atmvib_schedule(t, atm=0, vib=2, scaledown=10, f=100, **kwargs):
+def make_atmvib(atm, vib, scaledown, f):
+    fname = joindata("sims", f"ol_atm_{atm}_vib_{vib}.npy")
+    control_commands = np.diff(np.load(fname), axis=0) / scaledown
+    return partial(
+        schedule,
+        times = np.linspace(0, 1, len(control_commands)),
+        disturbances = control_commands
+    )
+
+def atmvib_schedule(t, atm, vib, scaledown, f, **kwargs):
     """
     Put on a custom disturbance signal with 'atm' HCIPy atmospheric layers and 'vib' vibrational modes.
     (for now precomputed, but it's not hard to extend this just by using src.controllers.make_atm_vib)

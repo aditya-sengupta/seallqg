@@ -5,7 +5,7 @@ import numpy as np
 from os import path
 from functools import partial
 
-from .schedules import noise_schedule, ustep_schedule, step_train_schedule, sine_schedule, atmvib_schedule
+from .schedules import make_noise, make_ustep, make_train, make_sine, make_atmvib
 from .exp_runner import run_experiment, control_schedule_from_law
 from ..optics import optics
 from ..optics import applytip, applytilt, aperture
@@ -45,7 +45,7 @@ def uconvert_ratio(amp=1.0):
 # "record" functions: a bunch of combinations of a control_schedule and dist_schedule
 # with specific handling for parameters like amplitudes
 
-def record_openloop(dist_schedule, duration=10, **kwargs):
+def record_openloop(schedule_maker, duration=10, **kwargs):
 	record_path = path.join("openloop", "ol")
 	v = True
 	for k in kwargs:
@@ -54,23 +54,24 @@ def record_openloop(dist_schedule, duration=10, **kwargs):
 		else:
 			record_path += f"_{k}_{kwargs.get(k)}"
 
+	dist_schedule = schedule_maker(**kwargs)
 	return run_experiment(
 		record_path,
 		partial(control_schedule_from_law, control=openloop),
-		partial(dist_schedule, duration, **kwargs),
+		partial(dist_schedule, duration),
 		duration=duration,
 		verbose=v
 	)
 
-record_oltrain = partial(record_openloop, step_train_schedule)
-record_olnone = partial(record_openloop, noise_schedule)
-record_olustep = partial(record_openloop, ustep_schedule)
-record_olsin = partial(record_openloop, sine_schedule)
-record_olatmvib = partial(record_openloop, atmvib_schedule)
+record_oltrain = partial(record_openloop, make_train)
+record_olnone = partial(record_openloop, make_noise)
+record_olustep = partial(record_openloop, make_ustep)
+record_olsin = partial(record_openloop, make_sine)
+record_olatmvib = partial(record_openloop, make_atmvib)
 # deleted record OL usteps in circle as it didn't seem too useful
 # can add it back in to schedules.py later if desired
 
-def record_integrator(dist_schedule, duration=1, gain=0.1, leak=1.0, **kwargs):
+def record_integrator(schedule_maker, duration=1, gain=0.1, leak=1.0, **kwargs):
 	"""
 	Record experiments with an integrator.
 	"""
@@ -87,6 +88,7 @@ def record_integrator(dist_schedule, duration=1, gain=0.1, leak=1.0, **kwargs):
 				if hc:
 					print("Closing the loop halfway into the experiment.")
 
+	dist_schedule = schedule_maker(**kwargs)
 	return run_experiment(
 		record_path, 
 		control_schedule=partial(control_schedule_from_law, control=partial(integrate, gain=gain, leak=leak), half_close=hc),
@@ -95,8 +97,8 @@ def record_integrator(dist_schedule, duration=1, gain=0.1, leak=1.0, **kwargs):
 		verbose=v
 	)
 
-record_inttrain = partial(record_integrator, step_train_schedule)
-record_intnone = partial(record_integrator, noise_schedule)
-record_intustep = partial(record_integrator, ustep_schedule)
-record_intsin = partial(record_integrator, sine_schedule)
-record_intatmvib = partial(record_integrator, atmvib_schedule)
+record_inttrain = partial(record_integrator, make_train)
+record_intnone = partial(record_integrator, make_noise)
+record_intustep = partial(record_integrator, make_ustep)
+record_intsin = partial(record_integrator, make_sine)
+record_intatmvib = partial(record_integrator, make_atmvib)

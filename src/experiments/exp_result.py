@@ -38,20 +38,15 @@ def result_from_log(log_path):
         final_frame = np.inf
         for line in tqdm.tqdm(file):
             if last_line is not None:
-                print(f"Overrun corrected with {line}")
                 assert "]" in line and "[" not in line, f"Overrun at {last_line} corrected with {line}"
                 line = last_line + line
                 line = line.replace('\n', ' ')
                 last_line = None
-                overrun_corrected = True
             tstamp = re.search(r"\d+:\d+:\d+,\d+", line)
             if tstamp:
                 tstamp = tstamp[0]
                 seconds = stamp_to_seconds(tstamp)
                 event = re.search(r"INFO \| (.+)", line)[1]
-                if overrun_corrected:
-                    print(f"{line = }")
-                    print(f"{event =}")
                 if any([event.startswith(x) for x in ["Exposure", "Measurement", "DMC"]]):
                     frame_num = re.search(r"(\d+):", event)
                     if frame_num:
@@ -73,12 +68,11 @@ def result_from_log(log_path):
                             final_frame = frame_num
     
     t0 = texp[0]
-    print(measurements)
     return ExperimentResult([
         np.array(texp) - t0,
         np.array(tmeas) - t0,
         np.array(tdmc) - t0,
-        np.array(texp_loop).flatten(),
+        np.array(texp_loop).flatten() - texp_loop[0],
         np.array(measurements),
         np.array(commands)
     ])
@@ -123,6 +117,5 @@ def loadres(record_path):
     data.append(df[measure_cols].to_numpy())
     control_cols = filter(lambda x: x.startswith("cmd"), df.columns)
     data.append(df[control_cols].to_numpy())
-    print("random change to appease the git merge gods")
 
     return ExperimentResult(data)
