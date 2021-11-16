@@ -7,10 +7,10 @@ from os.path import join
 fs = 100
 
 def stamp_to_seconds(t):
-    h, m, s, ms = [int(x) for x in re.search("(\d+):(\d+):(\d+),(\d+)", t).groups()]
-    return 3600 * h + 60 * m + s + 0.001 * ms
+    h, m, s, ns = [int(x) for x in re.search("(\d+):(\d+):(\d+),(\d+)", t).groups()]
+    return 3600 * h + 60 * m + s + 1e-9 * ns
 
-good_runs = ["07_02_14", "07_04_45", "08_11_19", "08_11_46"]
+good_runs = ["03_55_23"]
 
 exposures = []
 measures = []
@@ -18,7 +18,7 @@ dmcs = []
 
 total_nframes = 0
 for fname in good_runs:
-    with open(join("..", "data", "log", f"log_13_11_2021_{fname}.log")) as file:
+    with open(join("data", "log", f"log_16_11_2021_{fname}.log")) as file:
         final_frame = np.inf
         for line in file:
             time = re.search("\d+:\d+:\d+,\d+", line)[0]
@@ -54,7 +54,7 @@ total_delays = (dmcs - exposures) * fs
 fig, axs = plt.subplots(1,3, figsize=(12,8))
 def plot_delay_hist(data, i, xlabel, title):
     bins = int(max(data) * 1000 / fs) + 1
-    axs[i].hist(data, bins=min(100, bins), range = (0, min(2, max(total_delays))))
+    axs[i].hist(data, bins=min(100, bins), range = (0, min(5, max(total_delays))))
     axs[i].set_xlabel(xlabel)
     axs[i].set_ylabel("Count")
     axs[i].set_title(f"{title}: {get_meanstd(data)} frames")
@@ -66,4 +66,5 @@ for (i, (data, xlabel, title)) in enumerate([
 ]):
     plot_delay_hist(data, i, xlabel, title)
 fig.suptitle("Delays in the AO loop on SEAL, in #frames")
-plt.savefig("../plots/seal_delay.pdf")
+plt.show()
+#plt.savefig("../plots/seal_delay.pdf")

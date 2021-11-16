@@ -14,7 +14,7 @@ from functools import partial
 import numpy as np
 
 from ..constants import dt
-from ..utils import joindata, get_timestamp
+from ..utils import joindata, get_timestamp, zeno
 from ..optics import optics
 from ..optics import measure_zcoeffs, make_im_cm
 from ..optics import align
@@ -29,14 +29,13 @@ def record_im(out_q, duration, timestamp, logger):
 
 	num_exposures = 0
 	while time.time() < t_start + duration:
-		t0 = time.time()
 		imval = optics.getim()
 		t = time.time()
 		out_q.put((num_exposures, t, imval))
 		logger.info(f"Exposure    {num_exposures}")
 		times.append(t)
 		num_exposures += 1
-		#time.sleep(max(0, dt - (time.time() - t0)))
+		zeno(dt - (time.time() - t))
 
 	out_q.put((0, 0, None))
 	# this is a placeholder to tell the queue that there's no more images coming
@@ -65,8 +64,6 @@ def zcoeffs_from_queued_image(in_q, out_q, imflat, cmd_mtx, timestamp, logger):
 				logger.info(f"Measurement {i}")
 				out_q.put((i, t, zval))
 				zvals.append(zval)
-			else:
-				time.sleep(dt * 0)
 	zvals = np.array(zvals)
 	np.save(fname, zvals)
 	return zvals
@@ -88,6 +85,7 @@ def control_schedule_from_law(q, control, timestamp, logger, duration=1, half_cl
 	t1 = time.time()
 	t = t1
 	cvals = []
+	frame_delay = 2
 
 	while t < t1 + duration:
 		i, t_exp, z = q.get()
@@ -95,19 +93,13 @@ def control_schedule_from_law(q, control, timestamp, logger, duration=1, half_cl
 		last_z, dmc = control(z, logger=logger, u=last_z)
 		t = time.time()
 		if (not half_close) or (t >= t1 + t / 2):
+			if t - t_exp < (frame_delay * dt):
+				zeno((frame_delay * dt) - (time.time() - t_exp))
 			optics.applydmc(dmc)
 			logger.info(f"DMC         {i}")
 		else:
-			i, z = q.get()
-			q.task_done()
-			last_z, dmc = control(z, logger=logger, u=last_z)
-			t = time.time()
-			if (not half_close) or (t >= t1 + t / 2):
-				optics.applydmc(dmc)
-				logger.info(f"DMC         {i}")
-			else:
-				last_z *= 0
-			cvals.append(last_z)
+			last_z *= 0
+		cvals.append(last_z)
 
 	np.save(fname, np.array(cvals))
 

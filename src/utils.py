@@ -61,10 +61,11 @@ def get_timestamp():
 Applies Zeno's paradox to "precisely" sleep for time 'duration'
 """
 def zeno(duration):
-	t0 = time.time()
-	while time.time() < t0 + duration:
-		time.sleep(max(0, (time.time() - t0 - duration)/2))
-	return time.time() - t0
+	if duration > 0:
+		t0 = time.time()
+		while time.time() < t0 + duration:
+			time.sleep(max(0, (time.time() - t0 - duration)/2))
+		return time.time() - t0
 
 # keck TTs deleted 2021-10-14
 

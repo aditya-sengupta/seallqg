@@ -145,7 +145,7 @@ class FAST(Optics):
 		return self.a.get_data()[0][0]
 
 	def getim(self):
-		return self.im.get_data(check=True)
+		return self.im.get_data(check=False)
 
 	def getdmc(self): # read current command applied to the DM
 		return self.dmChannel.get_data()
