@@ -14,7 +14,7 @@ from functools import partial
 import numpy as np
 
 from .exp_logger import experiment_logger
-from .exp_result import ExperimentResult
+from .exp_result import ExperimentResult, result_from_log
 from ..constants import dt
 from ..utils import joindata, get_timestamp, zeno
 from ..optics import optics
@@ -143,7 +143,7 @@ def run_experiment(record_path, control_schedule, dist_schedule, duration=1, rco
 	logger.info("Done with experiment.")
 	optics.applydmc(bestflat)
 
-	result = ExperimentResult(log_path)
+	result = result_from_log(log_path)
 
 	if optics.name != "Sim":
 		result.save(record_path)
