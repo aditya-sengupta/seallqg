@@ -3,14 +3,15 @@ Core runner for SEAL experiments.
 """
 
 import sys
-import time
 import logging
 import warnings
+
 from threading import Thread
 from queue import Queue
 from abc import ABC
 import numpy as np
 from copy import copy
+from time import monotonic_ns as mns
 
 from .utils import LogRecord_ns, Formatter_ns
 from .exp_result import ExperimentResult, result_from_log
@@ -19,7 +20,7 @@ from .schedules import make_noise, make_ustep, make_train, make_sine, make_atmvi
 from ..controllers import make_openloop, make_integrator
 
 from ..constants import dt
-from ..utils import get_timestamp, spinlock, joindata
+from ..utils import get_timestamp, spin, spinlock, joindata
 from ..optics import optics
 from ..optics import measure_zcoeffs, make_im_cm
 from ..optics import align
@@ -71,19 +72,23 @@ class Experiment:
 		Get images from the optics system, put them in the output queue,
 		and record the times at which images are received.
 		"""
-		t_start = time.time()
-		num_exposures = 0
-		self.logger.info("Recording initialized.")
 
-		while time.time() < t_start + self.dur:
+		self.num_exposures = 0
+		self.logger.info("Recording initialized.")
+		t_start = mns()
+		dur_ns = self.dur * 1e9
+		spinlock(0.05)
+		def get_exposure():
 			imval = self.optics.getim()
-			t = time.time()
-			q.put((num_exposures, t, imval))
-			self.logger.info(f"Exposure    {num_exposures}: {[t]}")
-			num_exposures += 1
-			spinlock(dt - (time.time() - t))
+			t = mns()
+			q.put((self.num_exposures, t, imval))
+			self.logger.info(f"Exposure    {self.num_exposures}: {[t]}")
+			self.num_exposures += 1
+
+		spin(get_exposure, dt, self.dur)
 
 		q.put((0, 0, None))
+		self.num_exposures = 0
 		# this is a placeholder to tell the queue that there's no more images coming
 
 	def compute(self, in_q, out_q):
@@ -94,32 +99,36 @@ class Experiment:
 		"""
 		img = 0 # non-None start value
 		while img is not None:
-			if not in_q.empty():
-				i, t, img = in_q.get()
-				in_q.task_done()
-				if img is not None:
-					imdiff = img - self.imflat
-					zval = measure_zcoeffs(imdiff, self.cmd_mtx).flatten()
-					self.logger.info(f"Measurement {i}: {zval}")
-					out_q.put((i, t, zval))
+			i, t, img = in_q.get()
+			in_q.task_done()
+			if img is not None:
+				imdiff = img - self.imflat
+				zval = measure_zcoeffs(imdiff, self.cmd_mtx).flatten()
+				self.logger.info(f"Measurement {i}: {zval}")
+				out_q.put((i, t, zval))
+		out_q.put((0, 0, None))
 
 	def control(self, q, controller):
 		u = None # the most recently applied control command
-		t1 = time.time()
+		t1 = mns()
 		t = t1
 		# frame_delay = 2
+		z = 0 # non-None start value
+		closed = not self.half_close
 
-		while t < t1 + self.dur:
+		while z is not None:
 			i, t_exp, z = q.get()
 			q.task_done()
-			u, dmc = controller(z)
-			if (not self.half_close) or (t >= t1 + t / 2):
-				#if t - t_exp < (frame_delay * dt):
-				#	zeno((frame_delay * dt) - (time.time() - t_exp))
-				self.optics.applydmc(dmc)
-				self.logger.info(f"DMC         {i}: {u}")
-			t = time.time()
-	
+			if z is not None:
+				u, dmc = controller(z)
+				if closed:
+					#if t - t_exp < (frame_delay * dt):
+					#	zeno((frame_delay * dt) - (time.time() - t_exp))
+					self.optics.applydmc(dmc)
+					self.logger.info(f"DMC         {i}: {u}")
+				elif (mns() >= t + (self.dur / 2) * 1e9):
+					closed = True
+		
 	def check_alignment(self):
 		_, self.cmd_mtx = make_im_cm(rcond=self.rcond, verbose=self.verbose)
 		bestflat = np.load(self.optics.bestflat_path)
@@ -161,24 +170,24 @@ class Experiment:
 
 		q_compute = Queue()
 		q_control = Queue()
-		record_thread = Thread(target=self.record, args=(q_compute,))
-		compute_thread = Thread(target=self.compute, args=(q_compute, q_control,))
-		control_thread = Thread(target=self.control, args=(q_control, controller,))
-		disturb_thread = Thread(target=self.disturbance, args=(self.logger,))
+		record_process = Process(target=self.record, args=(q_compute,))
+		compute_process = Process(target=self.compute, args=(q_compute, q_control,))
+		control_process = Process(target=self.control, args=(q_control, controller,))
+		disturb_process = Process(target=self.disturbance, args=(self.logger,))
 
 		self.logger.info("Starting recording and commands.")
 
-		record_thread.start()
-		compute_thread.start()
-		control_thread.start()
-		disturb_thread.start()
+		record_process.start()
+		compute_process.start()
+		control_process.start()
+		disturb_process.start()
 
 		q_compute.join()
 		q_control.join()
-		record_thread.join(self.dur)
-		compute_thread.join(self.dur)
-		control_thread.join(self.dur)
-		disturb_thread.join(self.dur)
+		record_process.join(self.dur)
+		compute_process.join(self.dur)
+		control_process.join(self.dur)
+		disturb_process.join(self.dur)
 
 		self.logger.info("Done with experiment.")
 		self.optics.applydmc(bestflat)

@@ -181,6 +181,7 @@ class Sim(Optics):
 	def __init__(self):
 		self.dmdims = dmdims
 		self.imdims = imdims
+		self.dummy_image = np.zeros(self.imdims)
 		self.expt = 1e-3
 		self.dt = dt
 		self.dmc = copy(self.dmzero)
@@ -202,7 +203,7 @@ class Sim(Optics):
 		return self.expt
 
 	def getim(self):
-		return np.zeros(self.imdims)
+		return self.dummy_image
 		"""time.sleep(self.wait)
 		return propagate(self.dmc, ph=True, t_int=self.expt)"""
 

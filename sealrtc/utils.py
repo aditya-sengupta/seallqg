@@ -79,7 +79,7 @@ def spinlock(dur):
 		i += 1
 	return (mns() - t0) * 1e-9
 
-def spin(process, dur, dt):
+def spin(process, dt, dur):
 	"""
 	Spin-locks around a process to do it every "dt" seconds for time "dur" seconds.
 	"""
@@ -91,6 +91,7 @@ def spin(process, dur, dt):
 		t1 += ticks_inner
 		process()
 		i = 0
+		time.sleep(dt / 2)
 		while mns() - t1 <= ticks_inner:
 			i += 1
 
