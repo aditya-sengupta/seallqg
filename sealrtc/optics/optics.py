@@ -8,8 +8,6 @@ from os import path
 import numpy as np
 from socket import gethostname
 
-from .align import align
-from .flatten import flatten
 from .par_functions import propagate
 from ..utils import joindata
 from ..constants import dmdims, imdims, dt
@@ -226,9 +224,9 @@ class Sim(Optics):
 sim_mode = False
 if gethostname() == "SEAL" and not sim_mode:
 	optics = FAST()
+	mode = "hardware"
 else:
-	print("Running in simulation mode.")
 	optics = Sim()
+	mode = "simulation"
 
-optics.flatten = flatten
-optics.align = align
+print(f"SEAL Real-Time Controller running in {mode} mode.")

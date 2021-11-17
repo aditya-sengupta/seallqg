@@ -11,5 +11,5 @@ def identity(measurement):
     
 def kfilter(measurement, klqg):
     klqg.update(measurement[:2]) # TODO generalize
-    klqg.predict(klqg.last_control)
+    klqg.predict(klqg.curr_control)
     return klqg.measure()

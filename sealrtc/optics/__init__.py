@@ -4,13 +4,6 @@ from .process_zern import applytip, applytilt, applytiptilt, aperture, funz, tip
 from .flatten import flatten
 from .align import align
 from .compute_cmd_int import make_im_cm, measure_zcoeffs, linearity, zcoeffs_to_dmc, mz
-#from .demo_scc import genim
-
-# quickstart
-def quickstart():
-    flatten()
-    align(manual=False, view=False)
-    linearity()
 
 __all__ = [
     "zernike",

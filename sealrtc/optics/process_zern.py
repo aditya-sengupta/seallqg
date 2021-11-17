@@ -1,5 +1,3 @@
-# authored by Benjamin Gerard and Aditya Sengupta
-
 import numpy as np
 from numpy import float32
 from scipy import fft
@@ -74,10 +72,7 @@ def applytilt(optics, amp):
 	dmctilt = amp * tilt
 	dmc = remove_piston(dmc) + remove_piston(dmctilt)
 	optics.applydmc(dmc)
-
-optics.applytip = applytip
-optics.applytilt = applytilt
-
+	
 rho, phi = polar_grid(xdim, ydim)
 rho[int((xdim-1)/2),int((ydim-1)/2)]=0.00001 #avoid numerical divide by zero issues
 

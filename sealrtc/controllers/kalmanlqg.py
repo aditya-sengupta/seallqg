@@ -1,4 +1,6 @@
-# authored by Aditya Sengupta
+"""
+Implementation of a *generic* Kalman-LQG observer and controller.
+"""
 
 import numpy as np
 from copy import copy

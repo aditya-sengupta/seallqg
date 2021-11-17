@@ -1,7 +1,6 @@
 import time
 import re
 import numpy as np
-import tqdm
 import pandas as pd
 
 from .utils import stamp_to_seconds, string_to_numpy
@@ -12,7 +11,7 @@ Note that this is not a great implementation when you get significantly more res
 and the whole concept is kind of janky, but I want to cut down on latency in the actual loop,
 so this is what we're doing I guess.
 """
-def result_from_log(log_path):
+def result_from_log(timestamp, log_path):
     texp = [] # time when exposure is logged
     tmeas = [] # time when measurement is logged
     tdmc = [] # time when DMC is logged
@@ -22,9 +21,7 @@ def result_from_log(log_path):
 
     with open(log_path) as file:
         last_line = None
-        overrun_corrected = False
-        final_frame = np.inf
-        for line in tqdm.tqdm(file):
+        for line in file: # tqdm here if you're impatient
             if last_line is not None:
                 assert "]" in line and "[" not in line, f"Overrun at {last_line} corrected with {line}"
                 line = last_line + line
@@ -53,10 +50,11 @@ def result_from_log(log_path):
                         elif event.startswith("DMC"):
                             tdmc.append(seconds)
                             commands.append(data)
-                            final_frame = frame_num
     
     t0 = texp[0]
-    return ExperimentResult([
+    return ExperimentResult(
+    timestamp,    
+    [
         np.array(texp) - t0,
         np.array(tmeas) - t0,
         np.array(tdmc) - t0,
@@ -70,7 +68,8 @@ Data container for all the results of an experiment.
 Interoperates with pd.DataFrame and contains result analysis functionality.
 """
 class ExperimentResult:
-    def __init__(self, data):
+    def __init__(self, timestamp, data):
+        self.timestamp = timestamp
         l = len(min(data, key=len))
         data = [d[:l] for d in data]
         self.texp, self.tmeas, self.tdmc, self.texp_loop, self.measurements, self.commands = data
@@ -96,12 +95,14 @@ class ExperimentResult:
             f.write(f'# {p}: {params[p]} \n')
         self.to_pandas().to_csv(f)
         f.close()
+        print(f"Run saved to {record_path}.")
 
     def delay_hist(self):
         raise RuntimeError("move this over from the scripts")
 
-def loadres(record_path):
+def loadres(timestamp, record_path):
     df = pd.read_csv(joindata(record_path))
+    assert isinstance(df, pd.DataFrame)
     data = list(map(
             lambda name: df[name].to_numpy(),
             ["texp", "tmeas", "tdmc", "texp_loop"]
@@ -112,4 +113,4 @@ def loadres(record_path):
     control_cols = filter(lambda x: x.startswith("cmd"), df.columns)
     data.append(df[control_cols].to_numpy())
 
-    return ExperimentResult(data)
+    return ExperimentResult(timestamp, data)

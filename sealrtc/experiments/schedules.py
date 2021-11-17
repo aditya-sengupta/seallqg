@@ -6,7 +6,7 @@ from functools import partial
 
 from ..constants import dt
 from ..utils import joindata, zeno
-from ..optics import applytip, applytilt
+from ..optics import optics, applytip, applytilt
 
 def schedule(dur, logger, times, disturbances):
     """
@@ -27,12 +27,12 @@ def schedule(dur, logger, times, disturbances):
     times = np.array(times)
     t0 = time.time()
     assert np.all(np.diff(times) >= dt - 1e-8), f"can't send disturbances on timescales shorter than {dt}"
-    logger.info("init from command_thread")
+    logger.info("Disturbance initialized.")
     for (t, (z0, z1)) in zip(times, disturbances):
         zeno((t0 + t) - time.time())
         logger.info(f"Disturbance  : {[z0, z1]}")
-        applytilt(z0)
-        applytip(z1)
+        applytilt(optics, z0)
+        applytip(optics, z1)
 
 def make_noise(dur):
     return partial(schedule, dur, times=[], disturbances=[[]])

@@ -1,5 +1,3 @@
-# authored by Aditya Sengupta
-
 # could refactor to not be a class, but it's fine for now
 
 import numpy as np

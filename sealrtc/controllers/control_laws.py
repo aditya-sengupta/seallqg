@@ -5,7 +5,7 @@ and further arguments that are filled in by the Controller constructor.
 """
 
 import numpy as np
-from ..optics import optics
+from ..optics import optics, zcoeffs_to_dmc
 
 def nothing(state):
     """
@@ -13,7 +13,7 @@ def nothing(state):
     """
     return np.array([0, 0]), optics.getdmc()
 
-def integrator(state, gain, leak):
+def integrate(state, gain, leak):
     """
     Simple integrator control.
 
@@ -36,7 +36,7 @@ def integrator(state, gain, leak):
     dmcn = zcoeffs_to_dmc(np.pad(state, (0,3)))
     return state, gain * dmcn + leak * optics.getdmc()
     
-def lqg_controller(state, klqg):
+def lqr(state, klqg):
     """
     Linear-quadratic-Gaussian control.
     """

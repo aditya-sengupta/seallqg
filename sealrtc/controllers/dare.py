@@ -23,8 +23,6 @@ def solve_dare(A, B, Q, R, verbose=True, max_iters=1000):
             P = sg02ad('D', 'B', 'N', 'U', 'Z', 'N', 'S', 'R', n, m, 1, A, E, B, Q, R, L)[1]
         except (ValueError, SlycotArithmeticError):
             P = la.solve_discrete_are(A, B, Q, R)
-        if verbose:
-            print("Solved discrete ARE.")
     except (ValueError, np.linalg.LinAlgError):
         if verbose:
             print("Discrete ARE solve failed, falling back to iterative solution.")

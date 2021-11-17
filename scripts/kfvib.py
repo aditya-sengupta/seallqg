@@ -1,20 +1,13 @@
 """
-Integrator control with a vibration Kalman filter.
-More of this is in this script than I'd like, but I'll fix it later, I promise
+Control of vibrational modes with LQG.
 """
-from os import path
 
 from sealrtc import *
-from sealrtc.utils import joindata
-from sealrtc.controllers import kalman_lqg
-from sealrtc.experiments.schedules import *
-from sealrtc.experiments.exp_runner import run_experiment, control_schedule_from_law
 from sealrtc.constants import fs, dt
-
-import numpy as np
-from matplotlib import pyplot as plt
-from functools import partial
+from sealrtc.experiments import make_sine
 from datetime import datetime
+
+from matplotlib import pyplot as plt
 
 np.random.seed(5)
 
@@ -33,37 +26,6 @@ ol_spectra = [genpsd(ol[:,i], dt=dt) for i in range(2)]
 
 ident = SystemIdentifier(ol, fs=fs)
 klqg = ident.make_klqg_from_openloop()
-def make_experiment(klqg):
-    def record_lqg(schedule_maker, t=1, **kwargs):
-        record_path = path.join("lqg", "lqg")
-        for k in kwargs:
-            record_path += f"_{k}_{kwargs.get(k)}"
-
-        control_schedule = partial(control_schedule_from_law, control=kalman_lqg)
-        dist_schedule = schedule_maker(t, **kwargs)
-        return run_experiment(
-            record_path,
-            control_schedule,
-            dist_schedule,
-            t
-        )
-
-    record_lqgtrain = partial(record_lqg, make_train)
-    record_lqgnone = partial(record_lqg, make_noise)
-    record_lqgustep = partial(record_lqg, make_ustep)
-    record_lqgsin = partial(record_lqg, make_sine)
-    record_lqgatmvib = partial(record_lqg, make_atmvib)
-
-    return record_lqgsin
-
-def lqg(klqg, t=10):
-    klqg.recompute()
-    improvement = klqg.improvement()
-    print(f"{improvement = }")
-    assert improvement >= 1, f"Kalman-LQG setup does not improve in simulation"
-    exp = make_experiment(klqg)
-    klqg.x = np.zeros(klqg.state_size,)
-    return exp(t=t, amp=amp, ang=ang, f=f)
 
 def get_ol_cl_rms(zvals):
     data = []
@@ -75,7 +37,7 @@ def get_ol_cl_rms(zvals):
         data.append([olc, cl, rms_ratio])
     return data
 
-def plot_cl_rtf(data, timestamp=datetime.now().strftime("%d_%m_%Y_%H_%M_%S"), save=True):
+def plot_cl_rtf(data, timestamp, save=False):
     fig, axs = plt.subplots(2, figsize=(9,9))
     fig.tight_layout(pad=4.0)
     plt.suptitle("LQG rejection")
@@ -98,11 +60,12 @@ def plot_cl_rtf(data, timestamp=datetime.now().strftime("%d_%m_%Y_%H_%M_%S"), sa
 # start ad hoc modifications to the observe/control matrices
 klqg.R *= 1000
 # end modifications
+klqg.recompute()
 
 if __name__ == "__main__":
-    #times, zvals = record_olnone(t=10)
-    times, zvals, timestamp = lqg(klqg, t=1)
-    data = get_ol_cl_rms(zvals * dmc2wf)
+    experiment = Experiment(make_sine, dur=1, amp=amp, ang=ang, f=f)
+    res = experiment.run(make_lqg(klqg))
+    data = get_ol_cl_rms(res.measurements * dmc2wf)
     print(f"RMS ratios: {[float(x[2]) for x in data]}")
-    if False and input("Plot? (y/n) ") == 'y':
-        plot_cl_rtf(data, timestamp)
+    if input("Plot? (y/n) ") == 'y':
+        plot_cl_rtf(data, res.timestamp)
