@@ -28,7 +28,6 @@ def control(measurement, observer, controller, logger, **kwargs):
     The command to be put on the DM.
     """
     state = observer(measurement[:2], **kwargs) # biryani
-    # logger.info(f"{state = }")
     u = controller(state, **kwargs)
     return u
 
@@ -40,7 +39,7 @@ def ol_controller(state, **kwargs):
     """
     return np.array([0, 0]).astype(np.float32), optics.getdmc()
 
-def integrator(state, gain=0.1, leak=1.0, **kwargs):
+def integrator(state, **kwargs):
     """
     Simple integrator control.
 
@@ -63,19 +62,16 @@ def integrator(state, gain=0.1, leak=1.0, **kwargs):
     dmcn = zcoeffs_to_dmc(np.pad(state, (0,3)))
     return state, gain * dmcn + leak * optics.getdmc()
     
-def make_lqg_controller(klqg):
-    def lqg_controller(state, **kwargs):
-        """
-        Linear-quadratic-Gaussian control.
-        """
-        u = klqg.control()
-        # correct for KLQG built for only tip-tilt
-        u = np.pad(u, (0,3))
-        return u, optics.getdmc() + zcoeffs_to_dmc(-u)
-
-    return lqg_controller
+def lqg_controller(state, **kwargs):
+    """
+    Linear-quadratic-Gaussian control.
+    """
+    u = kwargs.get("klqg").control()
+    # correct for KLQG built for only tip-tilt
+    u = np.pad(u, (0,3))
+    return u, optics.getdmc() + zcoeffs_to_dmc(u)
 
 # Control laws: combination of an observer and controller
 openloop = partial(control, observer=identity, controller=ol_controller)
 integrate = partial(control, observer=identity, controller=integrator)
-kalman_lqg = lambda klqg: partial(control, observer=make_kf_observer(klqg), controller=make_lqg_controller(klqg))
+kalman_lqg = partial(control, observer=kfilter, controller=lqg_controller)

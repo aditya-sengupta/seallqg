@@ -21,7 +21,7 @@ from ..optics import optics
 from ..optics import measure_zcoeffs, make_im_cm
 from ..optics import align
 
-def record_im(out_q, duration, timestamp, logger):
+def record_im(out_q, dur, timestamp, logger):
 	"""
 	Get images from the optics system, put them in the output queue,
 	and record the times at which images are received.
@@ -29,7 +29,7 @@ def record_im(out_q, duration, timestamp, logger):
 	t_start = time.time()
 	num_exposures = 0
 
-	while time.time() < t_start + duration:
+	while time.time() < t_start + dur:
 		imval = optics.getim()
 		t = time.time()
 		out_q.put((num_exposures, t, imval))
@@ -57,7 +57,7 @@ def zcoeffs_from_queued_image(in_q, out_q, imflat, cmd_mtx, timestamp, logger):
 				logger.info(f"Measurement {i}: {zval}")
 				out_q.put((i, t, zval))
 
-def control_schedule_from_law(q, control, timestamp, logger, duration=1, half_close=False):
+def control_schedule_from_law(q, control, timestamp, logger, dur=1, half_close=False):
 	"""
 	The SEAL schedule for a controller.
 
@@ -74,7 +74,7 @@ def control_schedule_from_law(q, control, timestamp, logger, duration=1, half_cl
 	t = t1
 	# frame_delay = 2
 
-	while t < t1 + duration:
+	while t < t1 + dur:
 		i, t_exp, z = q.get()
 		q.task_done()
 		u, dmc = control(z, logger=logger, u=u)
@@ -107,7 +107,19 @@ def check_alignment(logger, rcond, verbose, imax=10):
 	logger.info("System aligned and command matrix updated.")
 	return bestflat, imflat, cmd_mtx
 
-def run_experiment(record_path, control_schedule, dist_schedule, duration, rcond=1e-4, verbose=True):
+def run_experiment(record_path, control, disturbance, dur, **kwargs):
+	v = True
+	hc = False
+	for k in kwargs:
+		if k == "verbose":
+			v = v and kwargs.get(k)
+		else:
+			record_path += f"_{k}_{kwargs.get(k)}"
+			if k == "hc":
+				hc = kwargs.get(k)
+				if hc:
+					print("Closing the loop halfway into the experiment.")
+	
 	timestamp = get_timestamp()
 	logger, log_path = experiment_logger(timestamp)
 	record_path += f"_tstamp_{timestamp}.csv"
@@ -116,10 +128,10 @@ def run_experiment(record_path, control_schedule, dist_schedule, duration, rcond
 	
 	q_compute = Queue()
 	q_control = Queue()
-	record = partial(record_im, duration=duration, timestamp=timestamp, logger=logger)
+	record = partial(record_im, dur=dur, timestamp=timestamp, logger=logger)
 	compute = partial(zcoeffs_from_queued_image, imflat=imflat, cmd_mtx=cmd_mtx, timestamp=timestamp, logger=logger)
-	control = partial(control_schedule, duration=duration, timestamp=timestamp, logger=logger)
-	command = partial(dist_schedule, logger=logger)
+	control = partial(control_schedule_from_law, control=control, dur=dur, timestamp=timestamp, logger=logger)
+	command = partial(disturbance(dur=dur, **kwargs), logger=logger)
 	
 	record_thread = Thread(target=record, args=(q_compute,))
 	compute_thread = Thread(target=compute, args=(q_compute, q_control,))
@@ -135,18 +147,17 @@ def run_experiment(record_path, control_schedule, dist_schedule, duration, rcond
 
 	q_compute.join()
 	q_control.join()
-	record_thread.join(duration)
-	compute_thread.join(duration)
-	control_thread.join(duration)
-	command_thread.join(duration)
+	record_thread.join(dur)
+	compute_thread.join(dur)
+	control_thread.join(dur)
+	command_thread.join(dur)
 
 	logger.info("Done with experiment.")
 	optics.applydmc(bestflat)
 
 	result = result_from_log(log_path)
 
-	if True or optics.name != "Sim":
+	if optics.name != "Sim":
 		result.to_csv(record_path)
-	warnings.warn("save on for sim")
 
 	return result

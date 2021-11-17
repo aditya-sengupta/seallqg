@@ -1,9 +1,9 @@
 import numpy as np
 import scipy.linalg as la
 
-from src.utils import rms
-from src.controllers.dare import solve_dare, check_dare
-from src.controllers.kalmanlqg import KalmanLQG
+from sealrtc.utils import rms
+from sealrtc.controllers.dare import solve_dare, check_dare
+from sealrtc.controllers.kalmanlqg import KalmanLQG
 
 #np.random.seed(5)
 

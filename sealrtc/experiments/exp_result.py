@@ -83,7 +83,9 @@ Interoperates with pd.DataFrame and contains result analysis functionality.
 """
 class ExperimentResult:
     def __init__(self, data):
-          self.texp, self.tmeas, self.tdmc, self.texp_loop, self.measurements, self.commands = data
+        l = len(min(data, key=len))
+        data = [d[:l] for d in data]
+        self.texp, self.tmeas, self.tdmc, self.texp_loop, self.measurements, self.commands = data
 
     def to_pandas(self):
         d = {

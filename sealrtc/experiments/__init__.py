@@ -9,7 +9,6 @@ from .experiment import *
 __all__ = [
     "ExperimentResult",
     "loadres",
-    "uconvert_ratio",
     "record_openloop",
     "record_olnone",
     "record_oltrain",

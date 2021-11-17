@@ -1,9 +1,7 @@
 """
 FAST System Identification Data Collection Mega-Schedule
 """
-import sys
-sys.path.append("..")
-from src import *
+from sealrtc import *
 import numpy as np
 
 optics.set_expt(1e-3)

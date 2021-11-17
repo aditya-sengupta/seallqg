@@ -101,7 +101,7 @@ klqg.R *= 1000
 
 if __name__ == "__main__":
     #times, zvals = record_olnone(t=10)
-    times, zvals, timestamp = lqg(klqg, t=10)
+    times, zvals, timestamp = lqg(klqg, t=1)
     data = get_ol_cl_rms(zvals * dmc2wf)
     print(f"RMS ratios: {[float(x[2]) for x in data]}")
     if False and input("Plot? (y/n) ") == 'y':

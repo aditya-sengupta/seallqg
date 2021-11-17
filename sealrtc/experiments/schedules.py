@@ -8,18 +8,18 @@ from ..constants import dt
 from ..utils import joindata, zeno
 from ..optics import applytip, applytilt
 
-def schedule(duration, logger, times, disturbances):
+def schedule(dur, logger, times, disturbances):
     """
     Base function for disturbance schedules.
 
-    duration : scalar
-        The duration in seconds; "times" must all be less than this duration.
+    dur : scalar
+        The dur in seconds; "times" must all be less than this dur.
 
     logger : logging.Logger
         The logger, to document when disturbances were applied.
 
     times : array_like (N,)
-        Times at which commands are to be sent, normalized to the interval [0, duration].
+        Times at which commands are to be sent, normalized to the interval [0, dur].
 
     disturbances : array_like (N, 2)
         The (tilt, tip) disturbance to be sent.
@@ -34,43 +34,43 @@ def schedule(duration, logger, times, disturbances):
         applytilt(z0)
         applytip(z1)
 
-def make_noise(duration):
-    return partial(schedule, duration, times=[], disturbances=[[]])
+def make_noise(dur):
+    return partial(schedule, dur, times=[], disturbances=[[]])
 
-def make_ustep(duration, tilt_amp, tip_amp):
+def make_ustep(dur, tilt_amp, tip_amp):
     return partial(
         schedule, 
-        duration,
-        times = [0.5 * duration], 
+        dur,
+        times = [0.5 * dur], 
         disturbances = [[tilt_amp, tip_amp]]
     )
 
-def make_train(duration, n, tilt_amp, tip_amp):
+def make_train(dur, n, tilt_amp, tip_amp):
     return partial(
         schedule,
-        duration,
-        times = np.linspace(0, duration, n + 2)[1:-1],
+        dur,
+        times = np.linspace(0, dur, n + 2)[1:-1],
         disturbances = [[tilt_amp, tip_amp] for _ in range(n)]
     )
 
-def make_sine(duration, amp, ang, f):
-    times = np.arange(0, duration, dt)
+def make_sine(dur, amp, ang, f):
+    times = np.arange(0, dur, dt)
     sinusoid = np.diff(amp * np.sin(2 * np.pi * f * times))
     cosang, sinang = np.cos(ang), np.sin(ang)
     return partial(
         schedule,
-        duration,
+        dur,
         times = times,
         disturbances = [[cosang * s, sinang * s] for s in sinusoid]
     )
 
-def make_atmvib(duration, atm, vib, scaledown, f):
+def make_atmvib(dur, atm, vib, scaledown, f):
     fname = joindata("sims", f"ol_atm_{atm}_vib_{vib}.npy")
     control_commands = np.diff(np.load(fname), axis=0) / scaledown
-    control_commands = control_commands[:int(dt * duration)]
+    control_commands = control_commands[:int(dt * dur)]
     return partial(
         schedule,
-        duration,
-        times = np.linspace(0, duration, len(control_commands)),
+        dur,
+        times = np.linspace(0, dur, len(control_commands)),
         disturbances = control_commands
     )

@@ -58,13 +58,13 @@ def get_timestamp():
 	return datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 
 """
-Applies Zeno's paradox to "precisely" sleep for time 'duration'
+Applies Zeno's paradox to "precisely" sleep for time 'dur'
 """
-def zeno(duration):
-	if duration > 0:
+def zeno(dur):
+	if dur > 0:
 		t0 = time.time()
-		while time.time() < t0 + duration:
-			time.sleep(max(0, (time.time() - t0 - duration)/2))
+		while time.time() < t0 + dur:
+			time.sleep(max(0, (time.time() - t0 - dur)/2))
 		return time.time() - t0
 
 # keck TTs deleted 2021-10-14

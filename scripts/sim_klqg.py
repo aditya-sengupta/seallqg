@@ -1,6 +1,6 @@
 import numpy as np
 from matplotlib import pyplot as plt
-from src import joindata, SystemIdentifier, genpsd
+from sealrtc import joindata, SystemIdentifier, genpsd
 
 np.random.seed(120)
 
