@@ -63,9 +63,11 @@ klqg.R *= 1000
 klqg.recompute()
 
 experiment = Experiment(make_sine, dur=1, amp=amp, ang=ang, f=f)
-res = experiment.run(make_lqg(klqg))
+def run():
+    return experiment.run(make_lqg(klqg))
    
 if __name__ == "__main__":
+    res = run()
     data = get_ol_cl_rms(res.measurements * dmc2wf)
     print(f"RMS ratios: {[float(x[2]) for x in data]}")
     if input("Plot? (y/n) ") == 'y':

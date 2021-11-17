@@ -8,7 +8,8 @@ from sealrtc.constants import fs
 from sealrtc import loadres
 
 # res = loadres(join("lqg", "klqg_nstate_20_amp_0.005_ang_0.7853981633974483_f_1_tstamp_2021_11_17_17_31_28.csv"))
-from kfvib import res
+from kfvib import run
+res = run()
 
 get_meanstd = lambda data: f"{round(np.mean(data), 3)} $\pm$ {round(np.std(data), 3)}"
 measure_delays = (res.tmeas - res.texp) * fs
