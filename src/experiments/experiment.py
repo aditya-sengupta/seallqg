@@ -54,12 +54,13 @@ def record_openloop(schedule_maker, duration=10, **kwargs):
 		else:
 			record_path += f"_{k}_{kwargs.get(k)}"
 
-	dist_schedule = schedule_maker(**kwargs)
+	control_schedule= partial(control_schedule_from_law, control=openloop)
+	dist_schedule = schedule_maker(duration=duration, **kwargs)
 	return run_experiment(
 		record_path,
-		partial(control_schedule_from_law, control=openloop),
-		partial(dist_schedule, duration),
-		duration=duration,
+		control_schedule,
+		dist_schedule,
+		duration,
 		verbose=v
 	)
 
@@ -75,7 +76,7 @@ def record_integrator(schedule_maker, duration=1, gain=0.1, leak=1.0, **kwargs):
 	"""
 	Record experiments with an integrator.
 	"""
-	record_path = path.join("closedloop", f"cl_gain_{gain}_leak_{leak}")
+	record_path = path.join("integrator", f"int_gain_{gain}_leak_{leak}")
 	v = True
 	hc = False
 	for k in kwargs:
@@ -88,12 +89,13 @@ def record_integrator(schedule_maker, duration=1, gain=0.1, leak=1.0, **kwargs):
 				if hc:
 					print("Closing the loop halfway into the experiment.")
 
-	dist_schedule = schedule_maker(**kwargs)
+	control_schedule = partial(control_schedule_from_law, control=partial(integrate, gain=gain, leak=leak), half_close=hc)
+	dist_schedule = schedule_maker(duration, **kwargs)
 	return run_experiment(
 		record_path, 
-		control_schedule=partial(control_schedule_from_law, control=partial(integrate, gain=gain, leak=leak), half_close=hc),
-		dist_schedule=partial(dist_schedule, duration, **kwargs),
-		duration=duration,
+		control_schedule,
+		dist_schedule,
+		duration,
 		verbose=v
 	)
 

@@ -24,8 +24,9 @@ def schedule(duration, logger, times, disturbances):
     disturbances : array_like (N, 2)
         The (tilt, tip) disturbance to be sent.
     """
-    times = np.array(times) / duration
+    times = np.array(times)
     t0 = time.time()
+    assert np.all(np.diff(times) >= dt - 1e-8), f"can't send disturbances on timescales shorter than {dt}"
     logger.info("init from command_thread")
     for (t, (z0, z1)) in zip(times, disturbances):
         zeno((t0 + t) - time.time())
@@ -33,53 +34,43 @@ def schedule(duration, logger, times, disturbances):
         applytilt(z0)
         applytip(z1)
 
-def make_noise():
-    return partial(schedule, times=[], disturbances=[[]])
+def make_noise(duration):
+    return partial(schedule, duration, times=[], disturbances=[[]])
 
-def make_ustep(tilt_amp, tip_amp):
+def make_ustep(duration, tilt_amp, tip_amp):
     return partial(
         schedule, 
-        times = [0.5], 
+        duration,
+        times = [0.5 * duration], 
         disturbances = [[tilt_amp, tip_amp]]
     )
 
-def make_train(n, tilt_amp, tip_amp):
+def make_train(duration, n, tilt_amp, tip_amp):
     return partial(
         schedule,
-        times = np.linspace(0, 1, n + 2)[1:-1],
-        disturbances = [[tilt_amp, tip_amp] * n]
+        duration,
+        times = np.linspace(0, duration, n + 2)[1:-1],
+        disturbances = [[tilt_amp, tip_amp] for _ in range(n)]
     )
 
-def make_sine(amp, ang, f):
-    times = np.arange(0, 1, dt)
+def make_sine(duration, amp, ang, f):
+    times = np.arange(0, duration, dt)
     sinusoid = np.diff(amp * np.sin(2 * np.pi * f * times))
     cosang, sinang = np.cos(ang), np.sin(ang)
     return partial(
         schedule,
-        times,
+        duration,
+        times = times,
         disturbances = [[cosang * s, sinang * s] for s in sinusoid]
     )
 
-def make_atmvib(atm, vib, scaledown, f):
+def make_atmvib(duration, atm, vib, scaledown, f):
     fname = joindata("sims", f"ol_atm_{atm}_vib_{vib}.npy")
     control_commands = np.diff(np.load(fname), axis=0) / scaledown
+    control_commands = control_commands[:int(dt * duration)]
     return partial(
         schedule,
-        times = np.linspace(0, 1, len(control_commands)),
+        duration,
+        times = np.linspace(0, duration, len(control_commands)),
         disturbances = control_commands
     )
-
-def atmvib_schedule(t, atm, vib, scaledown, f, **kwargs):
-    """
-    Put on a custom disturbance signal with 'atm' HCIPy atmospheric layers and 'vib' vibrational modes.
-    (for now precomputed, but it's not hard to extend this just by using src.controllers.make_atm_vib)
-    """
-    fname = joindata("sims", f"ol_atm_{atm}_vib_{vib}.npy")
-    control_commands = np.diff(np.load(fname), axis=0) / scaledown
-    nsteps = len(control_commands)
-    if t / nsteps < 1/f:
-        warnings.warn("atmvib_schedule may be sending DM commands faster than the camera readout, truncating")
-    control_commands = control_commands[:int(f*t)]
-    for cmd in control_commands:
-        time.sleep(dt)
-        applytiptilt(cmd[0], cmd[1])

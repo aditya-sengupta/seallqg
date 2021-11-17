@@ -8,7 +8,7 @@ from os import path
 
 from src import *
 from src.utils import joindata
-from src.controllers import make_kalman_controllers
+from src.controllers import kalman_lqg
 from src.experiments.schedules import *
 from src.experiments.exp_runner import run_experiment, control_schedule_from_law
 from src.constants import fs, dt
@@ -24,6 +24,7 @@ if optics.name == "Sim":
     optics.set_wait()
 
 dmc2wf = np.load(joindata("bestflats", "lodmc2wfe.npy"))
+amp, ang = 0.005, np.pi / 4
 f = 1
 if f == 5:
     ol = np.load(joindata("openloop", "ol_f_5_z_stamp_03_11_2021_14_02_00.npy")) * dmc2wf
@@ -34,59 +35,37 @@ ol_spectra = [genpsd(ol[:,i], dt=dt) for i in range(2)]
 
 ident = SystemIdentifier(ol, fs=fs)
 klqg = ident.make_klqg_from_openloop()
-def recompute_schedules(klqg):
-    kalman_integrate, kalman_lqg = make_kalman_controllers(klqg)
-
-    def record_kf_integ(dist_schedule, t=1, gain=0.1, leak=1.0, **kwargs):
-        record_path = path.join("kfilter", "kf")
-        for k in kwargs:
-            record_path = record_path + f"_{k}_{kwargs.get(k)}"
-
-        return run_experiment(
-            record_path,
-            control_schedule=partial(control_schedule_from_law, control=partial(kalman_integrate, gain=gain, leak=leak)),
-            dist_schedule=partial(dist_schedule, t, **kwargs),
-            t=t
-        )
-
-    record_kinttrain = partial(record_kf_integ, step_train_schedule)
-    record_kintnone = partial(record_kf_integ, noise_schedule)
-    record_kintustep = partial(record_kf_integ, ustep_schedule)
-    record_kintsin = partial(record_kf_integ, sine_schedule)
-    record_kintatmvib = partial(record_kf_integ, atmvib_schedule)
-
-    def record_lqg(dist_schedule, t=1, **kwargs):
+def make_experiment(klqg):
+    def record_lqg(schedule_maker, t=1, **kwargs):
         record_path = path.join("lqg", "lqg")
         for k in kwargs:
             record_path += f"_{k}_{kwargs.get(k)}"
 
+        control_schedule = partial(control_schedule_from_law, control=kalman_lqg)
+        dist_schedule = schedule_maker(t, **kwargs)
         return run_experiment(
             record_path,
-            control_schedule=partial(control_schedule_from_law, control=kalman_lqg),
-            dist_schedule=partial(dist_schedule, t, **kwargs),
-            t=t
+            control_schedule,
+            dist_schedule,
+            t
         )
 
-    record_lqgtrain = partial(record_lqg, step_train_schedule)
-    record_lqgnone = partial(record_lqg, noise_schedule)
-    record_lqgustep = partial(record_lqg, ustep_schedule)
-    record_lqgsin = partial(record_lqg, lambda t: sine_schedule(t, f=f))
-    record_lqgatmvib = partial(record_lqg, atmvib_schedule)
+    record_lqgtrain = partial(record_lqg, make_train)
+    record_lqgnone = partial(record_lqg, make_noise)
+    record_lqgustep = partial(record_lqg, make_ustep)
+    record_lqgsin = partial(record_lqg, make_sine)
+    record_lqgatmvib = partial(record_lqg, make_atmvib)
 
-    return record_kintnone, record_lqgsin
+    return record_lqgsin
 
-def run_experiment(klqg, t=10, i=1):
+def lqg(klqg, t=10):
     klqg.recompute()
     improvement = klqg.improvement()
     print(f"{improvement = }")
     assert improvement >= 1, f"Kalman-LQG setup does not improve in simulation"
-    exp = recompute_schedules(klqg)[i]
+    exp = make_experiment(klqg)
     klqg.x = np.zeros(klqg.state_size,)
-    times, zvals = exp(t=t)
-    return times, zvals, datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
-
-kint = partial(run_experiment, i=0)
-lqg = partial(run_experiment, i=1)
+    return exp(t=t, amp=amp, ang=ang, f=f)
 
 def get_ol_cl_rms(zvals):
     data = []

@@ -107,7 +107,7 @@ def check_alignment(logger, rcond, verbose, imax=10):
 	logger.info("System aligned and command matrix updated.")
 	return bestflat, imflat, cmd_mtx
 
-def run_experiment(record_path, control_schedule, dist_schedule, duration=1, rcond=1e-4, verbose=True):
+def run_experiment(record_path, control_schedule, dist_schedule, duration, rcond=1e-4, verbose=True):
 	timestamp = get_timestamp()
 	logger, log_path = experiment_logger(timestamp)
 	record_path += f"_tstamp_{timestamp}.csv"
@@ -145,7 +145,8 @@ def run_experiment(record_path, control_schedule, dist_schedule, duration=1, rco
 
 	result = result_from_log(log_path)
 
-	if optics.name != "Sim":
+	if True or optics.name != "Sim":
 		result.to_csv(record_path)
+	warnings.warn("save on for sim")
 
 	return result
