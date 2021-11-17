@@ -1,6 +1,7 @@
 # authored by Aditya Sengupta and Benjamin Gerard
 
 import time
+from time import monotonic_ns as mns
 from copy import deepcopy
 from datetime import datetime
 from os import path
@@ -57,15 +58,41 @@ def ratio(function, data1, data2, **kwargs):
 def get_timestamp():
 	return datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 
-"""
-Applies Zeno's paradox to "precisely" sleep for time 'dur'
-"""
 def zeno(dur):
+	"""
+	Applies Zeno's paradox to "precisely" sleep for time 'dur'
+	"""
 	if dur > 0:
 		t0 = time.time()
 		while time.time() < t0 + dur:
 			time.sleep(max(0, (time.time() - t0 - dur)/2))
 		return time.time() - t0
+
+def spinlock(dur):
+	"""
+	Spin-locks to precisely sleep for time 'dur'
+	"""
+	t0 = mns()
+	ticks = int(np.ceil(dur / 1e-9))
+	i = 0
+	while mns() - t0 <= ticks:
+		i += 1
+	return (mns() - t0) * 1e-9
+
+def spin(process, dur, dt):
+	"""
+	Spin-locks around a process to do it every "dt" seconds for time "dur" seconds.
+	"""
+	t0 = mns()
+	t1 = t0
+	ticks_loop = int(np.ceil(dur / 1e-9))
+	ticks_inner = int(np.ceil(dt / 1e-9))
+	while mns() - t0 <= ticks_loop:
+		t1 += ticks_inner
+		process()
+		i = 0
+		while mns() - t1 <= ticks_inner:
+			i += 1
 
 # keck TTs deleted 2021-10-14
 

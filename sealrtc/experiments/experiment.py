@@ -19,7 +19,7 @@ from .schedules import make_noise, make_ustep, make_train, make_sine, make_atmvi
 from ..controllers import make_openloop, make_integrator
 
 from ..constants import dt
-from ..utils import get_timestamp, zeno, joindata
+from ..utils import get_timestamp, spinlock, joindata
 from ..optics import optics
 from ..optics import measure_zcoeffs, make_im_cm
 from ..optics import align
@@ -81,7 +81,7 @@ class Experiment:
 			q.put((num_exposures, t, imval))
 			self.logger.info(f"Exposure    {num_exposures}: {[t]}")
 			num_exposures += 1
-			zeno(dt - (time.time() - t))
+			spinlock(dt - (time.time() - t))
 
 		q.put((0, 0, None))
 		# this is a placeholder to tell the queue that there's no more images coming
