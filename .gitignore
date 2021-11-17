@@ -2,7 +2,10 @@
 __pycache__/
 *.swp
 images/
-data
+data/
+references/
+plots/
+results19/
 _research
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
