@@ -202,8 +202,9 @@ class Sim(Optics):
 		return self.expt
 
 	def getim(self):
-		time.sleep(self.wait)
-		return propagate(self.dmc, ph=True, t_int=self.expt)
+		return np.zeros(self.imdims)
+		"""time.sleep(self.wait)
+		return propagate(self.dmc, ph=True, t_int=self.expt)"""
 
 	def stackim(self, n):
 		return self.getim()

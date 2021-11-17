@@ -4,52 +4,16 @@ import sys
 import re
 from os.path import join
 
-fs = 100
+from sealrtc.constants import fs
+from sealrtc import loadres
 
-def stamp_to_seconds(t):
-    h, m, s, ns = [int(x) for x in re.search("(\d+):(\d+):(\d+),(\d+)", t).groups()]
-    return 3600 * h + 60 * m + s + 1e-9 * ns
-
-good_runs = ["03_55_23"]
-
-exposures = []
-measures = []
-dmcs = []
-
-total_nframes = 0
-for fname in good_runs:
-    with open(join("data", "log", f"log_16_11_2021_{fname}.log")) as file:
-        final_frame = np.inf
-        for line in file:
-            time = re.search("\d+:\d+:\d+,\d+", line)[0]
-            seconds = stamp_to_seconds(time)
-            event = re.search("INFO \| (.+)", line)[1]
-            if not any([event.startswith(x) for x in ["Exposure", "Measurement", "DMC"]]):
-                continue
-            frame_num = re.search("\d+", event)
-            if frame_num:
-                frame_num = int(frame_num[0])
-            if event.startswith("Exposure"):
-                exposures.append(seconds)
-            elif event.startswith("Measurement"):
-                measures.append(seconds)
-            elif event.startswith("DMC"):
-                dmcs.append(seconds)
-                final_frame = frame_num
-        total_nframes += final_frame
-        exposures = exposures[:total_nframes]
-        measures = measures[:total_nframes]
-        dmcs = dmcs[:total_nframes]
-
-t0 = exposures[0]
-exposures = np.array(exposures) - t0
-measures = np.array(measures) - t0
-dmcs = np.array(dmcs) - t0
+# res = loadres(join("lqg", "klqg_nstate_20_amp_0.005_ang_0.7853981633974483_f_1_tstamp_2021_11_17_17_31_28.csv"))
+from kfvib import res
 
 get_meanstd = lambda data: f"{round(np.mean(data), 3)} $\pm$ {round(np.std(data), 3)}"
-measure_delays = (measures - exposures) * fs
-control_delays = (dmcs - measures) * fs
-total_delays = (dmcs - exposures) * fs
+measure_delays = (res.tmeas - res.texp) * fs
+control_delays = (res.tdmc - res.tmeas) * fs
+total_delays = (res.tdmc - res.texp) * fs
 
 fig, axs = plt.subplots(1,3, figsize=(12,8))
 def plot_delay_hist(data, i, xlabel, title):

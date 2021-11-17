@@ -100,9 +100,9 @@ class ExperimentResult:
     def delay_hist(self):
         raise RuntimeError("move this over from the scripts")
 
-def loadres(timestamp, record_path):
-    df = pd.read_csv(joindata(record_path))
-    assert isinstance(df, pd.DataFrame)
+def loadres(record_path):
+    timestamp = re.search(r"tstamp_(.+).csv", record_path)[1]
+    df = pd.read_csv(joindata(record_path), comment="#")
     data = list(map(
             lambda name: df[name].to_numpy(),
             ["texp", "tmeas", "tdmc", "texp_loop"]

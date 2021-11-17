@@ -144,7 +144,7 @@ class Experiment:
 
 	def record_path(self, p):
 		for k in self.params:
-			p += f"_{k}_{self.params[k]}"
+			p += f"_{k}_{round(self.params[k], 4)}"
 
 		p += f"_tstamp_{self.timestamp}.csv"
 		return p
@@ -182,11 +182,11 @@ class Experiment:
 
 		self.logger.info("Done with experiment.")
 		self.optics.applydmc(bestflat)
-		print(f"Experiment finished, log written to {self.log_path}.")
+		print(f"Experiment finished, log written to {self.log_path}")
 
 		result = result_from_log(self.timestamp, self.log_path)
 
-		if self.optics.name != "Sim":
+		if True or self.optics.name != "Sim":
 			result.to_csv(self.record_path(root_path), self.params)
 
 		return result

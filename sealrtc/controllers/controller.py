@@ -24,7 +24,7 @@ def make_integrator(gain=0.1, leak=1.0):
     )
 
 def make_lqg(klqg):
-    return f"klqg_nstate_{klqg.state_size}", partial(
+    return joindata("lqg", f"klqg_nstate_{klqg.state_size}"), partial(
         controller, 
         observe_law=partial(kfilter, klqg=klqg), 
         control_law=partial(lqr, klqg=klqg)
