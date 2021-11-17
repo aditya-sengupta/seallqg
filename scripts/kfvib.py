@@ -2,16 +2,14 @@
 Integrator control with a vibration Kalman filter.
 More of this is in this script than I'd like, but I'll fix it later, I promise
 """
-import sys
-sys.path.append("..")
 from os import path
 
-from src import *
-from src.utils import joindata
-from src.controllers import kalman_lqg
-from src.experiments.schedules import *
-from src.experiments.exp_runner import run_experiment, control_schedule_from_law
-from src.constants import fs, dt
+from sealrtc import *
+from sealrtc.utils import joindata
+from sealrtc.controllers import kalman_lqg
+from sealrtc.experiments.schedules import *
+from sealrtc.experiments.exp_runner import run_experiment, control_schedule_from_law
+from sealrtc.constants import fs, dt
 
 import numpy as np
 from matplotlib import pyplot as plt

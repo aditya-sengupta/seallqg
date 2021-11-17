@@ -14,9 +14,9 @@ from .constants import dt
 
 host = gethostname()
 if (host == "skaya.local") or ("cam.ac.uk" in host):
-	ROOTDIR = "/Users/adityasengupta/research/ao/set-tt-control/"
+	ROOTDIR = "/Users/adityasengupta/research/ao/sealrtc/"
 elif host == "SEAL":
-	ROOTDIR = "/home/lab/asengupta/set-tt-control"
+	ROOTDIR = "/home/lab/asengupta/sealrtc"
 else:
 	ROOTDIR = path.dirname(path.abspath("__file__"))
 	

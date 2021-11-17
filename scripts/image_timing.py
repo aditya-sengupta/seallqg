@@ -1,6 +1,3 @@
-import sys
-sys.path.append("..")
-
 import time 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -8,8 +5,8 @@ from matplotlib import pyplot as plt
 from queue import Queue
 import logging
 
-from src import *
-from src.experiments.exp_runner import record_im
+from sealrtc import *
+from sealrtc.experiments.exp_runner import record_im
 
 q = Queue()
 

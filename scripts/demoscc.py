@@ -1,9 +1,6 @@
 import time
-import sys
-sys.path.append("..")
-
-from src import *
-from src.optics.demo_scc import *
+from sealrtc import *
+from sealrtc.optics.demo_scc import *
 
 gopt_path = joinsimdata("gopt.npy")
 if path.isfile(gopt_path):
