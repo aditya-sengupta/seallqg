@@ -9,12 +9,11 @@ from os import path
 from scipy.ndimage.filters import median_filter
 
 from ..utils import joindata
-from .image import optics
-from .ao import mtf
+from .utils import mtf
 from .process_zern import mtfgrid, sidemaskind
 from .process_zern import applytip, applytilt, tip, tilt, aperture, grid, ydim, xdim, remove_piston
 
-def align(manual=True, view=True):
+def align(optics, manual=True, view=True):
 	expt_init = optics.get_expt()
 	optics.set_expt(1e-4)
 	time.sleep(5)

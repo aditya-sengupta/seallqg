@@ -8,9 +8,12 @@ from os import path
 import numpy as np
 from socket import gethostname
 
+from .align import align
+from .flatten import flatten
 from .par_functions import propagate
 from ..utils import joindata
 from ..constants import dmdims, imdims, dt
+
 
 optics = None
 
@@ -226,3 +229,6 @@ if gethostname() == "SEAL" and not sim_mode:
 else:
 	print("Running in simulation mode.")
 	optics = Sim()
+
+optics.flatten = flatten
+optics.align = align

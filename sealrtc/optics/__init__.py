@@ -1,5 +1,5 @@
-from .ao import zernike, polar_grid
-from .image import optics
+from .utils import zernike, polar_grid
+from .optics import optics
 from .process_zern import applytip, applytilt, applytiptilt, aperture, funz, tip, tilt, xdim, ydim
 from .flatten import flatten
 from .align import align

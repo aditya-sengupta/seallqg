@@ -7,7 +7,7 @@ import itertools
 import numpy as np
 from scipy.ndimage.interpolation import rotate
 
-from .ao import * #utility functions to use throughout the simulation
+from .utils import * #utility functions to use throughout the simulation
 from ..utils import joindata, joinsimdata
 from ..constants import dmdims, imdims, wav0, beam_ratio
 

@@ -4,20 +4,8 @@ import numpy as np
 import tqdm
 import pandas as pd
 
+from .utils import stamp_to_seconds, string_to_numpy
 from ..utils import joindata
-
-def stamp_to_seconds(t):
-    h, m, s, ns = [int(x) for x in re.search(r"(\d+):(\d+):(\d+),(\d+)", t).groups()]
-    return 3600 * h + 60 * m + s + 1e-9 * ns
-
-def string_to_numpy(s):
-    return np.array(
-        list(filter(
-            lambda x: bool(x) and not x.isspace(),
-            s.split(" ")
-        )),
-        dtype=np.float64
-    )
 
 """
 Note that this is not a great implementation when you get significantly more results than this, 
@@ -102,8 +90,12 @@ class ExperimentResult:
         })
         return pd.DataFrame(data=d)
 
-    def to_csv(self, record_path):
-        self.to_pandas().to_csv(joindata(record_path))
+    def to_csv(self, record_path, params={}):
+        f = open(joindata(record_path), 'a')
+        for p in params:
+            f.write(f'# {p}: {params[p]} \n')
+        self.to_pandas().to_csv(f)
+        f.close()
 
     def delay_hist(self):
         raise RuntimeError("move this over from the scripts")

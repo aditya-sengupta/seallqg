@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import multiprocessing as mp
 
-from .ao import * #utility functions to use throughout the simulation
+from .utils import * #utility functions to use throughout the simulation
 from .par_functions import return_vars, propagate, scc, make_IM, make_cov, make_covinvrefj
 from ..utils import joinsimdata
 

@@ -13,7 +13,7 @@ import matplotlib as mpl
 import multiprocessing as mp
 import tqdm
 
-from .ao import * #utility functions to use throughout the simulation
+from .utils import * #utility functions to use throughout the simulation
 from .calibrate_scc import make_im_scc_howfs
 from .par_functions import return_vars,propagate,scc,make_IM,make_cov,make_covinvrefj
 from .calibrate_scc_lowfs import sccref,indmask,immask,zrefarr,covinvcor_lowfs

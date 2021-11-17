@@ -9,10 +9,9 @@ from os import path
 import tqdm
 
 from ..utils import joindata
-from .image import optics
-from .ao import image_to_pupil, complex_amplitude, pupil_to_image
+from .utils import image_to_pupil, complex_amplitude, pupil_to_image
 
-def flatten():
+def flatten(optics):
 	expt_init = optics.get_expt()
 	optics.set_expt(1e-4)
 
@@ -143,16 +142,16 @@ def flatten():
 	wfarr=np.zeros(numiter)
 	for nit in range(numiter):
 		tar_ini = optics.stackslopes(10)#-refslopes
-		tar=np.array([tar_ini[0][wf_ind],tar_ini[1][wf_ind]]).flatten().T
+		tar = np.array([tar_ini[0][wf_ind],tar_ini[1][wf_ind]]).flatten().T
 		tar[np.where(np.isnan(tar)==True)]=0 #shouldn't need this line, but again, incase of misregistrations...
-		coeffs=np.dot(tar,cmd_mtx)
-		cmd=np.zeros(dmcini.shape).astype(np.dtype(np.float32)).flatten()
-		cmd[inddmuse]=(act_arr.T*-1*coeffs).flatten()
+		coeffs = np.dot(tar,cmd_mtx)
+		cmd = np.zeros(dmcini.shape).astype(np.dtype(np.float32)).flatten()
+		cmd[inddmuse] = (act_arr.T*-1*coeffs).flatten()
 		optics.applydmc(leak*optics.getdmc()+rmtt(cmd.reshape(dmcini.shape)*gain))
 		time.sleep(tsleep)
 		wfarr[nit]=np.std(optics.getwf()[wf_ind])
 
-	wfe=optics.stackwf(10)
+	wfe = optics.stackwf(10)
 	print(np.nanstd(wfs[wf_ind])/np.nanstd(wfe[wf_ind]))
 	optics.set_expt(expt_init)
 	np.save(optics.bestflat_path, optics.getdmc())

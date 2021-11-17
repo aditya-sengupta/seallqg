@@ -11,10 +11,10 @@ import numpy as np
 import matplotlib as mpl
 from matplotlib import pyplot as plt
 
-from .image import optics
+from .optics import optics
 from .process_zern import processim, funz
 from .process_zern import aperture, indap, remove_piston, tip, tilt
-from .ao import polar_grid
+from .utils import polar_grid
 from ..utils import joindata
 from ..constants import tsleep
 

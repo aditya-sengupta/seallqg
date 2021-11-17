@@ -36,6 +36,7 @@ class KalmanLQG:
         self.L = -np.linalg.pinv(self.R + self.B.T @ self.Pcon @ self.B) @ self.B.T @ self.Pcon @ self.A
         self.process_dist = mvn(cov=self.W, allow_singular=True)
         self.measure_dist = mvn(cov=self.V, allow_singular=True)
+        self.curr_control = np.zeros((self.input_size,))
 
     @property
     def state_size(self):
@@ -62,7 +63,8 @@ class KalmanLQG:
         return self.C @ self.x
 
     def control(self):
-        return self.L @ np.linalg.matrix_power(self.A, 10) @ self.x
+        self.curr_control = self.L @ self.x
+        return self.curr_control
 
     def filter(self, measurements, x0):
         steps = len(measurements)

@@ -15,7 +15,7 @@ import multiprocessing as mp
 from tqdm.contrib.concurrent import process_map
 # from toolz import pipe
 
-from .ao import * 
+from .utils import * 
 from .par_functions import return_vars, propagate, scc, make_IM, make_cov, make_covinvrefj
 from ..utils import joinsimdata
 
