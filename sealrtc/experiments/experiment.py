@@ -24,6 +24,7 @@ from ..utils import get_timestamp, spin, spinlock, joindata
 from ..optics import optics
 from ..optics import measure_zcoeffs, make_im_cm
 from ..optics import align
+from ..optics import zcoeffs_to_dmc
 
 class Experiment:
 	"""
@@ -49,7 +50,9 @@ class Experiment:
 		self.verbose = verbose
 		self.logger = None # if you ever run into this, you're trying to analyze a log of a run that hasn't happened yet
 		self.params = dict(kwargs)
-		self.disturbance = dist_maker(dur, **kwargs)
+		nsteps = int(np.ceil(dur / dt))
+		self.disturbance = np.zeros((nsteps,2))
+		self.disturbance[nsteps // 2, :] = 1.0
 		self.iters = 0
 
 	def update_logger(self):
@@ -69,6 +72,8 @@ class Experiment:
 		self.logger.addHandler(stdout_handler)
 
 	def iterate(self, controller):
+		dist = np.pad(self.disturbance[self.iters, :], (0,3))
+		self.optics.applydmc(zcoeffs_to_dmc(dist))
 		imval = self.optics.getim()
 		self.iters += 1
 		self.logger.info(f"Exposure    {self.iters}: {[mns()]}")
