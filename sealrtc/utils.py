@@ -46,14 +46,20 @@ def rms(data, places=8):
 		places
 	)
 
-def rmsz0(data, places=8):
-	return rms(data[:,0], places)
+def meanstd(data, places=5):
+	return f"{round(np.mean(data), places)} $\\pm$ {round(np.std(data), places)}"
 
-def rmsz1(data, places=8):
-	return rms(data[:,1], places)
+def rmsz0(result, places=8):
+	return rms(result.measurements[:,0], places)
 
-def ratio(function, data1, data2, **kwargs):
-	return function(data1, **kwargs) / function(data2, **kwargs)
+def rmsz1(result, places=8):
+	return rms(result.measurements[:,1], places)
+
+def ratio(function, data1, data2, places=5, **kwargs):
+	return round(function(data1, **kwargs) / function(data2, **kwargs), places)
+
+def rms_ratios(res1, res2):
+	return [ratio(r, res1, res2) for r in [rmsz0, rmsz1]]
 
 def get_timestamp():
 	return datetime.now().strftime("%Y_%m_%d_%H_%M_%S")

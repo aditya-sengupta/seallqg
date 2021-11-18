@@ -1,5 +1,3 @@
-# authored by Aditya Sengupta
-
 """
 These are constants for simulation mode; in hardware mode, these will be overridden by actual data.
 """

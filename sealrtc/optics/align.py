@@ -31,7 +31,7 @@ def align(optics, manual=True, view=True):
 				else:
 					func = applytilt
 				amp = float(input("Input amplitude: "))
-				func(amp)
+				func(optics, amp)
 		
 	#MANUALLY USE ABOVE FUNCTIONS TO STEER THE PSF BACK ONTO THE FPM AS NEEDED, then:
 	bestflat = optics.getdmc()

@@ -11,6 +11,7 @@ from queue import Queue
 from abc import ABC
 import numpy as np
 from copy import copy
+
 from time import monotonic_ns as mns
 
 from .utils import LogRecord_ns, Formatter_ns
@@ -24,7 +25,7 @@ from ..utils import get_timestamp, spin, spinlock, joindata
 from ..optics import optics
 from ..optics import measure_zcoeffs, make_im_cm
 from ..optics import align
-from ..optics import zcoeffs_to_dmc
+from ..optics import zcoeffs_to_dmc, applytip, applytilt
 
 class Experiment:
 	"""
@@ -51,8 +52,7 @@ class Experiment:
 		self.logger = None # if you ever run into this, you're trying to analyze a log of a run that hasn't happened yet
 		self.params = dict(kwargs)
 		nsteps = int(np.ceil(dur / dt))
-		self.disturbance = np.zeros((nsteps,2))
-		self.disturbance[nsteps // 2, :] = 1.0
+		self.disturbance = dist_maker(dur, **kwargs)
 		self.iters = 0
 
 	def update_logger(self):
@@ -72,8 +72,9 @@ class Experiment:
 		self.logger.addHandler(stdout_handler)
 
 	def iterate(self, controller):
-		dist = np.pad(self.disturbance[self.iters, :], (0,3))
-		self.optics.applydmc(zcoeffs_to_dmc(dist))
+		applytilt(optics, self.disturbance[self.iters, 0])
+		applytip(optics, self.disturbance[self.iters, 1])
+		self.logger.info(f"Disturbance {self.iters}: {self.disturbance[self.iters, :]}")
 		imval = self.optics.getim()
 		self.iters += 1
 		self.logger.info(f"Exposure    {self.iters}: {[mns()]}")
@@ -93,9 +94,9 @@ class Experiment:
 		i = 0
 		while np.any(np.abs(baseline_zvals) > 1e-3):
 			self.logger.info(f"The system may not be aligned: baseline Zernikes is {baseline_zvals.flatten()}.")
-			self.optics.align(manual=False, view=False)
-			_, self.cmd_mtx = make_im_cm(rcond=rcond)
-			bestflat, self.imflat = self.optics.refresh(verbose)
+			align(self.optics, manual=False, view=False)
+			_, self.cmd_mtx = make_im_cm(rcond=self.rcond)
+			bestflat, self.imflat = self.optics.refresh(self.verbose)
 			baseline_zvals = measure_zcoeffs(self.optics.getim() - self.imflat, cmd_mtx=self.cmd_mtx)
 			i += 1
 			if i > 10: # arbitrary
@@ -147,8 +148,8 @@ long_wait = Experiment(make_noise, 100)
 ustep_tilt = Experiment(make_ustep, 1, tilt_amp=0.005, tip_amp=0.0)
 ustep_tip = Experiment(make_ustep, 1, tilt_amp=0.0, tip_amp=0.005)
 
-sine_one = Experiment(make_sine, 10, amp=0.005, ang=np.pi/4, f=1)
-sine_five = Experiment(make_sine, 10, amp=0.005, ang=np.pi/4, f=5)
+sine_one = Experiment(make_sine, 10, amp=0.003, ang=np.pi/4, f=1)
+sine_five = Experiment(make_sine, 10, amp=0.003, ang=np.pi/4, f=5)
 
 # and some controllers from the controller submodule
 ol = make_openloop()

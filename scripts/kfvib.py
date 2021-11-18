@@ -62,7 +62,7 @@ klqg.R *= 1000
 # end modifications
 klqg.recompute()
 
-experiment = Experiment(make_sine, dur=1, amp=amp, ang=ang, f=f)
+experiment = Experiment(make_sine, dur=10, amp=amp, ang=ang, f=f)
 def run():
     return experiment.run(make_lqg(klqg))
    

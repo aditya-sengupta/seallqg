@@ -117,8 +117,6 @@ def linearity(nlin=20, plot=True, rcond=1e-3):
 			zernamp = zernamparr[i]
 			coeffsout = genzerncoeffs(nm, zernamp, cmd_mtx, bestflat, imflat).flatten()
 			zernampout[nm,:,i] = coeffsout
-		for j in range(2):
-			print(f"Percentage deviation for {nm}, mode {j}: {100 * (zernampout[nm,j,:] - zernamp) / zernamp}")
 
 	optics.applybestflat()
 

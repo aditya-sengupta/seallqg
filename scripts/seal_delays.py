@@ -17,7 +17,7 @@ if __name__ == "__main__":
     control_delays = (res.tdmc - res.tmeas) * fs
     total_delays = (res.tdmc - res.texp) * fs
 
-    #fig, axs = plt.subplots(1,3, figsize=(12,8))
+    fig, axs = plt.subplots(1,3, figsize=(12,8))
     def plot_delay_hist(data, i, xlabel, title):
         bins = int(max(data) * 1000 / fs) + 1
         axs[i].hist(data, bins=min(100, bins), range = (0, min(5, max(total_delays))))
@@ -31,7 +31,7 @@ if __name__ == "__main__":
         (control_delays, "Exposure to measurement", "Controller")
     ]):
         print(f"{title}: {get_meanstd(data)}")
-        #plot_delay_hist(data, i, xlabel, title)
-    #fig.suptitle("Delays in the AO loop on SEAL, in #frames")
-    #plt.show()
+        plot_delay_hist(data, i, xlabel, title)
+    fig.suptitle("Delays in the AO loop on SEAL, in #frames")
+    plt.show()
     #plt.savefig("../plots/seal_delay.pdf")
