@@ -50,6 +50,7 @@ class Experiment:
 		self.logger = None # if you ever run into this, you're trying to analyze a log of a run that hasn't happened yet
 		self.params = dict(kwargs)
 		self.disturbance = dist_maker(dur, **kwargs)
+		self.iters = 0
 
 	def update_logger(self):
 		logging.setLogRecordFactory(LogRecord_ns)
@@ -66,69 +67,18 @@ class Experiment:
 		file_handler.setFormatter(formatter)
 		self.logger.addHandler(file_handler)
 		self.logger.addHandler(stdout_handler)
-		
-	def record(self, q):
-		"""
-		Get images from the optics system, put them in the output queue,
-		and record the times at which images are received.
-		"""
 
-		self.num_exposures = 0
-		self.logger.info("Recording initialized.")
-		t_start = mns()
-		dur_ns = self.dur * 1e9
-		spinlock(0.05)
-		def get_exposure():
-			imval = self.optics.getim()
-			t = mns()
-			q.put((self.num_exposures, t, imval))
-			self.logger.info(f"Exposure    {self.num_exposures}: {[t]}")
-			self.num_exposures += 1
+	def iterate(self, controller):
+		imval = self.optics.getim()
+		self.iters += 1
+		self.logger.info(f"Exposure    {self.iters}: {[mns()]}")
+		imdiff = imval - self.imflat
+		z = measure_zcoeffs(imdiff, self.cmd_mtx).flatten()
+		self.logger.info(f"Measurement {self.iters}: {z}")
+		u, dmc = controller(z)
+		self.optics.applydmc(dmc)
+		self.logger.info(f"DMC         {self.iters}: {u}")
 
-		spin(get_exposure, dt, self.dur)
-
-		q.put((0, 0, None))
-		self.num_exposures = 0
-		# this is a placeholder to tell the queue that there's no more images coming
-
-	def compute(self, in_q, out_q):
-		"""
-		Takes in images from the queue `in_q`,
-		and converts them to Zernike coefficient values 
-		which get sent to the queue `out_q`.
-		"""
-		img = 0 # non-None start value
-		while img is not None:
-			i, t, img = in_q.get()
-			in_q.task_done()
-			if img is not None:
-				imdiff = img - self.imflat
-				zval = measure_zcoeffs(imdiff, self.cmd_mtx).flatten()
-				self.logger.info(f"Measurement {i}: {zval}")
-				out_q.put((i, t, zval))
-		out_q.put((0, 0, None))
-
-	def control(self, q, controller):
-		u = None # the most recently applied control command
-		t1 = mns()
-		t = t1
-		# frame_delay = 2
-		z = 0 # non-None start value
-		closed = not self.half_close
-
-		while z is not None:
-			i, t_exp, z = q.get()
-			q.task_done()
-			if z is not None:
-				u, dmc = controller(z)
-				if closed:
-					#if t - t_exp < (frame_delay * dt):
-					#	zeno((frame_delay * dt) - (time.time() - t_exp))
-					self.optics.applydmc(dmc)
-					self.logger.info(f"DMC         {i}: {u}")
-				elif (mns() >= t + (self.dur / 2) * 1e9):
-					closed = True
-		
 	def check_alignment(self):
 		_, self.cmd_mtx = make_im_cm(rcond=self.rcond, verbose=self.verbose)
 		bestflat = np.load(self.optics.bestflat_path)
@@ -168,29 +118,13 @@ class Experiment:
 		if self.half_close:
 			self.logger.info("Closing the loop halfway into the experiment.")
 
-		q_compute = Queue()
-		q_control = Queue()
-		record_process = Process(target=self.record, args=(q_compute,))
-		compute_process = Process(target=self.compute, args=(q_compute, q_control,))
-		control_process = Process(target=self.control, args=(q_control, controller,))
-		disturb_process = Process(target=self.disturbance, args=(self.logger,))
-
 		self.logger.info("Starting recording and commands.")
 
-		record_process.start()
-		compute_process.start()
-		control_process.start()
-		disturb_process.start()
-
-		q_compute.join()
-		q_control.join()
-		record_process.join(self.dur)
-		compute_process.join(self.dur)
-		control_process.join(self.dur)
-		disturb_process.join(self.dur)
+		spin(lambda: self.iterate(controller), self.dt, self.dur)
 
 		self.logger.info("Done with experiment.")
 		self.optics.applydmc(bestflat)
+		self.iters = 0
 		print(f"Experiment finished, log written to {self.log_path}")
 
 		result = result_from_log(self.timestamp, self.log_path)

@@ -88,12 +88,12 @@ def spin(process, dt, dur):
 	ticks_loop = int(np.ceil(dur / 1e-9))
 	ticks_inner = int(np.ceil(dt / 1e-9))
 	while mns() - t0 <= ticks_loop:
-		t1 += ticks_inner
 		process()
 		i = 0
 		time.sleep(dt / 2)
 		while mns() - t1 <= ticks_inner:
 			i += 1
+		t1 += ticks_inner
 
 # keck TTs deleted 2021-10-14
 
