@@ -11,9 +11,6 @@ from matplotlib import pyplot as plt
 
 np.random.seed(5)
 
-if optics.name == "Sim":
-    optics.set_wait()
-
 dmc2wf = np.load(joindata("bestflats", "lodmc2wfe.npy"))
 amp, ang = 0.005, np.pi / 4
 f = 1

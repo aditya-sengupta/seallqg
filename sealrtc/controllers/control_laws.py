@@ -5,7 +5,7 @@ and further arguments that are filled in by the Controller constructor.
 """
 
 import numpy as np
-from ..optics import optics, zcoeffs_to_dmc
+from ..optics import optics
 
 def nothing(state):
     """
@@ -33,7 +33,7 @@ def integrate(state, gain, leak):
     command : np.ndarray, (ydim, xdim)
     The command to be put on the DM.
     """
-    dmcn = zcoeffs_to_dmc(np.pad(state, (0,3)))
+    dmcn = optics.zcoeffs_to_dmc(np.pad(state, (0,3)))
     return state, gain * dmcn + leak * optics.getdmc()
     
 def lqr(state, klqg):
@@ -43,4 +43,4 @@ def lqr(state, klqg):
     u = klqg.control()
     # TODO generalize
     u = np.pad(u, (0,3))
-    return u, optics.getdmc() + zcoeffs_to_dmc(u)
+    return u, optics.getdmc() + optics.zcoeffs_to_dmc(u)

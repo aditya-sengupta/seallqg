@@ -1,5 +1,3 @@
-# authored by Benjamin Gerard and Aditya Sengupta
-
 import numpy as np
 import time
 from datetime import datetime
@@ -10,10 +8,12 @@ from scipy.ndimage.filters import median_filter
 
 from ..utils import joindata
 from .utils import mtf
-from .process_zern import mtfgrid, sidemaskind
-from .process_zern import applytip, applytilt, tip, tilt, aperture, grid, ydim, xdim, remove_piston
 
 def align(optics, manual=True, view=True):
+	mtfgrid, sidemaskind = optics.mtfgrid, optics.sidemaskind
+	aperture, grid = optics.aperture, optics.grid
+	ydim, xdim = optics.dmdims
+
 	expt_init = optics.get_expt()
 	optics.set_expt(1e-4)
 	time.sleep(5)
@@ -27,20 +27,20 @@ def align(optics, manual=True, view=True):
 			steer = int(input("Input manual steering command: 0 to continue, 1 for tip, 2 for tilt \n"))
 			if steer == 1 or steer == 2:
 				if steer == 1:
-					func = applytip
+					func = optics.applytip
 				else:
-					func = applytilt
+					func = optics.applytilt
 				amp = float(input("Input amplitude: "))
-				func(optics, amp)
+				func(amp)
 		
 	#MANUALLY USE ABOVE FUNCTIONS TO STEER THE PSF BACK ONTO THE FPM AS NEEDED, then:
 	bestflat = optics.getdmc()
 
 	#apply tip/tilt starting only from the bestflat point (start here if realigning the non-coronagraphic PSF) 
 	def applytiptilt(amptip,amptilt,bestflat=bestflat): #amp is the P2V in DM units
-		dmctip=amptip*tip
-		dmctilt=amptilt*tilt
-		dmctiptilt=remove_piston(dmctip)+remove_piston(dmctilt)+remove_piston(bestflat) #combining tip, tilt, and best flat
+		dmctip=amptip*optics.tip
+		dmctilt=amptilt*optics.tilt
+		dmctiptilt=optics.remove_piston(dmctip)+optics.remove_piston(dmctilt)+optics.remove_piston(bestflat) #combining tip, tilt, and best flat
 		#applydmc(aperture*dmctiptilt)
 		optics.applydmc(dmctiptilt)
 

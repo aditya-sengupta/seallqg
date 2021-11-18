@@ -1,28 +1,25 @@
-from .utils import zernike, polar_grid
-from .optics import optics
-from .process_zern import applytip, applytilt, applytiptilt, aperture, funz, tip, tilt, xdim, ydim
+from socket import gethostname
+
+sim_mode = False
+if gethostname() == "SEAL" and not sim_mode:
+	from .fast import FAST
+	optics = FAST()
+	mode = "hardware"
+else:
+	from .sim import Sim
+	optics = Sim()
+	mode = "simulation"
+
+print(f"SEAL Real-Time Controller running in {mode} mode.")
+
 from .flatten import flatten
 from .align import align
-from .compute_cmd_int import make_im_cm, measure_zcoeffs, linearity, zcoeffs_to_dmc, mz
+from .linearity import linearity, plot_linearity
 
 __all__ = [
-    "zernike",
-    "polar_grid",
-    "optics",
-    "tip",
-    "tilt",
-    "xdim",
-    "ydim",
-    "zcoeffs_to_dmc",
-    "flatten",
-    "align",
-    "applytip",
-    "applytilt",
-    "applytiptilt",
-    "aperture",
-    "funz",
-    "make_im_cm",
-    "measure_zcoeffs",
-    "linearity",
-    "mz"
+	"optics",
+	"flatten",
+	"align",
+	"linearity",
+	"plot_linearity",
 ]

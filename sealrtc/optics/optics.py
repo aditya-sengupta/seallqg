@@ -1,31 +1,178 @@
-# authored by Benjamin Gerard and Aditya Sengupta (and Sylvain Cetre?)
-
-import warnings
 import time
 from abc import ABC, abstractmethod, abstractproperty
-from copy import copy
 from os import path
 import numpy as np
-from socket import gethostname
+from scipy import fft
 
-from .par_functions import propagate
+from .utils import nmarr, polar_grid, zernike
 from ..utils import joindata
-from ..constants import dmdims, imdims, dt
-
-
-optics = None
+from ..constants import tsleep
 
 class Optics(ABC):
 	"""
 	Driver class for the DM-WFS-image loop.
 	Supports updating the DM command, viewing the image, getting slopes, images, and saving data.
 	"""
-	@property
-	def dmzero(self):
+	def set_process_vars(self):
+		self.bestflat = np.load(self.bestflat_path)
+		self.imflat = np.load(self.imflat_path)
+		self.dmzero = np.zeros(self.dmdims)
+		imydim, imxdim = self.imdims
+		ydim, xdim = self.dmdims
+		self.rho, self.phi = polar_grid(xdim, ydim)
+		self.rho[int((xdim-1)/2), int((ydim-1)/2)] = 0.00001 # avoid numerical divide by zero issues
+		grid = np.mgrid[0:ydim, 0:xdim]
+		self.tip = ((grid[0]-ydim/2+0.5)/ydim*2)
+		self.tilt = ((grid[1]-xdim/2+0.5)/ydim*2)
+
+		#make MTF side lobe mask
+		xsidemaskcen, ysidemaskcen = 240.7,161.0 #x and y location of the side lobe mask in the cropped image
+		sidemaskrad= 26.8 #radius of the side lobe mask
+		mtfgrid = np.mgrid[0:imydim, 0:imxdim]
+		sidemaskrho = np.sqrt((mtfgrid[0]-ysidemaskcen)**2+(mtfgrid[1]-xsidemaskcen)**2)
+		sidemask = np.zeros(self.imdims)
+		sidemaskind = np.where(sidemaskrho < sidemaskrad)
+		sidemask[sidemaskind] = 1
+		self.sidemask = sidemask
+
+		#central lobe MTF mask
+		yimcen,ximcen = imydim/2,imxdim/2
+		cenmaskrad = 49
+		cenmaskrho = np.sqrt((mtfgrid[0]-yimcen)**2+(mtfgrid[1]-ximcen)**2)
+		cenmask = np.zeros(self.imdims)
+		cenmaskind = np.where(cenmaskrho < cenmaskrad)
+		cenmask[cenmaskind] = 1
+
+		#pinhole MTF mask
+		pinmaskrad = 4
+		pinmask = np.zeros(self.imdims)
+		pinmaskind=np.where(cenmaskrho < pinmaskrad)
+		pinmask[pinmaskind] = 1
+
+		#DM aperture;
+		xy = np.sqrt((grid[0]-ydim/2+0.5)**2+(grid[1]-xdim/2+0.5)**2)
+		aperture = np.zeros(self.dmdims)
+		aperture[np.where(xy<ydim/2)] = 1 
+		self.indap = np.where(aperture == 1)
+		self.dmc2wf = np.load(joindata("bestflats", "lodmc2wfe.npy"))
+		#calibrated image center and beam ratio from genDH.py
+		imycen, imxcen = np.load(joindata("bestflats", "imcen.npy"))
+		beam_ratio = np.load(joindata("bestflats", "beam_ratio.npy"))
+
+		gridim = np.mgrid[0:imydim,0:imxdim]
+		rim = np.sqrt((gridim[0]-imxcen)**2+(gridim[1]-imycen)**2) # TODO double check this
+		self.ttmask = np.zeros(self.imdims)
+		rmask = 10
+		self.indttmask = np.where(rim / beam_ratio < rmask)
+		self.ttmask[self.indttmask] = 1
+		self.IMamp = 0.001
+		self.zernarr = np.zeros((len(nmarr), aperture[self.indap].shape[0]))
+		for (i, (n, m)) in enumerate(nmarr):
+			self.zernarr[i] = self.funz(n, m)[self.indap]
+	
+
+		self.make_im_cm()
+		
+	def processim(self, imin): #process SCC image, isolating the sidelobe in the FFT and IFFT back to the image
+		otf = np.fft.fftshift(fft.fft2(imin, norm='ortho')) #(1) FFT the image
+		otf_masked = otf * self.sidemask #(2) multiply by binary mask to isolate side lobe
+		Iminus = fft.ifft2(otf_masked, norm='ortho') #(3) IFFT back to the image plane, now generating a complex-valued image
+		return Iminus
+
+	def remove_piston(self, dmc):
+		return dmc - np.mean(dmc[self.indap])
+
+	def applytip(self, amp):
+		dmc = self.getdmc()
+		dmctip = amp * self.tip
+		dmc = self.remove_piston(dmc) + self.remove_piston(dmctip)
+		self.applydmc(dmc)
+
+	def applytilt(self, amp):
+		dmc = self.getdmc()
+		dmctilt = amp * self.tilt
+		dmc = self.remove_piston(dmc) + self.remove_piston(dmctilt)
+		self.applydmc(dmc)
+
+	def applytiptilt(self, amptip, amptilt): #amp is the P2V in DM units
+		dmctip = amptip * self.tip
+		dmctilt = amptilt * self.tilt
+		dmctiptilt = self.remove_piston(dmctip) + self.remove_piston(dmctilt) + self.remove_piston(bestflat) + 0.5 #combining tip, tilt, and best flat, setting mean piston to 0.5
+		return self.applydmc(dmctiptilt)
+
+	def funz(self, n, m, amp=None): #apply zernike to the DM
+		if amp is None:
+			amp = self.IMamp
+		z = zernike(n, m, self.rho, self.phi)/2
+		zdm = amp * z
+		dmc = self.remove_piston(self.remove_piston(self.bestflat) + self.remove_piston(zdm))
+		self.applydmc(dmc)
+		return zdm #even though the Zernike is applied with a best flat, return only the pure Zernike; subsequent reconstructed Zernike mode coefficients should not be applied to best flat commands
+
+	def make_im_cm(self, rcond=1e-3):
 		"""
-		The zero state for the DM.
+		Make updated interaction and command matrices.
 		"""
-		return np.zeros(self.dmdims, dtype=np.float32)
+		self.set_expt(1e-3)
+		self.refresh()
+		refvec = np.zeros((len(nmarr), self.ttmask[self.indttmask].shape[0]*2))
+		for (i, (n, m)) in enumerate(nmarr):
+			_ = self.funz(n, m)
+			time.sleep(tsleep)
+			imzern = self.stackim(10)
+			imdiff = imzern - self.imflat
+			processed_imdiff = self.processim(imdiff)
+			refvec[i] = np.array([
+				np.real(processed_imdiff[self.indttmask]),
+				np.imag(processed_imdiff[self.indttmask])
+			]).flatten()
+
+		self.int_mtx = np.dot(refvec, refvec.T) #interaction matrix
+		int_mtx_inv = np.linalg.pinv(self.int_mtx, rcond=rcond)
+		self.cmd_mtx = np.dot(int_mtx_inv, refvec)#.astype(np.float32)
+
+	def measure(self, image=None):
+		"""
+		Measures Zernike coefficient values from an image relative to the flat image.
+		"""
+		if image is None:
+			image = self.getim()
+		tar_ini = self.processim(image - self.imflat)
+		tar = np.array([np.real(tar_ini[self.indttmask]), np.imag(tar_ini[self.indttmask])])
+		tar = tar.reshape((tar.size, 1))
+		coeffs = np.dot(self.cmd_mtx, tar).flatten()
+		return coeffs * self.IMamp
+
+	def zcoeffs_to_dmc(self, zcoeffs):
+		"""
+		Converts a measured coefficient value to an ideal DM command.
+		
+		Arguments
+		---------
+		zcoeffs : np.ndarray, (ncoeffs, 1)
+		The tip and tilt values.
+
+		Returns
+		-------
+		dmc : np.ndarray
+		The corresponding DM command.
+		"""
+		dmc = np.copy(self.dmzero)
+		dmc[self.indap] = np.dot(self.zernarr.T, -zcoeffs)
+		return dmc
+
+
+	def genzerncoeffs(self, i, zernamp):
+		"""
+		i: zernike mode
+		zernamp: Zernike amplitude in DM units to apply
+		"""
+		n, m = nmarr[i]
+		_ = self.funz(n, m, zernamp)
+		time.sleep(tsleep)
+		imzern = optics.stackim(10)
+		imdiff = imzern - self.imflat
+		return self.measure(imdiff)
 
 	@property
 	def bestflat_path(self):
@@ -47,19 +194,11 @@ class Optics(ABC):
 	def applyzero(self):
 		self.applydmc(self.dmzero)
 
-	@property
-	def bestflat(self):
-		"""
-		The best-flat position from file.
-		"""
-		return np.load(self.bestflat_path)
-
-	def refresh(self, verbose=True):
+	def refresh(self):
 		self.applybestflat()
 		time.sleep(1)
-		imflat = self.stackim(100)
-		np.save(self.imflat_path, imflat)
-		return self.getdmc(), imflat
+		self.imflat = self.stackim(100)
+		np.save(self.imflat_path, self.imflat)
 
 	def stack(self, func, num_frames):
 		"""
@@ -108,127 +247,3 @@ class Optics(ABC):
 	@abstractmethod
 	def getslopes(self):
 		pass
-
-class FAST(Optics):
-	# updated 6 Oct 2021 for the new ALPAO DM
-	def __init__(self):
-		from krtc import shmlib
-		import zmq
-		self.a = shmlib.shm('/tmp/ca03dit.im.shm') 
-		self.im = shmlib.shm('/tmp/ca03im.im.shm')
-		self.b = shmlib.shm('/tmp/dm02itfStatus.im.shm')
-		status = self.b.get_data()
-		status[0,0] = 1
-		self.b.set_data(status)
-		self.dmChannel = shmlib.shm('/tmp/dm03disp01.im.shm')
-		self.dmdims = self.getdmc().shape
-		self.imdims = self.getim().shape
-		self.name = "FAST_LODM"
-		port = "5556"
-		context = zmq.Context()
-		self.socket = context.socket(zmq.REQ)
-		self.socket.connect(f"tcp://128.114.22.20:{port}")
-		self.socket.send_string("pupSize")
-		self.pup_size = np.frombuffer(self.socket.recv(), dtype=np.int32)[0]
-
-	def set_expt(self, t):
-		'''
-		change the exposure time
-
-		for the large array the smallest exposure time is around 1e-5
-		'''
-		dit = self.a.get_data()
-		dit[0][0] = t; self.a.set_data(dit)
-	
-	def get_expt(self):
-		return self.a.get_data()[0][0]
-
-	def getim(self):
-		return self.im.get_data(check=False)
-
-	def getdmc(self): # read current command applied to the DM
-		return self.dmChannel.get_data()
-
-	def applydmc(self, dmc, min_cmd=-0.2, max_cmd=0.2): #apply command to the DM
-		"""
-		Applies the DM command `dmc`, with safeguards
-		"""
-		if np.any(dmc < min_cmd):
-			warnings.warn("saturating DM zeros!")
-		if np.any(dmc > max_cmd):
-			warnings.warn("saturating DM ones!")
-		dmc = np.maximum(min_cmd, np.minimum(max_cmd, dmc))
-		dmc = np.nan_to_num(dmc)
-		self.dmChannel.set_data(dmc.astype(np.float32))
-
-	def getwf(self):
-		self.socket.send_string("wavefront")
-		data = self.socket.recv()
-		return np.frombuffer(data, dtype=np.float32).reshape(self.pup_size, self.pup_size)
-
-	def getslopes(self):
-		self.socket.send_string("slopes")
-		data = self.socket.recv()
-		slopes = np.frombuffer(data, dtype=np.float32).reshape(self.pup_size, 2*self.pup_size)
-		slopes_x = slopes[:,:self.pup_size]
-		slopes_y = slopes[:,self.pup_size:]
-		return np.array([slopes_x, slopes_y])
-
-class Sim(Optics):
-	"""
-	A simulated adaptive optics loop.
-	"""
-	def __init__(self):
-		self.dmdims = dmdims
-		self.imdims = imdims
-		self.dummy_image = np.zeros(self.imdims)
-		self.expt = 1e-3
-		self.dt = dt
-		self.dmc = copy(self.dmzero)
-		self.name = "Sim"
-		self.wait = 0
-		self.set_wait()
-	
-	def set_wait(self):
-		t0 = time.time()
-		for _ in range(10):
-			self.getim()
-		t1 = time.time()
-		self.wait = max(0, self.dt - (t1 - t0)/10)
-
-	def set_expt(self, t):
-		self.expt = t
-
-	def get_expt(self):
-		return self.expt
-
-	def getim(self):
-		return self.dummy_image
-		"""time.sleep(self.wait)
-		return propagate(self.dmc, ph=True, t_int=self.expt)"""
-
-	def stackim(self, n):
-		return self.getim()
-
-	def getdmc(self):
-		return self.dmc
-
-	def applydmc(self, dmc):
-		assert self.dmc.shape == dmc.shape
-		self.dmc = np.maximum(0, np.minimum(1, dmc))
-
-	def getslopes(self):
-		raise NotImplementedError()
-
-	def getwf(self):
-		raise NotImplementedError()
-
-sim_mode = False
-if gethostname() == "SEAL" and not sim_mode:
-	optics = FAST()
-	mode = "hardware"
-else:
-	optics = Sim()
-	mode = "simulation"
-
-print(f"SEAL Real-Time Controller running in {mode} mode.")

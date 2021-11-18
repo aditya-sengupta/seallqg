@@ -4,6 +4,13 @@ import numpy as np
 from scipy.ndimage.interpolation import shift
 from scipy.special import gamma, hyp2f1
 
+#setup Zernike polynomials
+nmarr = []
+norder = 3 #how many radial Zernike orders to look at; just start with tip/tilt
+for n in range(1, norder):
+	for m in range(-n, n+1, 2):
+		nmarr.append([n,m])
+
 p3i = lambda i: int(round(i)) #python2 to 3: change indicies that are floats to integers
 
 def pupil_to_image(im):

@@ -5,8 +5,8 @@ import warnings
 from functools import partial
 
 from ..constants import dt
-from ..utils import joindata, zeno
-from ..optics import optics, applytip, applytilt
+from ..utils import joindata
+from ..optics import optics
 
 def make_noise(dur):
     return np.zeros((int(np.ceil(dur / dt)), 2))
