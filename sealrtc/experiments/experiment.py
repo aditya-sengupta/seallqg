@@ -5,6 +5,7 @@ Core runner for SEAL experiments.
 import sys
 import logging
 from multiprocessing import Process
+from functools import partial
 
 import numpy as np
 from copy import copy
@@ -18,7 +19,7 @@ from .schedules import make_noise, make_ustep, make_train, make_sine, make_atmvi
 from ..controllers import make_openloop, make_integrator
 
 from ..constants import dt
-from ..utils import get_timestamp, spin, spinlock, joindata
+from ..utils import get_timestamp, spin, spinlock_till, joindata
 from ..optics import optics, align
 
 class Experiment:
@@ -65,8 +66,8 @@ class Experiment:
 		self.logger.addHandler(stdout_handler)
 
 	def scheduled_loop(self, action, t_start):
-    	spinlock_till(t_start)
-    	spin(action, self.dt, self.dur)
+		spinlock_till(t_start)
+		spin(action, self.dt, self.dur)
 
 	def disturb_iter(self):
 		self.optics.applytilt(self.disturbance[self.iters, 0])
@@ -121,8 +122,8 @@ class Experiment:
 		t_start = mns()
 
 		processes = [
-			Process(target=scheduled_loop, args=(partial(self.loop_iter, controller), t_start)),
-			Process(target=scheduled_loop, args=(self.disturb_iter, t_start))
+			Process(target=self.scheduled_loop, args=(partial(self.loop_iter, controller), t_start)),
+			Process(target=self.scheduled_loop, args=(self.disturb_iter, t_start))
 		]
 
 		for p in processes:

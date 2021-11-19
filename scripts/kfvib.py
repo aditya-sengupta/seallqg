@@ -55,7 +55,7 @@ def plot_cl_rtf(data, timestamp, save=False):
     plt.show()
 
 # start ad hoc modifications to the observe/control matrices
-klqg.R *= 1000
+klqg.R *= 1e6
 # end modifications
 klqg.recompute()
 

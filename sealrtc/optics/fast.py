@@ -1,4 +1,5 @@
 import time
+import warnings
 import numpy as np
 
 from .optics import Optics
