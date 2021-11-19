@@ -92,14 +92,14 @@ def spin(process, dt, dur):
 	Spin-locks around a process to do it every "dt" seconds for time "dur" seconds.
 	"""
 	start_time = mns()
-	ticks_per_iteration = ceil(dt / 1e-9)
-	next_tick = start_time + ticks_per_iteration
+	ticks_per_iter = ceil(dt / 1e-9)
+	next_tick = start_time
 	end_time = start_time + ceil(dur / 1e-9)
 
 	while mns() < end_time:
 		process()
+		next_tick += ticks_per_iter * ((mns() - next_tick) // ticks_per_iter + 1)
 		spinlock_till(next_tick)
-		next_tick += ticks_per_iteration
 	
 # keck TTs deleted 2021-10-14
 

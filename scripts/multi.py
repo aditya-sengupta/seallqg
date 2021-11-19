@@ -7,20 +7,21 @@ dt = 0.01
 dur = 0.2
 
 def act(message, delay, t0):
+    # if I put the tick handling thing in here, it simulated a perfect one frame delay
     spinlock_till(t0)
+    t1 = mns()
     def iteration():
-        print(f"{message} {(mns() - t0) / 1e9}")
+        print(f"{message} {(mns() - t1) / 1e9}")
         spinlock(delay)
 
-    
     spin(iteration, dt, dur)
 
 if __name__ == '__main__':
-    processes = []
     t0 = mns()
+    processes = []
 
-    processes.append(Process(target=act, args=("Dist", 0.006, t0)))
-    processes.append(Process(target=act, args=("Loop", 0.005, t0+1e6)))
+    processes.append(Process(target=act, args=("Dist", 0.001, t0)))
+    processes.append(Process(target=act, args=("Loop", 0.005, t0)))
 
     for p in processes:
         p.start()

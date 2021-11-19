@@ -7,7 +7,6 @@ import logging
 import warnings
 
 from threading import Thread
-from queue import Queue
 from abc import ABC
 import numpy as np
 from copy import copy
@@ -67,10 +66,12 @@ class Experiment:
 		self.logger.addHandler(file_handler)
 		self.logger.addHandler(stdout_handler)
 
-	def iterate(self, controller):
+	def disturb_iter(self):
 		self.optics.applytilt(self.disturbance[self.iters, 0])
 		self.optics.applytip(self.disturbance[self.iters, 1])
 		self.logger.info(f"Disturbance {self.iters}: {self.disturbance[self.iters, :]}")
+		
+	def loop_iter(self, controller):
 		imval = self.optics.getim()
 		self.iters += 1
 		self.logger.info(f"Exposure    {self.iters}: {[mns()]}")
@@ -116,7 +117,16 @@ class Experiment:
 
 		self.logger.info("Starting recording and commands.")
 
-		spin(lambda: self.iterate(controller), self.dt, self.dur)
+		processes = [
+			Process(target=self.loop, args=(controller)),
+			Process(target=self.disturb)
+		]
+
+		for p in processes:
+			p.start()
+
+		for p in processes:
+			p.join()
 
 		self.logger.info("Done with experiment.")
 		self.optics.applybestflat()
