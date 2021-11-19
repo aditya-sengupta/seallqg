@@ -93,6 +93,7 @@ def spin(process, dt, dur):
 	t1 = t0
 	ticks_loop = int(np.ceil(dur / 1e-9))
 	ticks_inner = int(np.ceil(dt / 1e-9))
+	time.sleep(dt / 2)
 	while mns() - t0 <= ticks_loop:
 		process()
 		i = 0
