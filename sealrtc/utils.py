@@ -83,7 +83,7 @@ def spinlock(dur):
 	i = 0
 	while mns() - t0 <= ticks:
 		i += 1
-	return (mns() - t0) * 1e-9
+	return (mns() - t0) / 1e9
 
 def spin(process, dt, dur):
 	"""
