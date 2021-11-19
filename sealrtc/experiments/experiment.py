@@ -4,10 +4,8 @@ Core runner for SEAL experiments.
 
 import sys
 import logging
-import warnings
+from multiprocessing import Process
 
-from threading import Thread
-from abc import ABC
 import numpy as np
 from copy import copy
 
@@ -21,7 +19,7 @@ from ..controllers import make_openloop, make_integrator
 
 from ..constants import dt
 from ..utils import get_timestamp, spin, spinlock, joindata
-from ..optics import optics
+from ..optics import optics, align
 
 class Experiment:
 	"""
