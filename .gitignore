@@ -1,6 +1,7 @@
 *.npy
 __pycache__/
 *.swp
+archive/
 images/
 data/
 references/
