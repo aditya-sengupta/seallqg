@@ -21,7 +21,7 @@ from ..controllers import make_openloop, make_integrator
 
 from ..constants import dt
 from ..utils import get_timestamp, spin, spinlock, joindata
-from ..optics import optics
+from ..optics import optics, align
 
 class Experiment:
 	"""
@@ -65,6 +65,10 @@ class Experiment:
 		file_handler.setFormatter(formatter)
 		self.logger.addHandler(file_handler)
 		self.logger.addHandler(stdout_handler)
+
+	def scheduled_loop(self, action, t_start):
+    	spinlock_till(t_start)
+    	spin(action, self.dt, self.dur)
 
 	def disturb_iter(self):
 		self.optics.applytilt(self.disturbance[self.iters, 0])
@@ -116,10 +120,11 @@ class Experiment:
 			self.logger.info("Closing the loop halfway into the experiment.")
 
 		self.logger.info("Starting recording and commands.")
+		t_start = mns()
 
 		processes = [
-			Process(target=self.loop, args=(controller)),
-			Process(target=self.disturb)
+			Process(target=scheduled_loop, args=(partial(self.loop_iter, controller), t_start)),
+			Process(target=scheduled_loop, args=(self.disturb_iter, t_start))
 		]
 
 		for p in processes:

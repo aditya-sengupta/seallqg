@@ -2,6 +2,7 @@ import logging
 import time
 import re
 import numpy as np
+from ..utils import spinlock_till, spin
 
 def stamp_to_seconds(t):
     h, m, s, ns = [int(x) for x in re.search(r"(\d+):(\d+):(\d+),(\d+)", t).groups()]
@@ -31,3 +32,4 @@ class Formatter_ns(logging.Formatter):
         t = time.strftime(self.default_time_format, ct)
         s = self.default_nsec_format % (t, record.created_ns - (record.created_ns // 10**9) * 10**9)
         return s
+        
