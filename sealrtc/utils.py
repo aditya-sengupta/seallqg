@@ -1,11 +1,10 @@
-# authored by Aditya Sengupta and Benjamin Gerard
-
 import time
 from time import monotonic_ns as mns
 from copy import deepcopy
 from datetime import datetime
 from os import path
 from socket import gethostname
+from math import ceil
 
 import numpy as np
 from scipy import signal, io
@@ -74,34 +73,34 @@ def zeno(dur):
 			time.sleep(max(0, (time.time() - t0 - dur)/2))
 		return time.time() - t0
 
+def spinlock_till(t):
+	"""
+	Spin-locks to precisely sleep until mns() = t
+	"""
+	i = 0
+	while mns() < t:
+		i += 1
+
 def spinlock(dur):
 	"""
 	Spin-locks to precisely sleep for time 'dur'
 	"""
-	t0 = mns()
-	ticks = int(np.ceil(dur / 1e-9))
-	i = 0
-	while mns() - t0 <= ticks:
-		i += 1
-	return (mns() - t0) / 1e9
+	spinlock_till(mns() + ceil(dur / 1e-9))
 
 def spin(process, dt, dur):
 	"""
 	Spin-locks around a process to do it every "dt" seconds for time "dur" seconds.
 	"""
-	t0 = mns()
-	t1 = t0
-	ticks_loop = int(np.ceil(dur / 1e-9))
-	ticks_inner = int(np.ceil(dt / 1e-9))
-	time.sleep(dt / 2)
-	while mns() - t0 <= ticks_loop:
-		process()
-		i = 0
-		time.sleep(dt / 2)
-		while mns() - t1 <= ticks_inner:
-			i += 1
-		t1 += ticks_inner
+	start_time = mns()
+	ticks_per_iteration = ceil(dt / 1e-9)
+	next_tick = start_time + ticks_per_iteration
+	end_time = start_time + ceil(dur / 1e-9)
 
+	while mns() < end_time:
+		process()
+		spinlock_till(next_tick)
+		next_tick += ticks_per_iteration
+	
 # keck TTs deleted 2021-10-14
 
 def make_impulse_2(overshoot, rise_time, times=np.arange(0, 1, 0.001)):
