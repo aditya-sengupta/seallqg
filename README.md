@@ -1,8 +1,10 @@
 # sealrtc
 
-Real-time control in SEAL. This is a new project built off the history of the tip-tilt control repository [here](https://github.com/aditya-sengupta/tip-tilt-control). This code base will include:
+[![DOI](https://zenodo.org/badge/429163404.svg)](https://zenodo.org/badge/latestdoi/429163404)
 
-- control code to be run on SEAL, the Santa Cruz Extreme AO Lab computer
+Real-time control on SEAL, the Santa Cruz Extreme AO Lab computer. This is a new project built off the history of the tip-tilt control repository [here](https://doi.org/10.5281/zenodo.4321008). This code base will include:
+
+- control code to be run on SEAL
 - a script to make tip-tilt aberrations (atmospheric + vibration modes)
 - control system simulations
 - analysis of experimental data
