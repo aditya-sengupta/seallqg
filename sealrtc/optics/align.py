@@ -54,7 +54,8 @@ def align(optics, manual=True, view=True):
 	cenmaskradmax, cenmaskradmin = 49, 10 #mask radii for central lobe, ignoring central part where the pinhole PSF is (if not ignored, this would bias the alignment algorithm)   
 	cenmaskind = np.where(
 		np.logical_and(
-			cenmaskrho < cenmaskradmax,cenmaskrho > cenmaskradmin
+			cenmaskrho < cenmaskradmax,
+			cenmaskrho > cenmaskradmin
 		)
 	)
 	cenmask[cenmaskind] = 1
@@ -73,7 +74,7 @@ def align(optics, manual=True, view=True):
 			cenfraction=np.sum(mtfopt[cenmaskind])/np.sum(mtfopt)
 			ttoptarr[i,j]=sidefraction+0.1/cenfraction #the factor of 0.01 is a relative weight; because we only expect the fringe visibility to max out at a few %, this attempts to give equal weight to both terms 
 
-	medttoptarr = median_filter(ttoptarr, 3) #smooth out hot pizels, attenuating noise issues
+	medttoptarr = median_filter(ttoptarr, 3) #smooth out hot pixels, attenuating noise issues
 	indopttip, indopttilt = np.where(
 		medttoptarr == np.max(medttoptarr)
 	)
@@ -94,7 +95,7 @@ def align(optics, manual=True, view=True):
 			cenfraction = np.sum(mtfopt[cenmaskind])/np.sum(mtfopt)
 			ttoptarr1[i,j] = sidefraction+0.1/cenfraction 
 
-	medttoptarr1 = median_filter(ttoptarr1, 3) #smooth out hot pizels, attenuating noise issues
+	medttoptarr1 = median_filter(ttoptarr1, 3) #smooth out hot pixels, attenuating noise issues
 	indopttip1, indopttilt1 = np.where(medttoptarr1 == np.max(medttoptarr1))
 	applytiptilt(tipamparr[indopttip1][0],tiltamparr[indopttilt1][0])
 

@@ -12,6 +12,7 @@ def make_optics():
 		mode = "simulation"
 
 	print(f"SEAL Real-Time Controller running in {mode} mode.")
+	return optics
 
 from .flatten import flatten
 from .align import align

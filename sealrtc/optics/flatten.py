@@ -127,10 +127,10 @@ def flatten(optics):
 		#ds9.view(np.flipud(cmd.reshape(dmcini.shape)))
 
 	#reference slopes from commented out code above preamble
-	refslopes=np.load(joindata('refslopes/refSlopes4ALPAOflat.npy'))
+	refslopes=np.load(joindata("refslopes", "refSlopes4ALPAOflat.npy"))
 
 	rcond=3e-1
-	cmd_mtx=np.linalg.pinv(IM,rcond=rcond)
+	cmd_mtx = np.linalg.pinv(IM, rcond=rcond)
 	numiter=20 #convergence seems around this many iterations for a gain of 0.5
 	gain=0.5
 	leak=1

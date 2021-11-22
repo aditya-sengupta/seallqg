@@ -71,7 +71,6 @@ class Optics(ABC):
 		for (i, (n, m)) in enumerate(nmarr):
 			self.zernarr[i] = self.funz(n, m)[self.indap]
 	
-
 		self.make_im_cm()
 		
 	def processim(self, imin): #process SCC image, isolating the sidelobe in the FFT and IFFT back to the image
