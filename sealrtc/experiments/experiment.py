@@ -4,10 +4,9 @@ Core runner for SEAL experiments.
 
 import sys
 import logging
-import warnings
+from multiprocessing import Process
+from functools import partial
 
-from threading import Thread
-from abc import ABC
 import numpy as np
 from copy import copy
 
@@ -121,8 +120,8 @@ class Experiment:
 		t_start = mns()
 
 		processes = [
-			Process(target=scheduled_loop, args=(partial(self.loop_iter, controller), t_start)),
-			Process(target=scheduled_loop, args=(self.disturb_iter, t_start))
+			Process(target=self.scheduled_loop, args=(partial(self.loop_iter, controller), t_start)),
+			Process(target=self.scheduled_loop, args=(self.disturb_iter, t_start))
 		]
 
 		for p in processes:

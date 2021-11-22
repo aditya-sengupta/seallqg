@@ -1,4 +1,5 @@
 import time
+import warnings
 import numpy as np
 
 from .optics import Optics
@@ -19,6 +20,7 @@ class FAST(Optics):
 		self.dmdims = self.getdmc().shape
 		self.imdims = self.getim().shape
 		self.name = "FAST_LODM"
+		self.set_process_vars()
 		port = "5556"
 		context = zmq.Context()
 		self.socket = context.socket(zmq.REQ)

@@ -33,6 +33,7 @@ class Optics(ABC):
 		sidemask = np.zeros(self.imdims)
 		sidemaskind = np.where(sidemaskrho < sidemaskrad)
 		sidemask[sidemaskind] = 1
+		self.mtfgrid = mtfgrid
 		self.sidemask = sidemask
 
 		#central lobe MTF mask

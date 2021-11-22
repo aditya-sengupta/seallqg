@@ -6,15 +6,15 @@ from .utils import *
 def make_experiments():
     optics = make_optics
     # Some predefined experiments
-    short_wait = Experiment(make_noise, 1)
-    med_wait = Experiment(make_noise, 10)
-    long_wait = Experiment(make_noise, 100)
+    short_wait = Experiment(make_noise, 1, optics)
+    med_wait = Experiment(make_noise, 10, optics)
+    long_wait = Experiment(make_noise, 100, optics)
 
-    ustep_tilt = Experiment(make_ustep, 1, tilt_amp=0.005, tip_amp=0.0)
-    ustep_tip = Experiment(make_ustep, 1, tilt_amp=0.0, tip_amp=0.005)
+    ustep_tilt = Experiment(make_ustep, 1, optics, tilt_amp=0.005, tip_amp=0.0)
+    ustep_tip = Experiment(make_ustep, 1, optics, tilt_amp=0.0, tip_amp=0.005)
 
-    sine_one = Experiment(make_sine, 10, amp=0.003, ang=np.pi/4, f=1)
-    sine_five = Experiment(make_sine, 10, amp=0.003, ang=np.pi/4, f=5)
+    sine_one = Experiment(make_sine, 10, optics, amp=0.003, ang=np.pi/4, f=1)
+    sine_five = Experiment(make_sine, 10, optics, amp=0.003, ang=np.pi/4, f=5)
 
     # and some controllers from the controller submodule
     ol = make_openloop()

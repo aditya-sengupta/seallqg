@@ -1,52 +1,18 @@
 import numpy as np
 from matplotlib import pyplot as plt
-import sys
-import re
-from os.path import join
+from sealrtc import loadres
+from sealrtc import joindata
 
 fs = 100
 
-def stamp_to_seconds(t):
-    h, m, s, ms = [int(x) for x in re.search("(\d+):(\d+):(\d+),(\d+)", t).groups()]
-    return 3600 * h + 60 * m + s + 0.001 * ms
+good_run = "2021_11_19_08_44_34"
 
-good_runs = ["07_02_14", "07_04_45", "08_11_19", "08_11_46"]
+res = loadres("lqg/klqg_nstate_18_amp_0.005_ang_0.7854_f_1_tstamp_2021_11_19_08_44_34.csv")
+exposures = res.texp
+measures = res.tmeas
+dmcs = res.tdmc
 
-exposures = []
-measures = []
-dmcs = []
-
-total_nframes = 0
-for fname in good_runs:
-    with open(join("..", "data", "log", f"log_13_11_2021_{fname}.log")) as file:
-        final_frame = np.inf
-        for line in file:
-            time = re.search("\d+:\d+:\d+,\d+", line)[0]
-            seconds = stamp_to_seconds(time)
-            event = re.search("INFO \| (.+)", line)[1]
-            if not any([event.startswith(x) for x in ["Exposure", "Measurement", "DMC"]]):
-                continue
-            frame_num = re.search("\d+", event)
-            if frame_num:
-                frame_num = int(frame_num[0])
-            if event.startswith("Exposure"):
-                exposures.append(seconds)
-            elif event.startswith("Measurement"):
-                measures.append(seconds)
-            elif event.startswith("DMC"):
-                dmcs.append(seconds)
-                final_frame = frame_num
-        total_nframes += final_frame
-        exposures = exposures[:total_nframes]
-        measures = measures[:total_nframes]
-        dmcs = dmcs[:total_nframes]
-
-t0 = exposures[0]
-exposures = np.array(exposures) - t0
-measures = np.array(measures) - t0
-dmcs = np.array(dmcs) - t0
-
-nstart = 1200
+nstart = 600
 npoints = 30
 tstart = exposures[nstart]
 plt.figure(figsize=(8,6))
