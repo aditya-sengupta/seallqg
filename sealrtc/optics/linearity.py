@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib as mpl
 from matplotlib import pyplot as plt
 
+from .utils import nmarr
 from ..utils import joindata, get_timestamp
 
 def linearity(optics, nlin=20, plot=True, save=True, rcond=1e-3):
@@ -42,9 +43,11 @@ def plot_linearity(zernamparr, zernampout, rcond=None):
 	else:
 		conv = 1
 		unit = "DM units"
-	fig, axs=plt.subplots(ncols=3,nrows=2,figsize=(12,10),sharex=True,sharey=True)
+	fig, axs = plt.subplots(ncols=3,nrows=2,figsize=(12,10),sharex=True,sharey=True)
 	if rcond is not None:
 		fig.suptitle(f"rcond = {rcond}")
+	else:
+		fig.suptitle("Linearity in the first five Zernike modes on FAST")
 
 	colors = mpl.cm.viridis(np.linspace(0,1,len(nmarr)))
 	axarr=[axs[0,0],axs[0,1],axs[0,2],axs[1,0],axs[1,1],axs[1,2]]

@@ -24,14 +24,17 @@ def align(optics, manual=True, view=True):
 	if manual:
 		steer = -1
 		while steer != 0:
-			steer = int(input("Input manual steering command: 0 to continue, 1 for tip, 2 for tilt \n"))
-			if steer == 1 or steer == 2:
-				if steer == 1:
-					func = optics.applytip
-				else:
-					func = optics.applytilt
-				amp = float(input("Input amplitude: "))
-				func(amp)
+			try:
+				steer = int(input("Input manual steering command: 0 to continue, 1 for tip, 2 for tilt \n"))
+				if steer == 1 or steer == 2:
+					if steer == 1:
+						func = optics.applytip
+					else:
+						func = optics.applytilt
+					amp = float(input("Input amplitude: "))
+					func(amp)
+			except ValueError:
+				continue
 		
 	#MANUALLY USE ABOVE FUNCTIONS TO STEER THE PSF BACK ONTO THE FPM AS NEEDED, then:
 	bestflat = optics.getdmc()

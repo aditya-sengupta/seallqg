@@ -25,13 +25,8 @@ if __name__ == '__main__':
     with Pool() as pool:
         pool.starmap(act, [("Dist", 0.001, t0), ("Loop", 0.005, t0)])
 
-<<<<<<< HEAD
-    """processes.append(Process(target=act, args=("Dist", 0.001, t0)))
-    processes.append(Process(target=act, args=("Loop", 0.005, t0)))
-=======
-    processes.append(Process(target=act, args=("Dist", 0.006, t0, True)))
+    """processes.append(Process(target=act, args=("Dist", 0.006, t0, True)))
     processes.append(Process(target=act, args=("Loop", 0.005, t0, False)))
->>>>>>> 6aa6cfab3a5741f3f39267ab7871d456fc78cecf
 
     for p in processes:
         p.start()

@@ -4,22 +4,15 @@ Module containing all the possible experiments, and how to run them.
 
 from .exp_result import *
 from .experiment import *
+from .schedules import *
 
 __all__ = [
     "Experiment",
     "ExperimentResult",
     "loadres",
-    "short_wait",
-    "med_wait",
-    "long_wait",
-    "sine_one",
-    "sine_five",
-    "ol",
-    "integ",
-    "olnone",
-    "olsin1",
-    "olsin5",
-    "intnone",
-    "intsin1",
-    "intsin5"
+    "make_noise",
+    "make_ustep",
+    "make_train",
+    "make_sine",
+    "make_atmvib"
 ]

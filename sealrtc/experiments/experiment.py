@@ -17,11 +17,9 @@ from .utils import LogRecord_ns, Formatter_ns
 from .exp_result import ExperimentResult, result_from_log
 from .schedules import make_noise, make_ustep, make_train, make_sine, make_atmvib
 
-from ..controllers import make_openloop, make_integrator
-
 from ..constants import dt
 from ..utils import get_timestamp, spin, spinlock, joindata
-from ..optics import optics, align
+from ..optics import align # TODO remove cross submodule dependency
 
 class Experiment:
 	"""
@@ -37,7 +35,7 @@ class Experiment:
 
 	They accept the controller as an argument to `run`.
 	"""
-	def __init__(self, dist_maker, dur, optics=optics, dt=dt, half_close=False, verbose=True, **kwargs):
+	def __init__(self, dist_maker, dur, optics, dt=dt, half_close=False, verbose=True, **kwargs):
 		self.dur = dur
 		self.optics = optics
 		self.dt = dt
@@ -67,8 +65,8 @@ class Experiment:
 		self.logger.addHandler(stdout_handler)
 
 	def scheduled_loop(self, action, t_start):
-    	spinlock_till(t_start)
-    	spin(action, self.dt, self.dur)
+		spinlock_till(t_start)
+		spin(action, self.dt, self.dur)
 
 	def disturb_iter(self):
 		self.optics.applytilt(self.disturbance[self.iters, 0])
@@ -145,27 +143,3 @@ class Experiment:
 
 		return result
 
-# Some predefined experiments
-short_wait = Experiment(make_noise, 1)
-med_wait = Experiment(make_noise, 10)
-long_wait = Experiment(make_noise, 100)
-
-ustep_tilt = Experiment(make_ustep, 1, tilt_amp=0.005, tip_amp=0.0)
-ustep_tip = Experiment(make_ustep, 1, tilt_amp=0.0, tip_amp=0.005)
-
-sine_one = Experiment(make_sine, 10, amp=0.003, ang=np.pi/4, f=1)
-sine_five = Experiment(make_sine, 10, amp=0.003, ang=np.pi/4, f=5)
-
-# and some controllers from the controller submodule
-ol = make_openloop()
-integ = make_integrator()
-
-# Some pairings of experiments with controllers (zero-argument runnable functions from the Python interpreter)
-olnone = lambda: med_wait.run(ol)
-olsin1 = lambda: sine_one.run(ol)
-olsin5 = lambda: sine_five.run(ol)
-intnone = lambda: med_wait.run(integ)
-intsin1 = lambda: sine_one.run(integ)
-intsin5 = lambda: sine_five.run(integ)
-
-# uconvert_ratio removed 2021-11-17 at commit just after 6a207e3
