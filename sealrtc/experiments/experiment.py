@@ -108,10 +108,18 @@ class Experiment:
 		p += f"_tstamp_{self.timestamp}.csv"
 		return p
 
-	def run(self, con):
+	def simulate(self, con, measure_std=0.001):
+		states = np.zeros((len(self.disturbance), 2))
+		states[0] = self.disturbance[0]
+		for i in trange(1, len(self.disturbance)):
+			measurement = states[i-1] + np.random.normal(0, measure_std, (2,))
+			states[i] = states[i-1] + self.disturbance[i] + controller(measurement)[0]
+
+		return states
+
+	def run(self, controller):
 		if self.verbose:
 			print("Starting experiment.")
-		root_path, controller = con
 		self.timestamp = get_timestamp()
 		self.update_logger()
 		self.check_alignment()
@@ -140,7 +148,7 @@ class Experiment:
 		result = result_from_log(self.timestamp, self.log_path)
 
 		if self.optics.name != "Sim":
-			result.to_csv(self.record_path(root_path), self.params)
+			result.to_csv(self.record_path(controller.root_path), self.params)
 
 		return result
 

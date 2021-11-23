@@ -3,7 +3,7 @@ import scipy.linalg as la
 
 from sealrtc.utils import rms
 from sealrtc.controllers.dare import solve_dare, check_dare
-from sealrtc.controllers.kalmanlqg import KalmanLQG
+from sealrtc.controllers.lqg import LQG
 
 np.random.seed(5)
 
@@ -20,7 +20,7 @@ W, V = Wr @ Wr.T, Vr @ Vr.T
 Q = np.eye(s)
 R = np.eye(p)
 
-klqg = KalmanLQG(A, B, C, W, V, Q, R)
+klqg = LQG(A, B, C, W, V, Q, R)
 Ppr = solve_dare(A.T, C.T * 0, W, V)
 
 print(f"Controlled process covariance: {C @ klqg.Pcon @ C.T}")

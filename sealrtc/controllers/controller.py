@@ -1,32 +1,31 @@
-import numpy as np
+from abc import ABC
 from functools import partial
 
+import numpy as np
+
 from ..utils import joindata
-from .integrator import Integrator
-from .observe_laws import identity, kfilter
-from .control_laws import nothing, integrate, lqr
 
-def controller(measurement, observe_law, control_law):
-    state = observe_law(measurement[:2]) # TODO generalize
-    return control_law(state)
+class Controller(ABC):
+    def __call__(self, measurement):
+        return self.control_law(self.observe_law(measurement))
 
-def make_openloop():
-    return joindata("openloop", "ol"), partial(
-        controller, 
-        observe_law=identity, 
-        control_law=nothing
-    )
+class Openloop(Controller):
+    def __init__(self):
+        self.root_path = joindata("openloop", "ol")
+        self.observe = lambda measurement: measurement
+        self.control_law = lambda state: np.array([0, 0]), 1
 
-def make_integrator(integ=Integrator()):
-    return joindata("integrator", f"int_gain_{integ.gain}_leak_{integ.leak}"), partial(
-        controller, 
-        observe_law=identity, 
-        control_law=partial(integrate, integ=integ)
-    )
+class Integrator(Controller):
+    def __init__(self, gain=0.1, leak=1.0):
+        self.root_path = joindata("integrator", f"int_gain_{gain}_leak_{leak}")
+        self.gain = gain
+        self.leak = leak
+        self.observe = lambda measurement: measurement
+        self.curr_control = np.zeros((2,))
 
-def make_lqg(klqg):
-    return joindata("lqg", f"klqg_nstate_{klqg.state_size}"), partial(
-        controller, 
-        observe_law=partial(kfilter, klqg=klqg), 
-        control_law=partial(lqr, klqg=klqg)
-    )
+    def reset(self):
+        self.curr_control = np.zeros((2,))
+        
+    def control_law(self, meas):
+        self.curr_control = -(self.gain * meas + self.leak * self.curr_control)
+        return self.curr_control, self.leak

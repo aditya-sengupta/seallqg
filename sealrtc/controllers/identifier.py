@@ -4,14 +4,14 @@ import numpy as np
 from scipy import optimize, signal, stats
 from copy import copy
 
-from .kalmanlqg import KalmanLQG
+from .lqg import LQG
 from .utils import log_likelihood, combine_matrices_for_klqg
 from ..utils import genpsd, rms
 from ..constants import fs
 
 class SystemIdentifier:
     """
-    Driver class to build KalmanLQG objects from open-loop data.
+    Driver class to build LQG objects from open-loop data.
     Largely built off the Meimon 2010 system identification, and simulation/experimentation on top of that.
     """
     def __init__(
@@ -191,8 +191,8 @@ class SystemIdentifier:
 
     def make_klqg_from_openloop(self, model_atm=True, model_vib=True):
         """
-        Designs a KalmanLQG object based on open-loop data. 
-        (Essentially stitches together a bunch of KalmanLQG objects.)
+        Designs a LQG object based on open-loop data. 
+        (Essentially stitches together a bunch of LQG objects.)
 
         Arguments
         ---------
@@ -204,7 +204,7 @@ class SystemIdentifier:
 
         Returns
         -------
-        klqg : KalmanLQG
+        klqg : LQG
         A Kalman-LQG object that controls either tip or tilt.
         """
         A = np.zeros((0,0))
@@ -239,4 +239,4 @@ class SystemIdentifier:
             ],
         measure_once=True)"""
 
-        return KalmanLQG(*matrices)
+        return LQG(*matrices)

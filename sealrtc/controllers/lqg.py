@@ -7,13 +7,14 @@ from copy import copy
 from scipy.stats import multivariate_normal as mvn
 from tqdm import tqdm, trange
 
+from .controller import Controller
 from .dare import solve_dare
 from ..utils import rms
 
 # I don't really need to keep W, V, Q, R as state attributes
 # but just want to be aware in case the DARE solution is not nice
 
-class KalmanLQG:
+class LQG(Controller):
     """
     Kalman filter information
 
@@ -29,6 +30,7 @@ class KalmanLQG:
     def __init__(self, A, B, C, W, V, Q, R, verbose=True):
         self.A, self.B, self.C, self.W, self.V, self.Q, self.R = A, B, C, W, V, Q, R
         self.recompute()
+        self.root_path = joindata("lqg", f"lqg_nstate_{self.state_size}")
 
     def recompute(self):
         self.x = np.zeros((self.state_size,))
@@ -64,9 +66,15 @@ class KalmanLQG:
     def measure(self):
         return self.C @ self.x
 
-    def control(self):
+    def control_law(self):
         self.curr_control = self.L @ self.x
         return self.curr_control
+
+    def observe(self, measurement):
+        # check out order of operations here
+        self.predict(self.curr_control)
+        self.update(measurement[:2]) # TODO generalize
+        return self.x
 
     def filter(self, measurements, x0):
         steps = len(measurements)
@@ -83,19 +91,18 @@ class KalmanLQG:
         return states
 
     def loop_iter(self, meas):
-        self.predict(self.curr_control)
-        self.update(meas)
+        if meas is not None:
+            self.predict(self.curr_control)
+            self.update(meas)
+        else:
+            self.x = np.zeros((self.state_size,))
         return self.control()
 
-    def reset(self):
-        self.x = np.zeros((self.state_size,))
-
     def simulate(self, *con, nsteps=1000):
+        # TODO change this 
         # make sure nothing you pass in as "con" depends on "self" or things will get weird with the internal state
         # if you want to compare, e.g. KF + integrator to LQG, use a copy of this instance
         controllers = [self.loop_iter]
-        for c in con:
-            c[1].reset()
         controllers.extend([lambda meas: c[1](meas)[0] for c in con])
         states_one = np.zeros((nsteps, self.state_size))
         states_one[0] = self.process_dist.rvs()
@@ -103,11 +110,11 @@ class KalmanLQG:
         for i in trange(1, nsteps):
             process_noise, measure_noise = self.process_dist.rvs(), self.measure_dist.rvs()
             measurements = [self.C @ state[i-1] + measure_noise for state in states] # the same one for each controller
-            uvals = [c(m) for c, m in zip(controllers, measurements)] # this is what (1, 1) tensor contraction is
-            print(uvals)
+            uvals = [c(m) for c, m in zip(controllers, measurements)] # I think this is what (1, 1) tensor contraction is
             for (j, u) in enumerate(uvals):
                 states[j][i] = self.A @ states[j][i-1] + self.B @ u + process_noise
 
+        [c(None) for c in controllers]
         return [state @ self.C.T for state in states]
 
     def improvement(self, *con, nsteps=1000):

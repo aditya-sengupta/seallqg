@@ -5,7 +5,7 @@ sealrtc/controllers/control_laws.py
 sealrtc/controllers/controller.py
 sealrtc/controllers/dare.py
 sealrtc/controllers/identifier.py
-sealrtc/controllers/kalmanlqg.py
+sealrtc/controllers/lqg.py
 sealrtc/controllers/observe_laws.py
 sealrtc/controllers/utils.py
 sealrtc/experiments/__init__.py
