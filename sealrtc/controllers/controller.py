@@ -2,6 +2,7 @@ import numpy as np
 from functools import partial
 
 from ..utils import joindata
+from .integrator import Integrator
 from .observe_laws import identity, kfilter
 from .control_laws import nothing, integrate, lqr
 
@@ -16,11 +17,11 @@ def make_openloop():
         control_law=nothing
     )
 
-def make_integrator(gain=0.1, leak=1.0):
-    return joindata("integrator", f"int_gain_{gain}_leak_{leak}"), partial(
+def make_integrator(integ=Integrator()):
+    return joindata("integrator", f"int_gain_{integ.gain}_leak_{integ.leak}"), partial(
         controller, 
         observe_law=identity, 
-        control_law=partial(integrate, gain=gain, leak=leak)
+        control_law=partial(integrate, integ=integ)
     )
 
 def make_lqg(klqg):

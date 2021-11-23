@@ -5,7 +5,7 @@ from sealrtc.utils import rms
 from sealrtc.controllers.dare import solve_dare, check_dare
 from sealrtc.controllers.kalmanlqg import KalmanLQG
 
-#np.random.seed(5)
+np.random.seed(5)
 
 s, m, p = 4, 2, 3
 

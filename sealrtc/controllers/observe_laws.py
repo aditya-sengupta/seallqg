@@ -10,6 +10,7 @@ def identity(measurement):
     return measurement
     
 def kfilter(measurement, klqg):
-    klqg.update(measurement[:2]) # TODO generalize
+    # check out order of operations here
     klqg.predict(klqg.curr_control)
+    klqg.update(measurement[:2]) # TODO generalize
     return klqg.measure()

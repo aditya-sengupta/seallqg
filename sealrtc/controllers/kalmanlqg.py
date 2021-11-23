@@ -1,11 +1,11 @@
 """
-Implementation of a *generic* Kalman-LQG observer and controller.
+Implementation of a *generic* Linear-Quadratic-Gaussian observer (Kalman filter) and controller (LQR)
 """
 
 import numpy as np
 from copy import copy
 from scipy.stats import multivariate_normal as mvn
-from tqdm import trange, tqdm
+from tqdm import tqdm, trange
 
 from .dare import solve_dare
 from ..utils import rms
@@ -53,7 +53,7 @@ class KalmanLQG:
         return self.B.shape[1]
 
     def __str__(self):
-        return "Kalman-LQG observer and controller with state size " + str(self.state_size) + ", input size " + str(self.input_size) + " and measurement size " + str(self.measure_size)
+        return f"LQG observer and controller with state size {self.state_size}, input size {self.input_size} and measurement size {self.measure_size}."
 
     def predict(self, u):
         self.x = self.A @ self.x + self.B @ u
@@ -82,51 +82,34 @@ class KalmanLQG:
         
         return states
 
-    def sim_control(self, nsteps=1000, x0=None):
-        x_init = copy(self.x)
-        if x0 is None:
-            self.x = self.process_dist.rvs()
-        else:
-            self.x = x0
-        states = np.zeros((nsteps, self.state_size))
-        states[0] = self.x
-        for i in trange(1, nsteps):
-            u = self.control()
-            self.predict(u)
-            x = self.A @ states[i-1] + self.B @ u + self.process_dist.rvs()
-            y = self.C @ x + self.measure_dist.rvs()
-            self.update(y)
-            states[i] = x
-    
-        self.x = x_init
-        return states @ self.C.T
+    def loop_iter(self, meas):
+        self.predict(self.curr_control)
+        self.update(meas)
+        return self.control()
 
-    def sim_process(self, nsteps=1000, x0=None):
-        states = np.zeros((nsteps, self.state_size))
-        if x0 is None:
-            states[0] = self.process_dist.rvs()
-        else:
-            states[0] = x0
-        states[0] = self.process_dist.rvs()
-        for i in trange(1, nsteps):
-            states[i] = self.A @ states[i-1] + self.process_dist.rvs()
-            
-        return states @ self.C.T
+    def reset(self):
+        self.x = np.zeros((self.state_size,))
 
-    def sim_control_nokf(self, nsteps=1000, x0=None):
-        states = np.zeros((nsteps, self.state_size))
-        if x0 is None:
-            states[0] = self.process_dist.rvs()
-        else:
-            states[0] = x0
+    def simulate(self, *con, nsteps=1000):
+        # make sure nothing you pass in as "con" depends on "self" or things will get weird with the internal state
+        # if you want to compare, e.g. KF + integrator to LQG, use a copy of this instance
+        controllers = [self.loop_iter]
+        for c in con:
+            c[1].reset()
+        controllers.extend([lambda meas: c[1](meas)[0] for c in con])
+        states_one = np.zeros((nsteps, self.state_size))
+        states_one[0] = self.process_dist.rvs()
+        states = [copy(states_one) for _ in controllers]
         for i in trange(1, nsteps):
-            states[i] = (self.A + self.B @ self.L) @ states[i-1] + self.process_dist.rvs()
-            
-        return states @ self.C.T
+            process_noise, measure_noise = self.process_dist.rvs(), self.measure_dist.rvs()
+            measurements = [self.C @ state[i-1] + measure_noise for state in states] # the same one for each controller
+            uvals = [c(m) for c, m in zip(controllers, measurements)] # this is what (1, 1) tensor contraction is
+            print(uvals)
+            for (j, u) in enumerate(uvals):
+                states[j][i] = self.A @ states[j][i-1] + self.B @ u + process_noise
 
-    def improvement(self, kfilter=True, **kwargs):
-        if kfilter:
-            return rms(self.sim_process(**kwargs)) / rms(self.sim_control(**kwargs))
-        else:
-            return rms(self.sim_process(**kwargs)) / rms(self.sim_control_nokf(**kwargs))
-            
+        return [state @ self.C.T for state in states]
+
+    def improvement(self, *con, nsteps=1000):
+        state_arrays = self.simulate(*con, nsteps=nsteps)
+        return [rms(s) / rms(state_arrays[0]) for s in state_arrays[1:]]

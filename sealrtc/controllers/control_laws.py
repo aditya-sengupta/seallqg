@@ -2,18 +2,20 @@
 Control laws. 
 These are all functions with a state as their first argument, 
 and further arguments that are filled in by the Controller constructor.
-"""
 
+All of these functions return (tip, tilt), leak:
+(tip, tilt) gets converted by the optics to an ideal DM command, 
+and leak is the scalar multiple of the existing command we want to put on.
+"""
 import numpy as np
-from ..optics import optics
 
 def nothing(state):
     """
     Do nothing.
     """
-    return np.array([0, 0]), optics.getdmc()
+    return np.array([0, 0]), 1
 
-def integrate(state, gain, leak):
+def integrate(state, integ):
     """
     Simple integrator control.
 
@@ -33,14 +35,11 @@ def integrate(state, gain, leak):
     command : np.ndarray, (ydim, xdim)
     The command to be put on the DM.
     """
-    dmcn = optics.zcoeffs_to_dmc(np.pad(state, (0,3)))
-    return state, gain * dmcn + leak * optics.getdmc()
+    return integ.control(state), integ.leak
     
 def lqr(state, klqg):
     """
     Linear-quadratic-Gaussian control.
     """
     u = klqg.control()
-    # TODO generalize
-    u = np.pad(u, (0,3))
-    return u, optics.getdmc() + optics.zcoeffs_to_dmc(u)
+    return u, 1

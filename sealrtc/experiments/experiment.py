@@ -2,19 +2,21 @@
 Core runner for SEAL experiments.
 """
 
-import sys
 import logging
-from multiprocessing import Process
+import sys
+
+from copy import copy
 from functools import partial
+from math import ceil
+from multiprocessing import Process
+from time import monotonic_ns as mns
 
 import numpy as np
-from copy import copy
-
-from time import monotonic_ns as mns
+from tqdm import trange
 
 from .utils import LogRecord_ns, Formatter_ns
 from .exp_result import ExperimentResult, result_from_log
-from .schedules import make_noise, make_ustep, make_train, make_sine, make_atmvib
+from .schedules import make_air, make_ustep, make_train, make_sine, make_atmvib
 
 from ..constants import dt
 from ..utils import get_timestamp, spin, spinlock, joindata
@@ -43,7 +45,6 @@ class Experiment:
 		self.verbose = verbose
 		self.logger = None # if you ever run into this, you're trying to analyze a log of a run that hasn't happened yet
 		self.params = dict(kwargs)
-		nsteps = int(np.ceil(dur / dt))
 		self.disturbance = dist_maker(dur, **kwargs)
 		self.iters = 0
 
@@ -78,7 +79,8 @@ class Experiment:
 		self.logger.info(f"Exposure    {self.iters}: {[mns()]}")
 		z = self.optics.measure(imval)
 		self.logger.info(f"Measurement {self.iters}: {z}")
-		u, dmc = controller(z)
+		u, leak = controller(z)
+		dmc = optics.zcoeffs_to_dmc(u) + leak * optics.getdmc()
 		self.optics.applydmc(dmc)
 		self.logger.info(f"DMC         {self.iters}: {u}")
 
@@ -137,7 +139,7 @@ class Experiment:
 
 		result = result_from_log(self.timestamp, self.log_path)
 
-		if True or self.optics.name != "Sim":
+		if self.optics.name != "Sim":
 			result.to_csv(self.record_path(root_path), self.params)
 
 		return result

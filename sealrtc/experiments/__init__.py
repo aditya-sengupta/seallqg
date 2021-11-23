@@ -10,7 +10,7 @@ __all__ = [
     "Experiment",
     "ExperimentResult",
     "loadres",
-    "make_noise",
+    "make_air",
     "make_ustep",
     "make_train",
     "make_sine",

@@ -6,9 +6,9 @@ from .utils import *
 def make_experiments():
     optics = make_optics
     # Some predefined experiments
-    short_wait = Experiment(make_noise, 1, optics)
-    med_wait = Experiment(make_noise, 10, optics)
-    long_wait = Experiment(make_noise, 100, optics)
+    short_wait = Experiment(make_air, 1, optics)
+    med_wait = Experiment(make_air, 10, optics)
+    long_wait = Experiment(make_air, 100, optics)
 
     ustep_tilt = Experiment(make_ustep, 1, optics, tilt_amp=0.005, tip_amp=0.0)
     ustep_tip = Experiment(make_ustep, 1, optics, tilt_amp=0.0, tip_amp=0.005)

@@ -7,7 +7,6 @@ from os.path import join
 from sealrtc.constants import fs
 from sealrtc import loadres
 
-# res = loadres(join("lqg", "klqg_nstate_20_amp_0.005_ang_0.7853981633974483_f_1_tstamp_2021_11_17_17_31_28.csv"))
 from kfvib import run
 if __name__ == "__main__":
     res = run()
