@@ -28,7 +28,7 @@ class Experiment:
 
 	Experiments know:
 	- their duration
-	- kwargs like verbose and half-closing
+	- kwargs like half-closing
 	- their logger
 	- their optics system
 
@@ -36,13 +36,12 @@ class Experiment:
 
 	They accept the controller as an argument to `run`.
 	"""
-	def __init__(self, dist_maker, dur, optics, dt=dt, half_close=False, verbose=True, **kwargs):
+	def __init__(self, dist_maker, dur, optics, dt=dt, half_close=False, **kwargs):
 		self.dur = dur
 		self.optics = optics
 		self.dt = dt
 		self.half_close = half_close
 		self.timestamp = None
-		self.verbose = verbose
 		self.logger = None # if you ever run into this, you're trying to analyze a log of a run that hasn't happened yet
 		self.params = dict(kwargs)
 		self.disturbance = dist_maker(dur, **kwargs)
@@ -118,8 +117,7 @@ class Experiment:
 		return states
 
 	def run(self, controller):
-		if self.verbose:
-			print("Starting experiment.")
+		print("Starting experiment.")
 		self.timestamp = get_timestamp()
 		self.update_logger()
 		self.check_alignment()
@@ -130,8 +128,8 @@ class Experiment:
 		t_start = mns()
 
 		processes = [
-			Process(target=self.scheduled_loop, args=(partial(self.loop_iter, controller), t_start, False)),
-			Process(target=self.scheduled_loop, args=(self.disturb_iter, t_start, True))
+			Process(target=self.scheduled_loop, args=(partial(self.loop_iter, controller), t_start, False), name="loop"),
+			Process(target=self.scheduled_loop, args=(self.disturb_iter, t_start, True), name="disturbances")
 		]
 
 		for p in processes:
@@ -139,6 +137,11 @@ class Experiment:
 
 		for p in processes:
 			p.join(self.dur * 1.1)
+
+		for p in processes:
+			if p.is_alive():
+				self.logger.info(f"Terminating process {p.name}.")
+				p.terminate()	
 
 		self.logger.info("Done with experiment.")
 		self.optics.applybestflat()
