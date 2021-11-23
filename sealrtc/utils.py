@@ -9,8 +9,7 @@ from math import ceil
 import numpy as np
 from scipy import signal, io
 from scipy.signal import welch, windows
-
-from .constants import dt
+from tqdm import tqdm
 
 host = gethostname()
 if (host == "skaya.local") or ("cam.ac.uk" in host):
@@ -22,6 +21,19 @@ else:
 	
 DATADIR = path.join(ROOTDIR, "data")
 PLOTDIR = path.join(ROOTDIR, "plots")
+
+if host != "SEAL":
+    dmdims = (320, 320)
+    fs = 10.0 # Hz
+else:
+    dmdims = (11, 11)
+    fs = 100.0 # Hz
+    
+imdims = (320, 320)
+dt = 1 / fs
+wav0 = 1.65e-6 #assumed wav0 for sine amplitude input in meters
+beam_ratio = 5.361256544502618 #pixels/resel
+tsleep = 0.01
 
 def joindata(*args):
 	return path.join(DATADIR, *args)
@@ -87,7 +99,7 @@ def spinlock(dur):
 	"""
 	spinlock_till(mns() + ceil(dur / 1e-9))
 
-def spin(process, dt, dur):
+def spin(process, dt, dur, use_tqdm=True):
 	"""
 	Spin-locks around a process to do it every "dt" seconds for time "dur" seconds.
 	"""
@@ -96,10 +108,18 @@ def spin(process, dt, dur):
 	next_tick = start_time
 	end_time = start_time + ceil(dur / 1e-9)
 
+	if use_tqdm:
+		pbar = tqdm(total=ceil(dur / dt))
+
 	while mns() < end_time:
 		process()
 		next_tick += ticks_per_iter * ((mns() - next_tick) // ticks_per_iter + 1)
 		spinlock_till(next_tick)
+		if use_tqdm:
+			pbar.update(1)
+
+	if use_tqdm:
+		pbar.close()
 	
 # keck TTs deleted 2021-10-14
 

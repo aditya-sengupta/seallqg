@@ -4,7 +4,7 @@ import sys
 import re
 from os.path import join
 
-from sealrtc.constants import fs
+from sealrtc.utils import fs
 from sealrtc import loadres
 
 from kfvib import run

@@ -3,7 +3,7 @@ import warnings
 import numpy as np
 
 from .optics import Optics
-from ..constants import dt
+from ..utils import dt
 
 class FAST(Optics):
 	# updated 6 Oct 2021 for the new ALPAO DM

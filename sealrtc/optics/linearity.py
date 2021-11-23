@@ -11,8 +11,9 @@ from .utils import nmarr
 from ..utils import joindata, get_timestamp
 
 def linearity(optics, nlin=20, plot=True, save=True, rcond=1e-3):
-	bestflat, imflat = optics.refresh()
-	_, cmd_mtx = make_im_cm(rcond=rcond)
+	optics.refresh()
+	optics.make_im_cm(rcond=rcond)
+	sweep_amp = 5 * optics.IMamp
 	zernamparr = sweep_amp * np.linspace(-1.5,1.5,nlin)
 	zernampout = np.zeros((len(nmarr),len(nmarr),nlin))
 	for nm in range(len(nmarr)):
@@ -35,7 +36,7 @@ def linearity(optics, nlin=20, plot=True, save=True, rcond=1e-3):
 
 	return zernamparr, zernampout
 
-def plot_linearity(zernamparr, zernampout, rcond=None):
+def plot_linearity(zernamparr, zernampout, dmc2wf, rcond=None):
 	wfe_in_microns = False
 	if wfe_in_microns:
 		conv = dmc2wf

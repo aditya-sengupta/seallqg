@@ -9,7 +9,7 @@ from tqdm import tqdm, trange
 
 from .controller import Controller
 from .dare import solve_dare
-from ..utils import rms
+from ..utils import rms, joindata
 
 # I don't really need to keep W, V, Q, R as state attributes
 # but just want to be aware in case the DARE solution is not nice
@@ -66,11 +66,11 @@ class LQG(Controller):
     def measure(self):
         return self.C @ self.x
 
-    def control_law(self):
-        self.curr_control = self.L @ self.x
-        return self.curr_control
+    def control_law(self, state):
+        self.curr_control = self.L @ state
+        return self.curr_control, 1
 
-    def observe(self, measurement):
+    def observe_law(self, measurement):
         # check out order of operations here
         self.predict(self.curr_control)
         self.update(measurement[:2]) # TODO generalize
@@ -102,19 +102,19 @@ class LQG(Controller):
         # TODO change this 
         # make sure nothing you pass in as "con" depends on "self" or things will get weird with the internal state
         # if you want to compare, e.g. KF + integrator to LQG, use a copy of this instance
-        controllers = [self.loop_iter]
-        controllers.extend([lambda meas: c[1](meas)[0] for c in con])
+        controllers = [self]
+        controllers.extend(con)
         states_one = np.zeros((nsteps, self.state_size))
         states_one[0] = self.process_dist.rvs()
         states = [copy(states_one) for _ in controllers]
         for i in trange(1, nsteps):
             process_noise, measure_noise = self.process_dist.rvs(), self.measure_dist.rvs()
             measurements = [self.C @ state[i-1] + measure_noise for state in states] # the same one for each controller
-            uvals = [c(m) for c, m in zip(controllers, measurements)] # I think this is what (1, 1) tensor contraction is
+            uvals = [c(m)[0] for c, m in zip(controllers, measurements)] # I think this is what (1, 1) tensor contraction is
             for (j, u) in enumerate(uvals):
                 states[j][i] = self.A @ states[j][i-1] + self.B @ u + process_noise
 
-        [c(None) for c in controllers]
+        [c.reset() for c in controllers]
         return [state @ self.C.T for state in states]
 
     def improvement(self, *con, nsteps=1000):

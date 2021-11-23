@@ -5,7 +5,7 @@ import warnings
 from functools import partial
 from math import ceil
 
-from ..constants import dt
+from ..utils import dt
 from ..utils import joindata
 
 def make_air(dur, **kwargs):

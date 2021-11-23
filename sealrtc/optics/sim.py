@@ -3,7 +3,7 @@ import numpy as np
 
 from .optics import Optics
 from .par_functions import propagate
-from ..constants import dmdims, imdims, dt
+from ..utils import dmdims, imdims, dt
 from copy import copy
 
 class Sim(Optics):
@@ -27,8 +27,8 @@ class Sim(Optics):
 		return self.expt
 
 	def getim(self):
-		# return self.dummy_image
-		return propagate(self.dmc, ph=True, t_int=self.expt)
+		return self.dummy_image
+		# return propagate(self.dmc, ph=True, t_int=self.expt)
 
 	def stackim(self, n):
 		return self.getim()

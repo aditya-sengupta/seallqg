@@ -6,7 +6,7 @@ from scipy import fft
 
 from .utils import nmarr, polar_grid, zernike
 from ..utils import joindata
-from ..constants import tsleep
+from ..utils import tsleep
 
 class Optics(ABC):
 	"""
@@ -97,7 +97,7 @@ class Optics(ABC):
 	def applytiptilt(self, amptip, amptilt): #amp is the P2V in DM units
 		dmctip = amptip * self.tip
 		dmctilt = amptilt * self.tilt
-		dmctiptilt = self.remove_piston(dmctip) + self.remove_piston(dmctilt) + self.remove_piston(bestflat) + 0.5 #combining tip, tilt, and best flat, setting mean piston to 0.5
+		dmctiptilt = self.remove_piston(dmctip) + self.remove_piston(dmctilt) + self.remove_piston(self.bestflat) + 0.5 #combining tip, tilt, and best flat, setting mean piston to 0.5
 		return self.applydmc(dmctiptilt)
 
 	def funz(self, n, m, amp=None): #apply zernike to the DM
@@ -158,7 +158,7 @@ class Optics(ABC):
 		The corresponding DM command.
 		"""
 		dmc = np.copy(self.dmzero)
-		dmc[self.indap] = np.dot(self.zernarr.T, -zcoeffs)
+		dmc[self.indap] = np.dot(self.zernarr.T, -np.pad(zcoeffs, (0, 3)))
 		return dmc
 
 
@@ -170,7 +170,7 @@ class Optics(ABC):
 		n, m = nmarr[i]
 		_ = self.funz(n, m, zernamp)
 		time.sleep(tsleep)
-		imzern = optics.stackim(10)
+		imzern = self.stackim(10)
 		imdiff = imzern - self.imflat
 		return self.measure(imdiff)
 

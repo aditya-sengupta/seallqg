@@ -6,21 +6,27 @@ import numpy as np
 from ..utils import joindata
 
 class Controller(ABC):
+    def reset(self):
+        pass
+
     def __call__(self, measurement):
         return self.control_law(self.observe_law(measurement))
 
+    def observe_law(self, measurement):
+        return measurement
+
+    def control_law(self, state):
+        return np.array([0, 0]), 1
+
 class Openloop(Controller):
-    def __init__(self):
-        self.root_path = joindata("openloop", "ol")
-        self.observe = lambda measurement: measurement
-        self.control_law = lambda state: np.array([0, 0]), 1
+    pass
 
 class Integrator(Controller):
     def __init__(self, gain=0.1, leak=1.0):
         self.root_path = joindata("integrator", f"int_gain_{gain}_leak_{leak}")
         self.gain = gain
         self.leak = leak
-        self.observe = lambda measurement: measurement
+        self.observe_law = lambda measurement: measurement
         self.curr_control = np.zeros((2,))
 
     def reset(self):

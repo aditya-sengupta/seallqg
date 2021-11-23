@@ -50,15 +50,20 @@ def result_from_log(timestamp, log_path):
                         elif event.startswith("DMC"):
                             tdmc.append(seconds)
                             commands.append(data)
-    
-    t0 = texp[0]
+    if len(texp) > 0:
+        t0 = texp[0]
+        t0_loop = texp_loop[0]
+    else:
+        print("No output recorded.")
+        t0 = 0.0
+        t0_loop = 0.0
     return ExperimentResult(
     timestamp,    
     [
         np.array(texp) - t0,
         np.array(tmeas) - t0,
         np.array(tdmc) - t0,
-        np.array(texp_loop).flatten() - texp_loop[0],
+        np.array(texp_loop).flatten() - t0_loop,
         np.array(measurements),
         np.array(commands)
     ])

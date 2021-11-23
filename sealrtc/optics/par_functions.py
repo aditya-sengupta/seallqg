@@ -9,7 +9,7 @@ from scipy.ndimage.interpolation import rotate
 
 from .utils import * #utility functions to use throughout the simulation
 from ..utils import joindata, joinsimdata
-from ..constants import dmdims, imdims, wav0, beam_ratio
+from ..utils import dmdims, imdims, wav0, beam_ratio
 
 p3i = lambda i: int(round(i)) #python2 to 3: change indicies that are floats to integers
 

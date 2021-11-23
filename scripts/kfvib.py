@@ -3,7 +3,7 @@ Control of vibrational modes with LQG.
 """
 
 from sealrtc import *
-from sealrtc.constants import fs, dt
+from sealrtc.utils import fs, dt
 from sealrtc.experiments import make_sine
 from datetime import datetime
 

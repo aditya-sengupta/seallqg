@@ -7,7 +7,7 @@ from copy import copy
 from .lqg import LQG
 from .utils import log_likelihood, combine_matrices_for_klqg
 from ..utils import genpsd, rms
-from ..constants import fs
+from ..utils import fs
 
 class SystemIdentifier:
     """

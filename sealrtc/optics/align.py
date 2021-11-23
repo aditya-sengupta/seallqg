@@ -47,7 +47,7 @@ def align(optics, manual=True, view=True):
 		#applydmc(aperture*dmctiptilt)
 		optics.applydmc(dmctiptilt)
 
-	from ..constants import tsleep
+	from ..utils import tsleep
 
 	cenmaskrho = np.sqrt((mtfgrid[0]-mtfgrid[0].shape[0]/2)**2+(mtfgrid[1]-mtfgrid[0].shape[0]/2)**2) #radial grid for central MTF lobe
 	cenmask = np.zeros(optics.imdims)

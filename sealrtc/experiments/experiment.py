@@ -18,8 +18,8 @@ from .utils import LogRecord_ns, Formatter_ns
 from .exp_result import ExperimentResult, result_from_log
 from .schedules import make_air, make_ustep, make_train, make_sine, make_atmvib
 
-from ..constants import dt
-from ..utils import get_timestamp, spin, spinlock, joindata
+from ..utils import dt
+from ..utils import get_timestamp, spin, spinlock, spinlock_till, joindata
 from ..optics import align # TODO remove cross submodule dependency
 
 class Experiment:
@@ -64,9 +64,9 @@ class Experiment:
 		self.logger.addHandler(file_handler)
 		self.logger.addHandler(stdout_handler)
 
-	def scheduled_loop(self, action, t_start):
+	def scheduled_loop(self, action, t_start, progress=False):
 		spinlock_till(t_start)
-		spin(action, self.dt, self.dur)
+		spin(action, self.dt, self.dur, progress)
 
 	def disturb_iter(self):
 		self.optics.applytilt(self.disturbance[self.iters, 0])
@@ -80,7 +80,7 @@ class Experiment:
 		z = self.optics.measure(imval)
 		self.logger.info(f"Measurement {self.iters}: {z}")
 		u, leak = controller(z)
-		dmc = optics.zcoeffs_to_dmc(u) + leak * optics.getdmc()
+		dmc = self.optics.zcoeffs_to_dmc(u) + leak * self.optics.getdmc()
 		self.optics.applydmc(dmc)
 		self.logger.info(f"DMC         {self.iters}: {u}")
 
@@ -91,8 +91,8 @@ class Experiment:
 		while np.any(np.abs(baseline_zvals) > 1e-3):
 			self.logger.info(f"The system may not be aligned: baseline Zernikes is {baseline_zvals.flatten()}.")
 			align(self.optics, manual=False, view=False)
-			optics.make_im_cm()
-			baseline_zvals = optics.measure()
+			self.optics.make_im_cm()
+			baseline_zvals = self.optics.measure()
 			i += 1
 			if i > 10: # arbitrary
 				err_message = "Cannot align system: realign manually and try experiment again."
@@ -108,7 +108,7 @@ class Experiment:
 		p += f"_tstamp_{self.timestamp}.csv"
 		return p
 
-	def simulate(self, con, measure_std=0.001):
+	def simulate(self, controller, measure_std=0.001):
 		states = np.zeros((len(self.disturbance), 2))
 		states[0] = self.disturbance[0]
 		for i in trange(1, len(self.disturbance)):
@@ -130,15 +130,15 @@ class Experiment:
 		t_start = mns()
 
 		processes = [
-			Process(target=self.scheduled_loop, args=(partial(self.loop_iter, controller), t_start)),
-			Process(target=self.scheduled_loop, args=(self.disturb_iter, t_start))
+			Process(target=self.scheduled_loop, args=(partial(self.loop_iter, controller), t_start, False)),
+			Process(target=self.scheduled_loop, args=(self.disturb_iter, t_start, True))
 		]
 
 		for p in processes:
 			p.start()
 
 		for p in processes:
-			p.join()
+			p.join(self.dur * 1.1)
 
 		self.logger.info("Done with experiment.")
 		self.optics.applybestflat()
