@@ -26,12 +26,14 @@ class Integrator(Controller):
         self.root_path = joindata("integrator", f"int_gain_{gain}_leak_{leak}")
         self.gain = gain
         self.leak = leak
-        self.observe_law = lambda measurement: measurement
         self.curr_control = np.zeros((2,))
 
     def reset(self):
         self.curr_control = np.zeros((2,))
+
+    def observe_law(self, measurement):
+        return measurement
         
-    def control_law(self, meas):
-        self.curr_control = -(self.gain * meas + self.leak * self.curr_control)
+    def control_law(self, state):
+        self.curr_control = (self.gain * state + (1-self.leak) * self.curr_control)
         return self.curr_control, self.leak

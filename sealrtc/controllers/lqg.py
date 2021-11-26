@@ -96,10 +96,9 @@ class LQG(Controller):
             self.update(meas)
         else:
             self.x = np.zeros((self.state_size,))
-        return self.control()
+        return self.control_law(self.x)
 
     def simulate(self, *con, nsteps=1000):
-        # TODO change this 
         # make sure nothing you pass in as "con" depends on "self" or things will get weird with the internal state
         # if you want to compare, e.g. KF + integrator to LQG, use a copy of this instance
         controllers = [self]
