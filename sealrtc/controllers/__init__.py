@@ -1,13 +1,10 @@
 from .controller import Openloop, Integrator
 from .lqg import LQG
-from .identifier import SystemIdentifier, multivib, find_psd_peaks, vib_coeffs
+from .identifier import make_lqg_from_ol
 
 __all__ = [
     "Openloop",
     "Integrator",
     "LQG",
-    "SystemIdentifier",
-    "multivib",
-    "find_psd_peaks",
-    "vib_coeffs"
+    "make_lqg_from_ol"
 ]

@@ -27,7 +27,6 @@ def combine_matrices_for_lqg(base, addons, measure_once=False):
             matrices.append(linalg.block_diag(Mb, Ma))
     return matrices
 
-
 def damped_harmonic(t, w, k, A0, v0, sigma, dt=1/fs):
     """
     Generate a damped harmonic up until time t with sinusoidal parameters (w, k) and initial conditions defining (A, p).
@@ -67,7 +66,7 @@ def multivib(t, ws, ks, sigmas, dt=1/fs):
         
     return times, y
 
-def find_psd_peaks(freqs, psd, f1=fs/60, f2=fs/3, energy_cutoff=1e-6, Nvib=3):
+def find_psd_peaks(freqs, psd, Nvib=3, f1=fs/120, f2=fs/3, energy_cutoff=1e-6):
     """
     scipy.signal.find_peaks, but with some extra conditions
     """
@@ -89,6 +88,22 @@ def vib_coeffs(f, k, fs=fs):
     a2 = -np.exp(-2 * k * w / fs)
     return a1, a2
 
+def powerfit_psd(freqs, psd, f1=fs/120, f2=fs/3, nstd=3):
+    """
+    Linear regression in log-log space with vibrations removed.
+    """
+    mask = np.intersect1d(np.where(f1 <= freqs), np.where(freqs <= f2))
+    mask = np.intersect1d(np.where(f1 <= freqs), np.where(freqs <= f2))    
+    reslin = stats.linregress(np.log(freqs[mask]), np.log(psd[mask]))
+    fitpower = np.exp(reslin.slope * np.log(freqs) + reslin.intercept)
+    deviation = np.log(psd) - (reslin.slope * np.log(freqs) + reslin.intercept)
+    peak_mask = np.where(deviation > nstd * np.std(deviation))
+    modified_psd_tilt = copy(psd)
+    modified_psd_tilt[peak_mask] = fitpower[peak_mask]
+    reslin_mod = stats.linregress(np.log(freqs[mask]), np.log(modified_psd_tilt[mask]))
+    # modified_fitpower = np.exp(reslin_mod.slope * np.log(freqs) + reslin_mod.intercept)
+    return reslin_mod.slope, reslin_mod.intercept
+
 def model_psd(freqs, f, k, sigma):
     phase = 2 * np.pi * freqs / fs
     a1, a2 = vib_coeffs(f, k)
@@ -96,20 +111,29 @@ def model_psd(freqs, f, k, sigma):
     return sigma ** 2 / fs / denom ** 2
 
 def log_model_psd(freqs, f, k, sigma):
-    return np.log10(model_psd(freqs, f, k, sigma))
+    return np.log(model_psd(freqs, f, k, sigma))
 
-def fit_psd(freqs, psd, fcen, verbose=False):
+def fit_psd(freqs, psd, Nvib=3):
     df = np.max(np.diff(freqs))
-    fit_params = Parameters()
-    fit_params.add('f', value=fcen, min=fcen-df, max=fcen+df)
-    fit_params.add('k', value=1e-4, min=1e-10, max=1)
-    fit_params.add('sigma', value=1e-1, min=1e-10, max=100)
-    model = Model(log_model_psd)
-    res = model.fit(np.log10(psd), fit_params, freqs=freqs)
-    if verbose:
-        print(res.fit_report())
-    x = res.best_values
-    return x['f'], x['k'], x['sigma']
+    fcens = find_psd_peaks(freqs, psd, Nvib)
+    fs, ks, sigmas = [], [], []
+    for fcen in fcens:
+        fit_params = Parameters()
+        fit_params.add('f', value=fcen, min=fcen-df, max=fcen+df)
+        fit_params.add('k', value=1e-4, min=1e-10, max=1e-3)
+        fit_params.add('sigma', value=1e-1, min=1e-10, max=100)
+        model = Model(log_model_psd)
+        slope, intercept = powerfit_psd(freqs, psd)
+        one_peak_psd = np.exp(slope * np.log(freqs) + intercept)
+        one_peak_mask = np.abs(freqs - fcen) < 2 * df
+        one_peak_psd[one_peak_mask] = psd[one_peak_mask]
+        res = model.fit(np.log(one_peak_psd), fit_params, freqs=freqs).best_values
+        fs.append(res['f'])
+        ks.append(res['k'])
+        sigmas.append(res['sigma'])
+
+    return fs, ks, sigmas
+
 
 def estimate_v(freqs, psd, fw=fs/3):
     return np.sqrt(np.mean(fs * psd[freqs > fw]))
