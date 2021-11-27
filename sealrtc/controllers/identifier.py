@@ -1,13 +1,81 @@
 # could refactor to not be a class, but it's fine for now
 
 import numpy as np
-from scipy import optimize, signal, stats
+from scipy import optimize, signal, stats, integrate
 from copy import copy
 
 from .lqg import LQG
 from .utils import log_likelihood, combine_matrices_for_klqg
 from ..utils import genpsd, rms
 from ..utils import fs
+
+def damped_harmonic(t, w, k, A0, v0, sigma, dt=1/fs):
+    """
+    Generate a damped harmonic up until time t with sinusoidal parameters (w, k) and initial conditions defining (A, p).
+    This is the solution to the ODE with stochastic driving noise
+
+    y'' + 2kw y' + w^2 y = N(0, sigma^2)
+
+    with initial conditions
+
+    x(0) = A0
+    x'(0) = v0
+    """
+    times = np.arange(0, t+dt, dt)
+    y0 = np.array([A0, v0])
+    w2 = w ** 2
+    zeta = 2 * k * w
+
+    def deriv(t, y):
+        return np.array([y[1], -zeta * y[1] - w2 * y[0] - np.random.normal(0, sigma ** 2)])
+
+    res =  integrate.solve_ivp(deriv, (0, t + dt), y0, t_eval=times)
+    return res.t, res.y[0,:]
+
+def multivib(t, ws, ks, sigmas, dt=1/fs):
+    """
+    Generate a multi-vibration signal with the given w, k, sigma values, and random initial conditions.
+    """
+    assert len(ws) == len(ks)
+    assert len(ws) == len(sigmas)
+    N = len(ws)
+    A0s = np.random.uniform(-1, 1, size=(N,))
+    v0s = np.random.uniform(-1, 1, size=(N,))
+    times = np.arange(0, t+dt, dt)
+    y = np.zeros_like(times)
+    for (w, k, sigma, A0, v0) in zip(ws, ks, sigmas, A0s, v0s):
+        y += damped_harmonic(t, w, k, A0, v0, sigma, dt=dt)[1]
+        
+    return times, y
+
+def find_psd_peaks(freqs, psd, f1=fs/60, f2=fs/3, energy_cutoff=1e-6, Nvib=3):
+    """
+    scipy.signal.find_peaks, but with some extra conditions
+    """
+    # indices where the PSD peaks
+    unsorted_peaks = signal.find_peaks(psd, height=energy_cutoff)[0]
+    # indices in range ordered by energy
+    freqs_energy = np.flip(np.argsort(psd))
+    # we also want them to be in the range f1-f2
+    freqs_energy = freqs_energy[np.logical_and(
+        freqs[freqs_energy] >= f1, 
+        freqs[freqs_energy] <= f2)
+    ]
+    peaks = freqs_energy[np.in1d(freqs_energy, unsorted_peaks)]
+    return freqs[peaks[:Nvib]]
+
+def vib_coeffs(f, k, fs=fs):
+    w = 2 * np.pi * f
+    a1 = 2 * np.exp(-k * w / fs) * np.cos(w * np.sqrt(1 - k**2) / fs)
+    a2 = -np.exp(-2 * k * w / fs)
+    return a1, a2
+
+def model_psd(freqs, f, k, sigma):
+    T = 1 / fs
+    phase = 2 * np.pi * freqs * T
+    a1, a2 = vib_coeffs(f, k)
+    denom = np.abs(1 - a1 * np.exp(-1j * phase) - a2 * np.exp(-2j * phase))
+    return sigma ** 2 * T / denom ** 2
 
 class SystemIdentifier:
     """

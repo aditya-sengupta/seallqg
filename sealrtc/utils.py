@@ -24,7 +24,7 @@ PLOTDIR = path.join(ROOTDIR, "plots")
 
 if host != "SEAL":
     dmdims = (320, 320)
-    fs = 10.0 # Hz
+    fs = 100.0 # Hz
 else:
     dmdims = (11, 11)
     fs = 100.0 # Hz
