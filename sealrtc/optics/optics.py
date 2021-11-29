@@ -2,7 +2,6 @@ import time
 from abc import ABC, abstractmethod, abstractproperty
 from os import path
 import numpy as np
-from scipy import fft
 
 from .utils import nmarr, polar_grid, zernike
 from ..utils import joindata
@@ -76,9 +75,9 @@ class Optics(ABC):
 		self.make_im_cm()
 		
 	def processim(self, imin): #process SCC image, isolating the sidelobe in the FFT and IFFT back to the image
-		otf = np.fft.fftshift(fft.fft2(imin, norm='ortho')) #(1) FFT the image
+		otf = np.fft.fftshift(np.fft.fft2(imin, norm='ortho')) #(1) FFT the image
 		otf_masked = otf * self.sidemask #(2) multiply by binary mask to isolate side lobe
-		Iminus = fft.ifft2(otf_masked, norm='ortho') #(3) IFFT back to the image plane, now generating a complex-valued image
+		Iminus = np.fft.ifft2(otf_masked, norm='ortho') #(3) IFFT back to the image plane, now generating a complex-valued image
 		return Iminus
 
 	def remove_piston(self, dmc):
@@ -106,12 +105,12 @@ class Optics(ABC):
 		if amp is None:
 			amp = self.IMamp
 		z = zernike(n, m, self.rho, self.phi)/2
-		zdm = amp * z
+		zdm = amp * z.astype(np.float32)
 		dmc = self.remove_piston(self.remove_piston(self.bestflat) + self.remove_piston(zdm))
 		self.applydmc(dmc)
 		return zdm #even though the Zernike is applied with a best flat, return only the pure Zernike; subsequent reconstructed Zernike mode coefficients should not be applied to best flat commands
 
-	def make_im_cm(self, rcond=1e-3):
+	def make_im_cm(self, rcond=1e-3, attempts=0):
 		"""
 		Make updated interaction and command matrices.
 		"""
@@ -122,13 +121,22 @@ class Optics(ABC):
 			_ = self.funz(n, m)
 			time.sleep(tsleep)
 			imzern = self.stackim(10)
-			imdiff = imzern - self.imflat
+			try:
+				imdiff = imzern - self.imflat
+				assert not np.allclose(imdiff, 0), "didn't move"
+			except AssertionError:
+				if attempts < 5:
+					self.make_im_cm(rcond, attempts = attempts + 1)
+				else:
+					raise
 			processed_imdiff = self.processim(imdiff)
 			refvec[i] = np.array([
 				np.real(processed_imdiff[self.indttmask]),
 				np.imag(processed_imdiff[self.indttmask])
 			]).flatten()
 
+
+		assert not np.allclose(refvec, 0), "Zero measurements in all components"
 		self.int_mtx = np.dot(refvec, refvec.T) #interaction matrix
 		int_mtx_inv = np.linalg.pinv(self.int_mtx, rcond=rcond)
 		self.cmd_mtx = np.dot(int_mtx_inv, refvec)#.astype(np.float32)
@@ -163,18 +171,21 @@ class Optics(ABC):
 		dmc[self.indap] = np.dot(self.zernarr.T, -np.pad(zcoeffs, (0, 3)))
 		return dmc
 
-
 	def genzerncoeffs(self, i, zernamp):
 		"""
 		i: zernike mode
 		zernamp: Zernike amplitude in DM units to apply
+
+		this is a bit redundant, but i need it to track down errors
 		"""
 		n, m = nmarr[i]
 		_ = self.funz(n, m, zernamp)
 		time.sleep(tsleep)
 		imzern = self.stackim(10)
 		imdiff = imzern - self.imflat
-		return self.measure(imdiff)
+		tar_ini = self.processim(imdiff)
+		tar = np.array([np.real(tar_ini[self.indttmask]),np.imag(tar_ini[self.indttmask])]).flatten()
+		return np.dot(self.cmd_mtx, tar) * self.IMamp
 
 	@property
 	def bestflat_path(self):

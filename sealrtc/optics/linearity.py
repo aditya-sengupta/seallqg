@@ -10,16 +10,17 @@ from matplotlib import pyplot as plt
 from .utils import nmarr
 from ..utils import joindata, get_timestamp
 
-def linearity(optics, nlin=20, plot=True, save=True, rcond=1e-3):
+def linearity(optics, cmd_mtx=None, nlin=20, plot=True, save=True, rcond=1e-5):
 	optics.refresh()
 	optics.make_im_cm(rcond=rcond)
+	if cmd_mtx is not None:
+		optics.cmd_mtx = cmd_mtx
 	sweep_amp = 5 * optics.IMamp
 	zernamparr = sweep_amp * np.linspace(-1.5,1.5,nlin)
 	zernampout = np.zeros((len(nmarr),len(nmarr),nlin))
 	for nm in range(len(nmarr)):
-		for i in range(nlin):
-			zernamp = zernamparr[i]
-			coeffsout = optics.genzerncoeffs(nm, zernamp).flatten()
+		for (i, amp) in enumerate(zernamparr):
+			coeffsout = optics.genzerncoeffs(nm, amp)
 			zernampout[nm,:,i] = coeffsout
 
 	optics.applybestflat()
@@ -32,12 +33,12 @@ def linearity(optics, nlin=20, plot=True, save=True, rcond=1e-3):
 		print(f"Saved output to {path_out}")
 
 	if plot:
-		plot_linearity(zernamparr, zernampout, rcond)
+		plot_linearity(zernamparr, zernampout, optics.dmc2wf, rcond=rcond)
 
 	return zernamparr, zernampout
 
 def plot_linearity(zernamparr, zernampout, dmc2wf, rcond=None):
-	wfe_in_microns = False
+	wfe_in_microns = True
 	if wfe_in_microns:
 		conv = dmc2wf
 		unit = "$\\mu$m"
