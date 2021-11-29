@@ -134,7 +134,6 @@ def fit_psd(freqs, psd, Nvib=3):
 
     return fs, ks, sigmas
 
-
 def estimate_v(freqs, psd, fw=fs/3):
     return np.sqrt(np.mean(fs * psd[freqs > fw]))
 
@@ -167,12 +166,7 @@ def make_2d_lqg_vibe(freqs, psds, Nvib=3):
     matrices = [np.zeros((0,0)) for _ in range(7)]
     fs, ks, sigmas = [], [], []
     for psd in psds:
-        fcens = find_psd_peaks(freqs, psd, Nvib=Nvib)
-        for fcen in fcens:
-            f, k, sigma = fit_psd(freqs, psd, fcen)
-            fs.append(f)
-            ks.append(k)
-            sigmas.append(sigma)
+        fs, ks, sigmas = fit_psd(freqs, psd)
         matrices = combine_matrices_for_lqg(
             matrices, 
             make_lqg_vibe(fs, ks, sigmas, estimate_v(freqs, psd))
@@ -204,7 +198,7 @@ def make_lqg_ar(ol_comp, freqs, psd, ar_len=2):
     V = np.array([[estimate_v(freqs, psd) ** 2]])
 
     Q = C.T @ C
-    R = 100 * np.eye(1)
+    R = np.eye(1)
     return (A, B, C, W, V, Q, R)
 
 def make_2d_lqg_ar(ol, freqs, psds, ar_len=2):
@@ -215,8 +209,6 @@ def make_2d_lqg_ar(ol, freqs, psds, ar_len=2):
             make_lqg_ar(ol_comp, freqs, psd, ar_len)
         )
     return matrices
-
-
 
 def make_lqg_from_ol(ol, model_atm=True, model_vib=True):
     """
@@ -261,7 +253,7 @@ def make_lqg_from_ol(ol, model_atm=True, model_vib=True):
     matrices[1] /= (np.abs(np.sum(matrices[1])))
     # steering + delay model here
     
-    """matrices = combine_matrices_for_klqg(matrices, [
+    matrices = combine_matrices_for_lqg(matrices, [
         np.zeros((2,2)),
         -np.eye(2),
         np.eye(2),
@@ -270,6 +262,6 @@ def make_lqg_from_ol(ol, model_atm=True, model_vib=True):
         1e-6 * np.eye(2),
         np.eye(2)
         ],
-    measure_once=True)"""
+    measure_once=True)
 
     return LQG(*matrices)

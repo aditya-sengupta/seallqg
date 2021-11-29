@@ -109,7 +109,7 @@ class LQG(Controller):
         for i in trange(1, nsteps):
             process_noise, measure_noise = self.process_dist.rvs(), self.measure_dist.rvs()
             measurements = [self.C @ state[i-1] + measure_noise for state in states] # the same one for each controller
-            uvals = [c(m)[0] for c, m in zip(controllers, measurements)] # I think this is what (1, 1) tensor contraction is
+            uvals = [c(m)[0] for c, m in zip(controllers, measurements)]
             for (j, u) in enumerate(uvals):
                 states[j][i] = self.A @ states[j][i-1] + self.B @ u + process_noise
 
