@@ -22,6 +22,7 @@ class Optics(ABC):
 		self.rho, self.phi = polar_grid(xdim, ydim)
 		self.rho[int((xdim-1)/2), int((ydim-1)/2)] = 0.00001 # avoid numerical divide by zero issues
 		grid = np.mgrid[0:ydim, 0:xdim]
+		self.grid = grid
 		self.tip = ((grid[0]-ydim/2+0.5)/ydim*2)
 		self.tilt = ((grid[1]-xdim/2+0.5)/ydim*2)
 
@@ -31,8 +32,8 @@ class Optics(ABC):
 		mtfgrid = np.mgrid[0:imydim, 0:imxdim]
 		sidemaskrho = np.sqrt((mtfgrid[0]-ysidemaskcen)**2+(mtfgrid[1]-xsidemaskcen)**2)
 		sidemask = np.zeros(self.imdims)
-		sidemaskind = np.where(sidemaskrho < sidemaskrad)
-		sidemask[sidemaskind] = 1
+		self.sidemaskind = np.where(sidemaskrho < sidemaskrad)
+		sidemask[self.sidemaskind] = 1
 		self.mtfgrid = mtfgrid
 		self.sidemask = sidemask
 
@@ -41,8 +42,8 @@ class Optics(ABC):
 		cenmaskrad = 49
 		cenmaskrho = np.sqrt((mtfgrid[0]-yimcen)**2+(mtfgrid[1]-ximcen)**2)
 		cenmask = np.zeros(self.imdims)
-		cenmaskind = np.where(cenmaskrho < cenmaskrad)
-		cenmask[cenmaskind] = 1
+		self.cenmaskind = np.where(cenmaskrho < cenmaskrad)
+		cenmask[self.cenmaskind] = 1
 
 		#pinhole MTF mask
 		pinmaskrad = 4
@@ -54,6 +55,7 @@ class Optics(ABC):
 		xy = np.sqrt((grid[0]-ydim/2+0.5)**2+(grid[1]-xdim/2+0.5)**2)
 		aperture = np.zeros(self.dmdims)
 		aperture[np.where(xy<ydim/2)] = 1 
+		self.aperture = aperture
 		self.indap = np.where(aperture == 1)
 		self.dmc2wf = np.load(joindata("bestflats", "lodmc2wfe.npy"))
 		#calibrated image center and beam ratio from genDH.py
