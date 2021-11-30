@@ -171,13 +171,15 @@ class Optics(ABC):
 		dmc[self.indap] = np.dot(self.zernarr.T, -np.pad(zcoeffs, (0, 3)))
 		return dmc
 
-	def genzerncoeffs(self, i, zernamp):
+	def genzerncoeffs(self, i, zernamp, cmd_mtx=None):
 		"""
 		i: zernike mode
 		zernamp: Zernike amplitude in DM units to apply
 
 		this is a bit redundant, but i need it to track down errors
 		"""
+		if cmd_mtx is None:
+			cmd_mtx = self.cmd_mtx
 		n, m = nmarr[i]
 		_ = self.funz(n, m, zernamp)
 		time.sleep(tsleep)
@@ -185,7 +187,7 @@ class Optics(ABC):
 		imdiff = imzern - self.imflat
 		tar_ini = self.processim(imdiff)
 		tar = np.array([np.real(tar_ini[self.indttmask]),np.imag(tar_ini[self.indttmask])]).flatten()
-		return np.dot(self.cmd_mtx, tar) * self.IMamp
+		return np.dot(cmd_mtx, tar) * self.IMamp
 
 	@property
 	def bestflat_path(self):
