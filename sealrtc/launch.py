@@ -13,8 +13,8 @@ long_wait = Experiment(make_air, 100, optics)
 ustep_tilt = Experiment(make_ustep, 1, optics, tilt_amp=0.005, tip_amp=0.0)
 ustep_tip = Experiment(make_ustep, 1, optics, tilt_amp=0.0, tip_amp=0.005)
 
-sine_one = Experiment(make_sine, 10, optics, amp=0.003, ang=np.pi/4, f=1)
-sine_five = Experiment(make_sine, 10, optics, amp=0.003, ang=np.pi/4, f=5)
+sine_one = Experiment(make_sine, 10, optics, amp=0.002, ang=np.pi/4, f=1)
+sine_five = Experiment(make_sine, 10, optics, amp=0.002, ang=np.pi/4, f=5)
 
 # and some controllers from the controller submodule
 ol = Openloop()
