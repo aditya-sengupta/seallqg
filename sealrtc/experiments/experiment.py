@@ -73,7 +73,7 @@ class Experiment:
 		self.logger.info(f"Disturbance {self.iters}: {self.disturbance[self.iters, :]}")
 		
 	def loop_iter(self, controller):
-		imval = self.optics.getim()
+		imval = self.optics.getim(check=False)
 		self.iters += 1
 		self.logger.info(f"Exposure    {self.iters}: {[mns()]}")
 		z = self.optics.measure(imval)

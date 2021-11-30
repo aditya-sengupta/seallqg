@@ -1,5 +1,6 @@
 import time
 from abc import ABC, abstractmethod, abstractproperty
+from functools import partial
 from os import path
 import numpy as np
 
@@ -229,14 +230,14 @@ class Optics(ABC):
 	def stackwf(self, num_frames):
 		return self.stack(self.getwf, num_frames)
 
-	def stackim(self, num_frames):
-		return self.stack(self.getim, num_frames)
+	def stackim(self, num_frames, check=True):
+		return self.stack(partial(self.getim, check=check), num_frames)
 
 	def stackslopes(self, num_frames):
 		return self.stack(self.getslopes, num_frames)
 
 	@abstractmethod
-	def getim(self):
+	def getim(self, check=True):
 		pass
 
 	@abstractmethod

@@ -9,7 +9,8 @@ import sys
 from sealrtc import plot_linearity, optics
 
 dmc2wf=np.load('recent_data/lodmc2wfe.npy') #alpao actuator dmc command units to microns WFE units
-optics.applybestflat()
+bestflat = np.load("recent_data/lodm_bestflat.npy")
+applylodmc(bestflat)
 
 texp=1e-3
 expt(texp) #set exposure time; for current light source config at 100 Hz
@@ -50,7 +51,7 @@ def genIM():
 		zern=optics.funz(n,m,IMamp)
 		time.sleep(tsleep)
 		imzern=stack(10)
-		optics.applybestflat()
+		applylodmc(bestflat)
 		time.sleep(tsleep)
 		imflat=stack(10)
 		imdiff=(imzern-imflat)
@@ -72,7 +73,7 @@ def genCM(rcond=rcond):
 
 cmd_mtx=genCM()
 
-optics.applybestflat()
+applylodmc(bestflat)
 time.sleep(tsleep)
 imflat=stack(100)
 
@@ -105,7 +106,7 @@ for nm in range(len(nmarr)):
 		coeffsout=genzerncoeffs(nm,zernamp)
 		zernampout[nm,:,i]=coeffsout
 
-optics.applybestflat()
+applylodmc(bestflat)
 
 plot_linearity(zernamparr, zernampout, dmc2wf, rcond=rcond)
 plt.show()
