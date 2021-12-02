@@ -46,6 +46,7 @@ class Experiment:
 		self.params = dict(kwargs)
 		self.disturbance = dist_maker(dur, **kwargs)
 		self.iters = 0
+		self.dist_iters = 0
 
 	def update_logger(self):
 		logging.setLogRecordFactory(LogRecord_ns)
@@ -68,9 +69,10 @@ class Experiment:
 		spin(action, self.dt, self.dur, progress)
 
 	def disturb_iter(self):
-		self.optics.applytilt(self.disturbance[self.iters, 0])
-		self.optics.applytip(self.disturbance[self.iters, 1])
-		self.logger.info(f"Disturbance {self.iters}: {self.disturbance[self.iters, :]}")
+		self.optics.applytilt(self.disturbance[self.dist_iters, 0])
+		self.optics.applytip(self.disturbance[self.dist_iters, 1])
+		self.logger.info(f"Disturbance {self.dist_iters}: {self.disturbance[self.dist_iters, :]}")
+		self.dist_iters += 1
 		
 	def loop_iter(self, controller):
 		imval = self.optics.getim(check=False)
@@ -146,6 +148,7 @@ class Experiment:
 		self.logger.info("Done with experiment.")
 		self.optics.applybestflat()
 		self.iters = 0
+		self.dist_iters = 0
 		print(f"Experiment finished, log written to {self.log_path}")
 
 		result = result_from_log(self.timestamp, self.log_path)

@@ -19,7 +19,8 @@ class Controller(ABC):
         return np.array([0, 0]), 1
 
 class Openloop(Controller):
-    pass
+    def __init__(self):
+        self.root_path = joindata("openloop", "ol")
 
 class Integrator(Controller):
     def __init__(self, gain=0.1, leak=1.0):
@@ -35,5 +36,5 @@ class Integrator(Controller):
         return measurement
         
     def control_law(self, state):
-        self.curr_control = (self.gain * state + (1-self.leak) * self.curr_control)
+        self.curr_control = (self.gain * state[:2] + (1-self.leak) * self.curr_control)
         return self.curr_control, self.leak
