@@ -2,8 +2,11 @@
 Implementation of a *generic* Linear-Quadratic-Gaussian observer (Kalman filter) and controller (LQR)
 """
 
-import numpy as np
+import warnings
+
 from copy import copy
+
+import numpy as np
 from scipy.stats import multivariate_normal as mvn
 from tqdm import tqdm, trange
 
@@ -29,6 +32,12 @@ class LQG(Controller):
     """
     def __init__(self, A, B, C, W, V, Q, R, verbose=True):
         self.A, self.B, self.C, self.W, self.V, self.Q, self.R = A, B, C, W, V, Q, R
+        obsrank, conrank = self.observability_rank(), self.controllability_rank()
+        n = A.shape[0]
+        if obsrank != n:
+            print(f"WARNING: LQG system is not observable, observability matrix rank is {obsrank} against dimension {n}.")
+        if conrank != n:
+            print(f"WARNING: LQG system is not controllable, controllability matrix rank is {conrank} against dimension {n}.")
         self.recompute()
         self.root_path = joindata("lqg", f"lqg_nstate_{self.state_size}")
 
@@ -41,6 +50,14 @@ class LQG(Controller):
         self.process_dist = mvn(cov=self.W, allow_singular=True)
         self.measure_dist = mvn(cov=self.V, allow_singular=True)
         self.curr_control = np.zeros((self.input_size,))
+
+    def observability_rank(self):
+        obs_matrix = np.vstack([self.C @ np.linalg.matrix_power(self.A, i) for i in range(self.state_size)])
+        return np.linalg.matrix_rank(obs_matrix)
+
+    def controllability_rank(self):
+        con_matrix = np.hstack([np.linalg.matrix_power(self.A, i) @ self.B for i in range(self.state_size)])
+        return np.linalg.matrix_rank(con_matrix)
 
     @property
     def state_size(self):
@@ -113,7 +130,11 @@ class LQG(Controller):
             for (j, u) in enumerate(uvals):
                 states[j][i] = self.A @ states[j][i-1] + self.B @ u + process_noise
 
-        [c.reset() for c in controllers]
+        for c in controllers:
+            try:
+                c.reset()
+            except AttributeError:
+                continue
         return [state @ self.C.T for state in states]
 
     def improvement(self, *con, nsteps=1000):
