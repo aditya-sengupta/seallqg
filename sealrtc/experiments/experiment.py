@@ -19,7 +19,7 @@ from .exp_result import ExperimentResult, result_from_log
 from .schedules import make_air, make_ustep, make_train, make_sine, make_atmvib
 
 from ..utils import dt
-from ..utils import get_timestamp, spin, spinlock, spinlock_till, joindata
+from ..utils import get_timestamp, scheduled_loop, joindata
 from ..optics import align # TODO remove cross submodule dependency
 
 class Experiment:
@@ -64,10 +64,6 @@ class Experiment:
 		self.logger.addHandler(file_handler)
 		self.logger.addHandler(stdout_handler)
 
-	def scheduled_loop(self, action, t_start, progress=False):
-		spinlock_till(t_start)
-		spin(action, self.dt, self.dur, progress)
-
 	def disturb_iter(self):
 		self.optics.applytilt(self.disturbance[self.dist_iters, 0])
 		self.optics.applytip(self.disturbance[self.dist_iters, 1])
@@ -78,10 +74,10 @@ class Experiment:
 		imval = self.optics.getim(check=False)
 		self.iters += 1
 		self.logger.info(f"Exposure    {self.iters}: {[mns()]}")
-		z = self.optics.measure(imval)
-		self.logger.info(f"Measurement {self.iters}: {z}")
-		u, leak = controller(z)
-		dmc = self.optics.zcoeffs_to_dmc(u) + leak * self.optics.getdmc()
+		measurement = self.optics.measure(imval)
+		self.logger.info(f"Measurement {self.iters}: {measurement}")
+		u = controller(measurement)
+		dmc = self.optics.zcoeffs_to_dmc(u) + controller.leak * self.optics.getdmc()
 		self.optics.applydmc(dmc)
 		self.logger.info(f"DMC         {self.iters}: {u}")
 
@@ -130,8 +126,8 @@ class Experiment:
 		t_start = mns()
 
 		processes = [
-			Process(target=self.scheduled_loop, args=(partial(self.loop_iter, controller), t_start, False), name="loop"),
-			Process(target=self.scheduled_loop, args=(self.disturb_iter, t_start, True), name="disturbances")
+			Process(target=scheduled_loop, args=(partial(self.loop_iter, controller), self.dt, self.dur, t_start, False), name="loop"),
+			Process(target=scheduled_loop, args=(self.disturb_iter, self.dt, self.dur, t_start, True), name="disturbances")
 		]
 
 		for p in processes:

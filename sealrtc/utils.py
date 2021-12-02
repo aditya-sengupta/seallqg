@@ -1,4 +1,9 @@
+"""
+Module-wide utilities for SEAL real-time control.
+"""
+
 import time
+
 from time import monotonic_ns as mns
 from copy import deepcopy
 from datetime import datetime
@@ -120,7 +125,11 @@ def spin(process, dt, dur, use_tqdm=True):
 
 	if use_tqdm:
 		pbar.close()
-	
+
+def scheduled_loop(self, action, dt, dur, t_start, progress=False):
+	spinlock_till(t_start)
+	spin(action, dt, dur, progress)
+
 # keck TTs deleted 2021-10-14
 
 def make_impulse_2(overshoot, rise_time, times=np.arange(0, 1, 0.001)):
