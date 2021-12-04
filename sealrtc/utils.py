@@ -132,17 +132,20 @@ def scheduled_loop(self, action, dt, dur, t_start, progress=False):
 
 # keck TTs deleted 2021-10-14
 
-def make_impulse_2(overshoot, rise_time, times=np.arange(0, 1, 0.001)):
+def make_tf2(overshoot, peak_time):
+	damp = -np.log(overshoot) / np.sqrt(np.pi ** 2 + np.log(overshoot) ** 2)
+	omega = np.pi / (peak_time * np.sqrt(1 - damp ** 2))
+	num = [omega**2]
+	den = [1, 2 * omega * damp, omega ** 2]
+	return signal.TransferFunction(num, den)
+
+def make_impulse_2(overshoot, rise_time, dt=1/fs, t=1):
 	"""
 	Makes the impulse response for a second-order system with a specified overshoot and rise time.
 	"""
-	damp = -np.log(overshoot) / np.sqrt(np.pi ** 2 + np.log(overshoot) ** 2)
-	omega = (1/rise_time) * (1.76 * damp ** 3 - 0.417 * damp ** 2 + 1.039 * damp + 1)
-	num = [omega**2]
-	den = [1, 2 * omega * damp, omega**2]
-	transfer_fn = signal.TransferFunction(num, den)
-	t, y = signal.impulse(transfer_fn, T=times)
-	return t[0], y[1] / sum(y[1])
+	transfer_fn = make_tf2(overshoot, rise_time)
+	t, y = signal.impulse(transfer_fn, T=np.arange(0, t, dt))
+	return t, y / sum(y)
 
 def make_impulse_1(w, T=np.arange(0, 1, 0.001)):
 	"""

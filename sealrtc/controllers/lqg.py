@@ -12,13 +12,10 @@ from matplotlib import pyplot as plt
 from scipy.stats import multivariate_normal as mvn
 from tqdm import tqdm, trange
 
-from .controller import Controller
+from .controller import Controller, Openloop
 from .dare import solve_dare
 
 from ..utils import rms, joindata, genpsd, fs
-
-# I don't really need to keep W, V as state attributes
-# but just want to be aware in case the DARE solution is not nice
 
 class LQG(Controller):
     """
@@ -110,11 +107,11 @@ class LQG(Controller):
         self.predict()
         self.update(measurement[:self.measure_size])
 
-    def simulate(self, con, nsteps=1000, plot=False):
+    def simulate(self, con=[], nsteps=1000, plot=True):
         # make sure nothing you pass in as "con" depends on "self" or things will get weird with the internal state
         # if you want to compare, e.g. KF + integrator to LQG, use a copy of this instance
         self.reset()
-        controllers = []
+        controllers = [Openloop(p=self.input_size)]
         if not hasattr(con, "__iter__"):
             con = [con]
         controllers.extend(con)
@@ -140,24 +137,25 @@ class LQG(Controller):
         for c in controllers:
             c.reset()
 
-        if plot: 
+        if plot:
             nsteps_plot = min(1000, nsteps)
             times = np.arange(nsteps_plot) * self.dt
-            fig, axs = plt.subplots(1, 2, figsize=(10,6))
+            _, axs = plt.subplots(1, 2, figsize=(10,6))
             plt.suptitle("Simulated LQG control results")
-            meastoplot = lambda meas: np.linalg.norm(meas, axis=1)[:nsteps_plot]
+            meastoplot = lambda meas: np.convolve(np.linalg.norm(meas, axis=1)[:nsteps_plot], np.ones(10) / 10, 'same')
             for (con, simres) in zip(controllers, sim):
                 measurements = simres[2]
                 rmsval = rms(measurements)
                 axs[0].plot(times, meastoplot(measurements), label=f"{con.name}, rms = {round(rmsval, 3)}")
-                freqs, psd = genpsd(np.linalg.norm(measurements, axis=1), dt=self.dt)
+                freqs, psd = genpsd(measurements[:,0], dt=self.dt)
+                # adding in quadrature causes frequency shifts, so this picks an arbitrary component
                 axs[1].loglog(freqs, psd, label=f"{con.name} PSD")
 
             axs[0].set_title("Control residuals")
             axs[0].set_xlabel("Time (s)")
-            axs[0].set_ylabel("Simulated RMS error")
+            axs[0].set_ylabel("Simulated time-averaged RMS error")
             axs[0].legend()
-            axs[1].set_title("Transfer functions")
+            axs[1].set_title("Residual PSD (component 0)")
             axs[1].set_xlabel("Frequency (Hz)")
             axs[1].set_ylabel("Simulated power")
             axs[1].legend()
@@ -166,5 +164,46 @@ class LQG(Controller):
 
     def improvement(self, con, nsteps=1000):
         simres = self.simulate(con, nsteps=nsteps, plot=False)
-        rms_lqg = rms(simres[0][2])
-        return [rms(s[2]) / rms_lqg for s in simres[1:]]
+        rms_lqg = rms(simres[-1][2])
+        return [rms(s[2]) / rms_lqg for s in simres[:-1]]
+
+def add_delay(lqg, d=1):
+    """
+    Takes in a system of the form x[k+1] = Ax[k] + Bu[k]; y[k] = Cx[k] + Du[k], 
+    and converts it to a system of the form x[k+1] = Ax[k] + Bu[k-d]; y[k] = Cx[k] + Du[k-d].
+
+    Arguments
+    ---------
+    lqg : LQG
+        A Linear-Quadratic-Gaussian dynamical system/controller object without the delay.
+
+    d : int
+        The frame delay.
+
+    Returns
+    -------
+    lqg_delay : LQG
+        The same LQG control problem but with 'd' frames of delay added in.
+    """
+    if d == 0:
+        return lqg
+    s = lqg.state_size
+    p = lqg.input_size
+    m = lqg.measure_size
+    A = np.zeros((s+p*d, s+p*d))
+    A[:s, :s] = lqg.A
+    A[:s,(s+(d-1)*p):((s+d*p))] = lqg.B
+
+    for i in range(1, d):
+        A[(s+i*p):(s+(i+1)*p), (s+(i-1)*p):(s+i*p)] = np.eye(p)
+
+    B = np.zeros((s+p*d, p))
+    B[s:s+p,:] = np.eye(p)
+    C = np.zeros((m, s+p*d))
+    C[:,:s] = lqg.C
+    C[:,(s+p*(d-1)):] = lqg.D
+    D = np.zeros((m, p))
+    W = np.zeros((s+p*d, s+p*d))
+    W[:s, :s] = lqg.W
+    return LQG(A, B, C, D, W, lqg.V)
+
