@@ -1,13 +1,11 @@
-# authored by Donald Gavel
-# edited by Aditya Sengupta
-
 import numpy as np
 import matplotlib.pyplot as plt
-from ..utils import genpsd
+
+from sealrtc.utils import genpsd, fs
 
 plt.ion()
 
-def design_from_ol(y, dt, nseg=4):
+def design_from_ol(y, dt=1/fs, nseg=4):
     """
     Designs a filter for a time-series of open loop values.
 
@@ -30,7 +28,7 @@ def design_from_ol(y, dt, nseg=4):
     x : np.ndarray
     The impulse response.
     """
-    f, p = genpsd(y, dt=dt, nseg=nseg, remove_dc=False)
+    _, p = genpsd(y, dt=dt, nseg=nseg, remove_dc=False)
     # fF = np.hstack((-np.flip(f[1:]), f))
     xF = np.hstack((-np.flip(p[1:]), p))
     x = np.fft.ifft(np.fft.fftshift(xF))

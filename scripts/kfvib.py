@@ -1,13 +1,15 @@
 """
 Control of vibrational modes with LQG.
 """
-
-from sealrtc import *
-from sealrtc.utils import fs, dt
-from sealrtc.experiments import make_sine
 from datetime import datetime
 
+import numpy as np
 from matplotlib import pyplot as plt
+
+from sealrtc import optics, sine_one, sine_five
+from sealrtc.utils import fs, dt, joindata, genpsd, rms
+from sealrtc.experiments import Experiment, make_sine
+from sealrtc.controllers import make_lqg_from_ol
 
 np.random.seed(5)
 
@@ -16,13 +18,14 @@ amp, ang = 0.005, np.pi / 4
 f = 1
 if f == 5:
     ol = np.load(joindata("openloop", "ol_f_5_z_stamp_03_11_2021_14_02_00.npy")) * dmc2wf
+    experiment = sine_five
 elif f == 1:
     ol = np.load(joindata("openloop", "ol_f_1_z_stamp_03_11_2021_13_58_53.npy")) * dmc2wf
+    experiment = sine_one
 
 ol_spectra = [genpsd(ol[:,i], dt=dt) for i in range(2)]
 
-ident = SystemIdentifier(ol, fs=fs)
-klqg = ident.make_klqg_from_openloop()
+lqg = make_lqg_from_ol(ol)
 
 def get_ol_cl_rms(zvals):
     data = []
@@ -49,22 +52,17 @@ def plot_cl_rtf(data, timestamp, save=False):
         axs[mode].set_xlabel("Frequency (Hz)")
         axs[mode].set_ylabel(r"Power (DM $units^2/Hz$)")
         axs[mode].set_title(f"Mode {mode}, CL/OL RMS {rms_ratio}")
-        fname = f"../plots/cl_lqg_{timestamp}.pdf"
+        fname = f"../plots/lqg_{timestamp}.pdf"
         if save:
             plt.savefig(joindata(fname))
     plt.show()
 
 # start ad hoc modifications to the observe/control matrices
-klqg.R *= 1e6
 # end modifications
-klqg.recompute()
-
-experiment = Experiment(make_sine, dur=10, amp=amp, ang=ang, f=f)
-def run():
-    return experiment.run(make_lqg(klqg))
+lqg.recompute()
    
 if __name__ == "__main__":
-    res = run()
+    res = experiment.run(lqg)
     data = get_ol_cl_rms(res.measurements * dmc2wf)
     print(f"RMS ratios: {[float(x[2]) for x in data]}")
     if input("Plot? (y/n) ") == 'y':
