@@ -123,7 +123,7 @@ class Optics(ABC):
 			time.sleep(tsleep)
 			imzern = self.stackim(10)
 			try:
-				imdiff = imzern - self.imflat
+				imdiff = imzern - self.imflat	
 				assert not np.allclose(imdiff, 0), "didn't move"
 			except AssertionError:
 				if attempts < 5:
@@ -135,7 +135,6 @@ class Optics(ABC):
 				np.real(processed_imdiff[self.indttmask]),
 				np.imag(processed_imdiff[self.indttmask])
 			]).flatten()
-
 
 		assert not np.allclose(refvec, 0), "Zero measurements in all components"
 		self.int_mtx = np.dot(refvec, refvec.T) #interaction matrix

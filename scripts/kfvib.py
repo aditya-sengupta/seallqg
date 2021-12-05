@@ -2,13 +2,14 @@
 Control of vibrational modes with LQG.
 """
 from datetime import datetime
+from os import path
 
 import numpy as np
 from matplotlib import pyplot as plt
 
-from sealrtc import optics, sine_one, sine_five
+from sealrtc.launch import optics, sine_one, sine_five
 from sealrtc.utils import fs, dt, joindata, genpsd, rms
-from sealrtc.experiments import Experiment, make_sine
+from sealrtc.experiments import Experiment, make_sine, loadres
 from sealrtc.controllers import make_lqg_from_ol
 
 np.random.seed(5)
@@ -17,10 +18,10 @@ dmc2wf = np.load(joindata("bestflats", "lodmc2wfe.npy"))
 amp, ang = 0.005, np.pi / 4
 f = 1
 if f == 5:
-    ol = np.load(joindata("openloop", "ol_f_5_z_stamp_03_11_2021_14_02_00.npy")) * dmc2wf
+    ol = loadres(path.join("openloop", "ol_amp_0.002_ang_0.7854_f_1_tstamp_2021_11_30_06_50_11.csv")).measurements * dmc2wf
     experiment = sine_five
 elif f == 1:
-    ol = np.load(joindata("openloop", "ol_f_1_z_stamp_03_11_2021_13_58_53.npy")) * dmc2wf
+    ol = loadres(path.join("openloop", "ol_amp_0.002_ang_0.7854_f_1_tstamp_2021_11_30_06_50_11.csv")).measurements * dmc2wf
     experiment = sine_one
 
 ol_spectra = [genpsd(ol[:,i], dt=dt) for i in range(2)]
@@ -56,14 +57,14 @@ def plot_cl_rtf(data, timestamp, save=False):
         if save:
             plt.savefig(joindata(fname))
     plt.show()
-
-# start ad hoc modifications to the observe/control matrices
-# end modifications
-lqg.recompute()
    
 if __name__ == "__main__":
-    res = experiment.run(lqg)
-    data = get_ol_cl_rms(res.measurements * dmc2wf)
-    print(f"RMS ratios: {[float(x[2]) for x in data]}")
-    if input("Plot? (y/n) ") == 'y':
-        plot_cl_rtf(data, res.timestamp)
+    if optics.name == "Sim":
+        res = lqg.simulate(nsteps=10000)
+        plt.show()
+    else:
+        res = experiment.run(lqg)
+        data = get_ol_cl_rms(res.measurements * dmc2wf)
+        print(f"RMS ratios: {[float(x[2]) for x in data]}")
+        if input("Plot? (y/n) ") == 'y':
+            plot_cl_rtf(data, res.timestamp)

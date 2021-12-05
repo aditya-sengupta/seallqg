@@ -36,10 +36,14 @@ class LQG(Controller):
         self.leak = 1
         obsrank, conrank = self.observability_rank(), self.controllability_rank()
         n = A.shape[0]
-        if obsrank < n:
-            print(f"WARNING: LQG system is not observable, observability matrix rank is {obsrank} against dimension {n}.")
-        if conrank < n:
-            print(f"WARNING: LQG system is not controllable, controllability matrix rank is {conrank} against dimension {n}.")
+        warnings_on = False
+        # you don't actually want these in A-C-D setups, because the process itself won't be controllable
+        # instead, we're just trying to control Cx + Du, meaning we don't care about the controllability rank
+        if warnings_on:
+            if obsrank < n:
+                print(f"WARNING: LQG system is not observable, observability matrix rank is {obsrank} against dimension {n}.")
+            if conrank < n:
+                print(f"WARNING: LQG system is not controllable, controllability matrix rank is {conrank} against dimension {n}.")
         self.recompute()
         self.root_path = joindata("lqg", f"lqg_nstate_{self.state_size}")
 
@@ -99,7 +103,7 @@ class LQG(Controller):
         self.x = self.x + self.K @ (y - self.measure())
 
     def control_law(self):
-        self.u = self.L @ self.A @ self.x
+        self.u = self.L @ self.x
         return self.u
 
     def observe_law(self, measurement):

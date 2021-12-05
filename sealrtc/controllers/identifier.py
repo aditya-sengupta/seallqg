@@ -16,8 +16,6 @@ def combine_matrices_for_lqg(base, addons, measure_once=False):
             matrices.append(np.vstack((Mb, Ma)))
         elif measure_once and i == 2: # C
             matrices.append(np.hstack((Mb, Ma)))
-        elif measure_once and i == 5: # V
-            matrices.append(Ma)
         else:
             matrices.append(linalg.block_diag(Mb, Ma))
     return matrices
@@ -107,16 +105,16 @@ def model_psd_vib(freqs, f, k, sigma):
     denom = np.abs(1 - a1 * np.exp(-1j * phase) - a2 * np.exp(-2j * phase))
     return sigma ** 2 / fs / denom ** 2
 
-def model_psd_atm(freqs, sigma, *acoef):
+def model_psd_atm(freqs, sigma, **acoef):
     phase = 2 * np.pi * freqs / fs
-    denom = np.abs(1 - sum([a * np.exp(-1j * k * phase) for (k, a) in enumerate(acoef)]))
+    denom = np.abs(1 - sum([acoef[a] * np.exp(-1j * k * phase) for (k, a) in enumerate(sorted(acoef.keys()))]))
     return sigma ** 2 / fs / denom ** 2
 
 def log_model_psd_vib(freqs, f, k, sigma):
     return np.log(model_psd_vib(freqs, f, k, sigma))
 
-def log_model_psd_atm(freqs, sigma, *acoef):
-    return np.log(model_psd_atm(freqs, sigma, *acoef))
+def log_model_psd_atm(freqs, sigma, **acoef):
+    return np.log(model_psd_atm(freqs, sigma, **acoef))
 
 def fit_psd_vib(freqs, psd, Nvib=3):
     df = np.max(np.diff(freqs))
@@ -142,28 +140,22 @@ def fit_psd_vib(freqs, psd, Nvib=3):
 def estimate_v(freqs, psd, fw=fs/3):
     return np.sqrt(np.mean(fs * psd[freqs > fw]))
 
-def make_A_vibe(fs, ks):
+def make_lqg_vibe(fs, ks, sigmas):
+    """
+    Make stochastic matrices for an LQG controller for vibrations, in one dimension
+    """
     s = 2 * len(fs)
     A = np.zeros((s, s))
     for (i, (f, k)) in enumerate(zip(fs, ks)):
         A[2 * i][2 * i: 2 * i + 2] = vib_coeffs(f, k)
         A[2 * i + 1][2 * i] = 1
-    return A
-
-def make_lqg_vibe(fs, ks, sigmas, measurenoise):
-    """
-    Make an LQG controller for vibrations, in one dimension
-    """
-    A = make_A_vibe(fs, ks)
     s = 2 * len(fs)
     B = np.zeros((s, 1))
     C = np.array([[1, 0] * (s // 2)])
     Wdiag = np.zeros(s)
-    Wdiag[0::2] = sigmas
-    D = np.array([[1]])
-    W = np.diag(Wdiag)
-    V = np.array([[measurenoise ** 2]])
-    return (A, B, C, D, W, V)
+    Wdiag[0::2] = [s ** 2 for s in sigmas]
+    W = np.diag(Wdiag) 
+    return (A, B, C, W)
 
 def make_2d_lqg_vibe(freqs, psds, Nvib=3):
     matrices = [np.zeros((0,0)) for _ in range(7)]
@@ -172,7 +164,7 @@ def make_2d_lqg_vibe(freqs, psds, Nvib=3):
         fs, ks, sigmas = fit_psd_vib(freqs, psd, Nvib)
         matrices = combine_matrices_for_lqg(
             matrices, 
-            make_lqg_vibe(fs, ks, sigmas, estimate_v(freqs, psd))
+            make_lqg_vibe(fs, ks, sigmas)
         )
     return matrices
 
@@ -180,13 +172,13 @@ def make_lqg_ar(freqs, psd, ar_len=2):
     fit_params = Parameters()
     fit_params.add('sigma', value=1e-3, min=1e-10, max=1e3)
     for i in range(ar_len):
-        fit_params.add(f'a{i+1}', value=1/ar_len, min=-5, max=+5)
+        fit_params.add(f'a{i+1}', value=1/ar_len, min=-1, max=+1)
     model = Model(log_model_psd_atm)
-    mod_psd = mask_peaks(freqs, psd)
+    _, mod_psd = mask_peaks(freqs, psd)
     res = model.fit(np.log(mod_psd), fit_params, freqs=freqs).best_values
     ar_coef = np.zeros((ar_len,))
     for i in range(ar_len):
-        ar_coef[i] = res[f'a{i}+1']
+        ar_coef[i] = res[f'a{i+1}']
     
     A = np.zeros((ar_len, ar_len))
     A[0,:] = ar_coef
@@ -194,17 +186,15 @@ def make_lqg_ar(freqs, psd, ar_len=2):
         A[i,i-1] += 1.0
 
     B = np.zeros((ar_len, 1))
+    B[0,0] = 1
+
     C = np.zeros((1, ar_len))
     C[0,0] = 1
 
-    D = np.zeros((1,1))
-
     W = np.zeros((ar_len, ar_len))
-    W[0,0] = np.mean(res['sigma'] ** 2)
+    W[0,0] = res['sigma'] ** 2
 
-    V = np.array([[estimate_v(freqs, psd) ** 2]])
-
-    return (A, B, C, D, W, V)
+    return (A, B, C, W)
 
 def make_2d_lqg_ar(freqs, psds, ar_len=2):
     matrices = [np.zeros((0,0)) for _ in range(7)]
@@ -215,7 +205,7 @@ def make_2d_lqg_ar(freqs, psds, ar_len=2):
         )
     return matrices
 
-def make_lqg_from_ol(ol, delay=1, model_atm=False, model_vib=True, Nvib=3):
+def make_lqg_from_ol(ol, delay=1, model_atm=True, model_vib=True, Nvib=3):
     """
     Designs a LQG object based on open-loop data. 
     (Essentially stitches together a bunch of LQG objects.)
@@ -236,15 +226,16 @@ def make_lqg_from_ol(ol, delay=1, model_atm=False, model_vib=True, Nvib=3):
     A = np.zeros((0,0))
     B = np.zeros((0,2))
     C = np.zeros((2,0))
-    D = np.array((0,0))
+    D = np.eye(2)
     W = np.zeros((0,0))
-    V = np.zeros((0,0))
 
-    matrices = [A, B, C, D, W, V]
+    matrices = [A, B, C, W]
 
     freqs, psd_tilt = genpsd(ol[:,0], dt=1/fs)
     _, psd_tip = genpsd(ol[:,1], dt=1/fs)
     psds = [psd_tilt, psd_tip]
+
+    V = np.diag([estimate_v(freqs, psd_tip), estimate_v(freqs, psd_tilt)])
 
     if model_vib:
         vib_matrices = make_2d_lqg_vibe(freqs, psds, Nvib=Nvib)
@@ -254,4 +245,7 @@ def make_lqg_from_ol(ol, delay=1, model_atm=False, model_vib=True, Nvib=3):
         atm_matrices = make_2d_lqg_ar(freqs, psds)
         matrices = combine_matrices_for_lqg(matrices, atm_matrices, measure_once=True)
 
-    return add_delay(LQG(*matrices), d=1)
+    matrices.insert(3, D)
+    matrices.insert(5, V)
+
+    return add_delay(LQG(*matrices), d=delay)

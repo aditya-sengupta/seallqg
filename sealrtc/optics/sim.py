@@ -27,8 +27,7 @@ class Sim(Optics):
 		return self.expt
 
 	def getim(self, check=True):
-		return self.dummy_image
-		# return propagate(self.dmc, ph=True, t_int=self.expt)
+		return propagate(self.dmc, ph=True, t_int=self.expt)
 
 	def stackim(self, n):
 		return self.getim()
