@@ -160,7 +160,7 @@ def make_lqg_vibe(fs, ks, sigmas, measurenoise):
     C = np.array([[1, 0] * (s // 2)])
     Wdiag = np.zeros(s)
     Wdiag[0::2] = sigmas
-    D = copy(C)
+    D = np.array([[1]])
     W = np.diag(Wdiag)
     V = np.array([[measurenoise ** 2]])
     return (A, B, C, D, W, V)
@@ -215,7 +215,7 @@ def make_2d_lqg_ar(freqs, psds, ar_len=2):
         )
     return matrices
 
-def make_lqg_from_ol(ol, delay=1, model_atm=True, model_vib=True, Nvib=3):
+def make_lqg_from_ol(ol, delay=1, model_atm=False, model_vib=True, Nvib=3):
     """
     Designs a LQG object based on open-loop data. 
     (Essentially stitches together a bunch of LQG objects.)
@@ -251,7 +251,7 @@ def make_lqg_from_ol(ol, delay=1, model_atm=True, model_vib=True, Nvib=3):
         matrices = combine_matrices_for_lqg(matrices, vib_matrices, measure_once=True)
 
     if model_atm:
-        atm_matrices = make_2d_lqg_ar(ol, freqs, psds)
+        atm_matrices = make_2d_lqg_ar(freqs, psds)
         matrices = combine_matrices_for_lqg(matrices, atm_matrices, measure_once=True)
 
-    return add_delay(LQG(*matrices), d=delay)
+    return add_delay(LQG(*matrices), d=1)
