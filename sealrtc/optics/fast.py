@@ -43,10 +43,10 @@ class FAST(Optics):
 	def getim(self, check=False):
 		return self.im.get_data(check=check)
 
-	def getdmc(self): # read current command applied to the DM
+	def getdmc(self):
 		return self.dmChannel.get_data()
 
-	def applydmc(self, dmc, min_cmd=-0.2, max_cmd=0.2): #apply command to the DM
+	def applydmc(self, dmc, min_cmd=-0.3, max_cmd=0.3):
 		"""
 		Applies the DM command `dmc`, with safeguards
 		"""
