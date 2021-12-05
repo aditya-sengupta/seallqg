@@ -148,7 +148,7 @@ class LQG(Controller):
                 rmsval = rms(measurements)
                 axs[0].plot(times, meastoplot(measurements), label=f"{con.name}, rms = {round(rmsval, 3)}")
                 freqs, psd = genpsd(measurements[:,0], dt=self.dt)
-                # adding in quadrature causes frequency shifts, so this picks an arbitrary component
+                # adding in quadrature 
                 axs[1].loglog(freqs, psd, label=f"{con.name} PSD")
 
             axs[0].set_title("Control residuals")
