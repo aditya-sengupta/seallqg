@@ -126,7 +126,7 @@ def spin(process, dt, dur, use_tqdm=True):
 	if use_tqdm:
 		pbar.close()
 
-def scheduled_loop(self, action, dt, dur, t_start, progress=False):
+def scheduled_loop(action, dt, dur, t_start, progress=False):
 	spinlock_till(t_start)
 	spin(action, dt, dur, progress)
 

@@ -111,7 +111,7 @@ class LQG(Controller):
         self.predict()
         self.update(measurement[:self.measure_size])
 
-    def simulate(self, con=[], nsteps=1000, plot=True):
+    def simulate(self, con=[], nsteps=10000, plot=True):
         # make sure nothing you pass in as "con" depends on "self" or things will get weird with the internal state
         # if you want to compare, e.g. KF + integrator to LQG, use a copy of this instance
         self.reset()

@@ -15,14 +15,14 @@ from sealrtc.controllers import make_lqg_from_ol
 np.random.seed(5)
 
 dmc2wf = np.load(joindata("bestflats", "lodmc2wfe.npy"))
-amp, ang = 0.005, np.pi / 4
-f = 1
-if f == 5:
-    ol = loadres(path.join("openloop", "ol_amp_0.002_ang_0.7854_f_1_tstamp_2021_11_30_06_50_11.csv")).measurements * dmc2wf
-    experiment = sine_five
-elif f == 1:
-    ol = loadres(path.join("openloop", "ol_amp_0.002_ang_0.7854_f_1_tstamp_2021_11_30_06_50_11.csv")).measurements * dmc2wf
-    experiment = sine_one
+f = 5
+if f == 1:
+    olres = loadres(path.join("openloop", "ol_amp_0.002_ang_0.7854_f_1_tstamp_2021_11_30_06_50_11.csv"))
+elif f == 5:
+    olres = loadres(path.join("openloop", "ol_amp_0.002_ang_0.7854_f_5_tstamp_2021_11_30_06_58_56.csv"))
+experiment = Experiment(make_sine, 100, optics, amp=0.002, ang=np.pi/4, f=f)
+
+ol = olres.measurements
 
 ol_spectra = [genpsd(ol[:,i], dt=dt) for i in range(2)]
 
@@ -57,6 +57,29 @@ def plot_cl_rtf(data, timestamp, save=False):
         if save:
             plt.savefig(joindata(fname))
     plt.show()
+
+def plot_timefreq(res):
+    nsteps = len(res.measurements)
+    nsteps_plot = min(1000, nsteps)
+    _, axs = plt.subplots(1, 2, figsize=(10,6))
+    plt.suptitle("Bench LQG control results")
+    meastoplot = lambda meas: np.convolve(np.linalg.norm(meas, axis=1)[:nsteps_plot], np.ones(10) / 10, 'same')
+    for (name, t, meas) in zip(["OL", "LQG"], [olres.texp, res.texp], [ol, res.measurements[:,:2]]):
+        rmsval = rms(meas)
+        axs[0].plot(t[:nsteps_plot], meastoplot(meas), label=f"{name}, rms = {round(rmsval, 3)}")
+        freqs, psd = genpsd(meas[:,0], dt=dt)
+        # adding in quadrature 
+        axs[1].loglog(freqs, psd, label=f"{name} PSD")
+
+    axs[0].set_title("Control residuals")
+    axs[0].set_xlabel("Time (s)")
+    axs[0].set_ylabel("Time-averaged RMS error")
+    axs[0].legend()
+    axs[1].set_title("Residual PSD (component 0)")
+    axs[1].set_xlabel("Frequency (Hz)")
+    axs[1].set_ylabel("Simulated power")
+    axs[1].legend()
+    plt.show()
    
 if __name__ == "__main__":
     if optics.name == "Sim":
@@ -64,7 +87,7 @@ if __name__ == "__main__":
         plt.show()
     else:
         res = experiment.run(lqg)
-        data = get_ol_cl_rms(res.measurements * dmc2wf)
+        data = get_ol_cl_rms(res.measurements)
         print(f"RMS ratios: {[float(x[2]) for x in data]}")
         if input("Plot? (y/n) ") == 'y':
-            plot_cl_rtf(data, res.timestamp)
+            plot_timefreq(res)

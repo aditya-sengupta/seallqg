@@ -3,10 +3,10 @@ from copy import copy
 import numpy as np
 
 from lmfit import Model, Parameters
-from scipy import optimize, signal, stats, integrate, linalg
+from scipy import signal, stats, integrate, linalg
 
 from .lqg import LQG, add_delay
-from ..utils import genpsd, rms
+from ..utils import genpsd
 from ..utils import fs
 
 def combine_matrices_for_lqg(base, addons, measure_once=False):
@@ -116,7 +116,7 @@ def log_model_psd_vib(freqs, f, k, sigma):
 def log_model_psd_atm(freqs, sigma, **acoef):
     return np.log(model_psd_atm(freqs, sigma, **acoef))
 
-def fit_psd_vib(freqs, psd, Nvib=3):
+def fit_psd_vib(freqs, psd, Nvib):
     df = np.max(np.diff(freqs))
     fcens = find_psd_peaks(freqs, psd, Nvib)
     fs, ks, sigmas = [], [], []
@@ -157,7 +157,7 @@ def make_lqg_vibe(fs, ks, sigmas):
     W = np.diag(Wdiag) 
     return (A, B, C, W)
 
-def make_2d_lqg_vibe(freqs, psds, Nvib=3):
+def make_2d_lqg_vibe(freqs, psds, Nvib):
     matrices = [np.zeros((0,0)) for _ in range(7)]
     fs, ks, sigmas = [], [], []
     for psd in psds:
@@ -205,7 +205,7 @@ def make_2d_lqg_ar(freqs, psds, ar_len=2):
         )
     return matrices
 
-def make_lqg_from_ol(ol, delay=1, model_atm=True, model_vib=True, Nvib=3):
+def make_lqg_from_ol(ol, delay=1, model_atm=False, model_vib=True, Nvib=1):
     """
     Designs a LQG object based on open-loop data. 
     (Essentially stitches together a bunch of LQG objects.)

@@ -71,15 +71,15 @@ class Experiment:
 		self.dist_iters += 1
 		
 	def loop_iter(self, controller):
+		dmc = self.optics.zcoeffs_to_dmc(self.u) + self.optics.bestflat # + controller.leak * self.optics.getdmc()
+		self.optics.applydmc(dmc)
+		self.logger.info(f"DMC         {self.iters}: {self.u}")
 		imval = self.optics.getim(check=False)
 		self.iters += 1
 		self.logger.info(f"Exposure    {self.iters}: {[mns()]}")
 		measurement = self.optics.measure(imval)
 		self.logger.info(f"Measurement {self.iters}: {measurement}")
-		u = controller(measurement)
-		dmc = self.optics.zcoeffs_to_dmc(u) + controller.leak * self.optics.getdmc()
-		self.optics.applydmc(dmc)
-		self.logger.info(f"DMC         {self.iters}: {u}")
+		self.u = controller(measurement)
 
 	def check_alignment(self):
 		baseline_zvals = self.optics.measure()
@@ -115,6 +115,7 @@ class Experiment:
 		return states
 
 	def run(self, controller):
+		self.u = np.array([0.0, 0.0])
 		print("Starting experiment.")
 		self.timestamp = get_timestamp()
 		self.update_logger()
