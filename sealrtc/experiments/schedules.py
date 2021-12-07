@@ -1,9 +1,8 @@
-import numpy as np
-import time
-import warnings
-
 from functools import partial
 from math import ceil
+
+import numpy as np
+from scipy.stats import multivariate_normal as mvn
 
 from ..utils import dt
 from ..utils import joindata
@@ -11,7 +10,9 @@ from ..utils import joindata
 def make_air(dur, **kwargs):
     return np.zeros((ceil(dur / dt), 2))
 
-def make_noise(dur, dist, **kwargs):
+def make_noise(dur, sd, **kwargs):
+    cov = sd ** 2 * np.eye(2)
+    dist = mvn(cov=cov)
     return np.array([dist.rvs() for _ in range(ceil(dur / dt))])
 
 def make_ustep(dur, tilt_amp, tip_amp, **kwargs):
