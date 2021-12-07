@@ -9,14 +9,10 @@ import tqdm
 from ..utils import joindata
 from .utils import image_to_pupil, complex_amplitude, pupil_to_image
 
-def flatten(optics):
-	expt_init = optics.get_expt()
-	optics.set_expt(1e-4)
-
-	bestflat = optics.bestflat
-	optics.applydmc(bestflat)
-	
+def flatten(optics, plot=True):
+	optics.applyzero()
 	dmcini = optics.getdmc()
+	bestflat = optics.bestflat
 	grid = np.mgrid[0:dmcini.shape[0],0:dmcini.shape[1]]
 	xy = np.sqrt((grid[0]-dmcini.shape[0]/2+0.5)**2+(grid[1]-dmcini.shape[1]/2+0.5)**2)
 	aperture = np.zeros(dmcini.shape).astype(np.dtype(np.float32))
@@ -75,7 +71,7 @@ def flatten(optics):
 
 	def dmc2wf(im): #magnify dm commands to match WFS space
 		padval=int(round((wf_ini.shape[0]-dmcini.shape[0])/2))
-		fp= lambda im: np.pad(im,pad_width=padval,mode='constant',constant_values=0)
+		fp = lambda im: np.pad(im,pad_width=padval,mode='constant',constant_values=0)
 		otf=image_to_pupil(np.flipud(im))
 		otfp=complex_amplitude(fp(np.abs(otf)),fp(np.angle(otf)))
 		imout=np.abs(pupil_to_image(otfp))**2 #abs**2 is unphysical (should just be abs) but it better removes the ringing from an actuator pokemask
@@ -116,7 +112,7 @@ def flatten(optics):
 	def vcmd(rcond): #view the reconstructed DM commands, making sure that waffle mode is not propagated onto the DM
 		cmd_mtx=np.linalg.pinv(IM,rcond=rcond)
 
-		optics.applydmc(bestflat)
+		optics.applybestflat()
 		time.sleep(tsleep)
 		tar_ini = optics.stackslopes(30)
 		tar=np.array([tar_ini[0][wf_ind],tar_ini[1][wf_ind]]).flatten().T
@@ -129,7 +125,7 @@ def flatten(optics):
 	#reference slopes from commented out code above preamble
 	refslopes=np.load(joindata("refslopes", "refSlopes4ALPAOflat.npy"))
 
-	rcond=3e-1
+	rcond=1e-2
 	cmd_mtx = np.linalg.pinv(IM, rcond=rcond)
 	numiter=20 #convergence seems around this many iterations for a gain of 0.5
 	gain=0.5
@@ -151,6 +147,10 @@ def flatten(optics):
 
 	wfe = optics.stackwf(10)
 	print(np.nanstd(wfs[wf_ind])/np.nanstd(wfe[wf_ind]))
-	optics.set_expt(expt_init)
+	if plot:
+		plt.figure()
+		plt.plot(wfarr)
+		plt.xlabel('iteration number')
+		plt.ylabel('wavefront error')
 	np.save(optics.bestflat_path, optics.getdmc())
 

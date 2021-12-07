@@ -106,7 +106,6 @@ def align(optics, manual=True, view=True):
 	bestflat = optics.getdmc()
 	im_bestflat = optics.stackim(100)
 
-	dt = datetime.now().strftime("%d_%m_%Y_%H")
 	np.save(optics.bestflat_path, bestflat)
 	np.save(optics.imflat_path, im_bestflat)
 	print("Saved best flat")
@@ -121,7 +120,7 @@ def align(optics, manual=True, view=True):
 		dmcs.append(optics.getdmc())
 		time.sleep(tsleep)
 		ims.append(optics.stackim(10))
-		optics.applydmc(bestflat)
+	optics.applydmc(bestflat)
 
 	inds = [np.where(im == np.max(im)) for im in ims]
 
