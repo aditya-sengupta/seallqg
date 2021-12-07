@@ -1,5 +1,6 @@
-import time
+import os
 import re
+
 import numpy as np
 import pandas as pd
 
@@ -95,7 +96,10 @@ class ExperimentResult:
         return pd.DataFrame(data=d)
 
     def to_csv(self, record_path, params={}):
-        f = open(joindata(record_path), 'a')
+        fname = joindata(record_path)
+        if os.path.isfile(fname):
+            os.remove(fname)
+        f = open(fname, 'a')
         for p in params:
             f.write(f'# {p}: {params[p]} \n')
         self.to_pandas().to_csv(f)
@@ -106,7 +110,10 @@ class ExperimentResult:
         raise RuntimeError("move this over from the scripts")
 
 def loadres(record_path):
-    timestamp = re.search(r"tstamp_(.+).csv", record_path)[1]
+    try:
+        timestamp = re.search(r"tstamp_(.+).csv", record_path)[1]
+    except TypeError:
+        timestamp = None
     df = pd.read_csv(joindata(record_path), comment="#")
     data = list(map(
             lambda name: df[name].to_numpy(),

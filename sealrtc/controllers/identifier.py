@@ -192,7 +192,7 @@ def make_lqg_ar(freqs, psd, ar_len=2):
     C[0,0] = 1
 
     W = np.zeros((ar_len, ar_len))
-    W[0,0] = res['sigma'] ** 2
+    W[0,0] = 1e6 * res['sigma'] ** 2
 
     return (A, B, C, W)
 
@@ -205,7 +205,7 @@ def make_2d_lqg_ar(freqs, psds, ar_len=2):
         )
     return matrices
 
-def make_lqg_from_ol(ol, delay=1, model_atm=False, model_vib=True, Nvib=1):
+def make_lqg_from_ol(ol, delay=1, atm_arlen=0, Nvib=1):
     """
     Designs a LQG object based on open-loop data. 
     (Essentially stitches together a bunch of LQG objects.)
@@ -237,12 +237,12 @@ def make_lqg_from_ol(ol, delay=1, model_atm=False, model_vib=True, Nvib=1):
 
     V = np.diag([estimate_v(freqs, psd_tip), estimate_v(freqs, psd_tilt)])
 
-    if model_vib:
+    if Nvib > 0:
         vib_matrices = make_2d_lqg_vibe(freqs, psds, Nvib=Nvib)
         matrices = combine_matrices_for_lqg(matrices, vib_matrices, measure_once=True)
 
-    if model_atm:
-        atm_matrices = make_2d_lqg_ar(freqs, psds)
+    if atm_arlen > 0:
+        atm_matrices = make_2d_lqg_ar(freqs, psds, ar_len=atm_arlen)
         matrices = combine_matrices_for_lqg(matrices, atm_matrices, measure_once=True)
 
     matrices.insert(3, D)
