@@ -186,8 +186,6 @@ def make_lqg_ar(freqs, psd, ar_len=2):
         A[i,i-1] += 1.0
 
     B = np.zeros((ar_len, 1))
-    B[0,0] = 1
-
     C = np.zeros((1, ar_len))
     C[0,0] = 1
 
