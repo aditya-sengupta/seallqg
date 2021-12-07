@@ -12,7 +12,7 @@ from .utils import image_to_pupil, complex_amplitude, pupil_to_image
 def flatten(optics, plot=True):
 	optics.applyzero()
 	dmcini = optics.getdmc()
-	bestflat = optics.bestflat
+	bestflat = optics.dmzero
 	grid = np.mgrid[0:dmcini.shape[0],0:dmcini.shape[1]]
 	xy = np.sqrt((grid[0]-dmcini.shape[0]/2+0.5)**2+(grid[1]-dmcini.shape[1]/2+0.5)**2)
 	aperture = np.zeros(dmcini.shape).astype(np.dtype(np.float32))
